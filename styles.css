@@ -775,12 +775,16 @@ tbody tr:hover {
   padding: 18px;
   background: rgba(10, 15, 23, 0.5);
   backdrop-filter: blur(8px);
+  overflow: auto;
 }
 
 .auth-card,
 .modal-card {
   width: min(100%, 720px);
   padding: 24px;
+  max-height: min(92vh, 980px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .auth-header {
