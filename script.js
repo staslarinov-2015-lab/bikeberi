@@ -150,6 +150,8 @@ const DIAGNOSTIC_LIBRARY = {
 const loginOverlay = document.getElementById("login-overlay");
 const loginForm = document.getElementById("login-form");
 const loginError = document.getElementById("login-error");
+const mobileNavOverlay = document.getElementById("mobile-nav-overlay");
+const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
 const roleDescription = document.getElementById("role-description");
 const pageTitle = document.getElementById("page-title");
 const heroTitle = document.getElementById("hero-title");
@@ -266,6 +268,29 @@ function getSeverityClass(severity) {
 
 function getDiagnosticCategoryCount(category) {
   return state.diagnostics.filter((item) => item.category === category).length;
+}
+
+function isMobileViewport() {
+  return window.innerWidth <= 1080;
+}
+
+function closeMobileMenu() {
+  document.body.classList.remove("mobile-menu-open");
+  mobileNavOverlay?.classList.add("hidden");
+}
+
+function openMobileMenu() {
+  if (!isMobileViewport()) return;
+  document.body.classList.add("mobile-menu-open");
+  mobileNavOverlay?.classList.remove("hidden");
+}
+
+function toggleMobileMenu() {
+  if (document.body.classList.contains("mobile-menu-open")) {
+    closeMobileMenu();
+    return;
+  }
+  openMobileMenu();
 }
 
 function getMetrics() {
@@ -917,6 +942,14 @@ closeDiagnosticModalButton?.addEventListener("click", () => {
   resetDiagnosticFlow();
 });
 
+mobileMenuToggle?.addEventListener("click", () => {
+  toggleMobileMenu();
+});
+
+mobileNavOverlay?.addEventListener("click", () => {
+  closeMobileMenu();
+});
+
 diagnosticBackToCategories?.addEventListener("click", () => {
   state.diagnosticFlow.category = "";
   state.diagnosticFlow.fault = "";
@@ -940,8 +973,15 @@ refreshButton?.addEventListener("click", async () => {
 document.querySelectorAll(".nav-link").forEach((button) => {
   button.addEventListener("click", () => {
     state.activeSection = button.dataset.section;
+    closeMobileMenu();
     render();
   });
+});
+
+window.addEventListener("resize", () => {
+  if (!isMobileViewport()) {
+    closeMobileMenu();
+  }
 });
 
 globalSearch.addEventListener("input", (event) => {
