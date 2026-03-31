@@ -126,6 +126,7 @@ const ownerKpiNote = document.getElementById("owner-kpi-note");
 const ownerProcurement = document.getElementById("owner-procurement");
 const ownerProcess = document.getElementById("owner-process");
 const currentUser = document.getElementById("current-user");
+const sidebarRoleTitle = document.getElementById("sidebar-role-title");
 const accountButton = document.getElementById("account-button");
 const accountOverlay = document.getElementById("account-overlay");
 const closeAccountButton = document.getElementById("close-account-button");
@@ -273,6 +274,7 @@ function syncRoleButtons() {
 
 function renderRoleContent() {
   const ownerMode = getRole() === "owner";
+  const roleLabel = ownerMode ? "Владелец" : "Механик";
 
   roleDescription.textContent = ownerMode
     ? "Управленческий режим: контроль KPI, закупки, доступности парка и дисциплины сервиса."
@@ -289,8 +291,12 @@ function renderRoleContent() {
     ? "Сегодня в фокусе: KPI и доступность парка"
     : "Сегодня в фокусе: оперативка";
 
+  if (sidebarRoleTitle) {
+    sidebarRoleTitle.textContent = roleLabel;
+  }
+
   currentUser.textContent = state.user
-    ? `${state.user.full_name} · ${ownerMode ? "Собственник" : "Механик"}`
+    ? state.user.full_name
     : "Не выполнен вход";
 
   document.querySelectorAll(".mechanic-only").forEach((node) => {
