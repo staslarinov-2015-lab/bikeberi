@@ -139,6 +139,10 @@ def init_db():
             password_hash TEXT NOT NULL,
             role TEXT NOT NULL CHECK (role IN ('mechanic', 'owner')),
             full_name TEXT NOT NULL,
+            phone TEXT,
+            telegram TEXT,
+            position TEXT,
+            notes TEXT,
             created_at TEXT
         );
 
@@ -190,6 +194,10 @@ def init_db():
     )
 
     ensure_column(cur, "users", "created_at", "TEXT")
+    ensure_column(cur, "users", "phone", "TEXT")
+    ensure_column(cur, "users", "telegram", "TEXT")
+    ensure_column(cur, "users", "position", "TEXT")
+    ensure_column(cur, "users", "notes", "TEXT")
     ensure_column(cur, "inventory", "updated_at", "TEXT")
 
     now = utc_now().isoformat()
@@ -197,10 +205,10 @@ def init_db():
     users_count = cur.execute("SELECT COUNT(*) FROM users").fetchone()[0]
     if users_count == 0:
         cur.executemany(
-            "INSERT INTO users (username, password_hash, role, full_name, created_at) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO users (username, password_hash, role, full_name, phone, telegram, position, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
-                ("mechanic", hash_password("mechanic123"), "mechanic", "Механик BikeBeri", now),
-                ("owner", hash_password("owner123"), "owner", "Собственник BikeBeri", now),
+                ("mechanic", hash_password("mechanic123"), "mechanic", "Механик BikeBeri", "", "", "Механик", "", now),
+                ("owner", hash_password("owner123"), "owner", "Собственник BikeBeri", "", "", "Собственник", "", now),
             ],
         )
 
@@ -272,6 +280,10 @@ def serialize_user(row):
         "username": row["username"],
         "role": row["role"],
         "full_name": row["full_name"],
+        "phone": row["phone"] or "",
+        "telegram": row["telegram"] or "",
+        "position": row["position"] or "",
+        "notes": row["notes"] or "",
     }
 
 
@@ -741,6 +753,35 @@ class AppHandler(BaseHTTPRequestHandler):
             conn.commit()
             conn.close()
             return json_response(self, 200, {"ok": True})
+
+        if parsed.path == "/api/profile":
+            user = require_auth(self)
+            if not user:
+                return
+            payload = read_json(self)
+            full_name = str(payload.get("fullName", "")).strip()
+            if not full_name:
+                return json_response(self, 400, {"error": "ФИО обязательно"})
+
+            conn = get_db()
+            conn.execute(
+                """
+                UPDATE users
+                SET full_name = ?, phone = ?, telegram = ?, position = ?, notes = ?
+                WHERE id = ?
+                """,
+                (
+                    full_name,
+                    str(payload.get("phone", "")).strip(),
+                    str(payload.get("telegram", "")).strip(),
+                    str(payload.get("position", "")).strip(),
+                    str(payload.get("notes", "")).strip(),
+                    user["id"],
+                ),
+            )
+            conn.commit()
+            conn.close()
+            return json_response(self, 200, {"message": "Профиль обновлен"})
 
         return text_response(self, 404, "Not found")
 

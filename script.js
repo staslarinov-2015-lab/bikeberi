@@ -44,6 +44,14 @@ const passwordForm = document.getElementById("password-form");
 const passwordMessage = document.getElementById("password-message");
 const passwordError = document.getElementById("password-error");
 const settingsForm = document.getElementById("settings-form");
+const profileForm = document.getElementById("profile-form");
+const profileMessage = document.getElementById("profile-message");
+const profileNameDisplay = document.getElementById("profile-name-display");
+const profileRoleDisplay = document.getElementById("profile-role-display");
+const profilePhoneDisplay = document.getElementById("profile-phone-display");
+const profileTelegramDisplay = document.getElementById("profile-telegram-display");
+const profilePositionDisplay = document.getElementById("profile-position-display");
+const profileAvatar = document.getElementById("profile-avatar");
 const logoutButton = document.getElementById("logout-button");
 const repairOverlay = document.getElementById("repair-overlay");
 const inventoryOverlay = document.getElementById("inventory-overlay");
@@ -182,6 +190,33 @@ function renderRoleContent() {
   });
 
   syncRoleButtons();
+}
+
+function renderProfile() {
+  if (!state.user) return;
+
+  const initials = (state.user.full_name || state.user.username || "М")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+
+  profileAvatar.textContent = initials || "М";
+  profileNameDisplay.textContent = state.user.full_name || "Не заполнено";
+  profileRoleDisplay.textContent = state.user.position || (getRole() === "owner" ? "Собственник" : "Механик");
+  profilePhoneDisplay.textContent = state.user.phone || "Не заполнен";
+  profileTelegramDisplay.textContent = state.user.telegram || "Не заполнен";
+  profilePositionDisplay.textContent = state.user.position || "Не заполнена";
+
+  if (profileForm) {
+    profileForm.elements.fullName.value = state.user.full_name || "";
+    profileForm.elements.position.value = state.user.position || "";
+    profileForm.elements.phone.value = state.user.phone || "";
+    profileForm.elements.telegram.value = state.user.telegram || "";
+    profileForm.elements.notes.value = state.user.notes || "";
+  }
 }
 
 function renderSections() {
@@ -490,6 +525,7 @@ function render() {
   renderDiagnosticsTable();
   renderInventory();
   renderOwnerPanel();
+  renderProfile();
 }
 
 async function bootstrap() {
@@ -742,6 +778,29 @@ if (settingsForm) {
         targetRate: Number(formData.get("targetRate")),
       }),
     });
+    await bootstrap();
+  });
+}
+
+if (profileForm) {
+  profileForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    profileMessage.classList.add("hidden");
+
+    const formData = new FormData(profileForm);
+    const payload = await api("/api/profile", {
+      method: "PUT",
+      body: JSON.stringify({
+        fullName: String(formData.get("fullName")).trim(),
+        position: String(formData.get("position")).trim(),
+        phone: String(formData.get("phone")).trim(),
+        telegram: String(formData.get("telegram")).trim(),
+        notes: String(formData.get("notes")).trim(),
+      }),
+    });
+
+    profileMessage.textContent = payload.message;
+    profileMessage.classList.remove("hidden");
     await bootstrap();
   });
 }

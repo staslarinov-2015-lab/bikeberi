@@ -63,6 +63,7 @@
           <div class="sidebar-group-title">Сервис</div>
           <nav class="sidebar-nav" aria-label="Разделы">
             <button class="nav-link is-active" type="button" data-section="overview">Дашборд</button>
+            <button class="nav-link" type="button" data-section="profile">Профиль</button>
             <button class="nav-link" type="button" data-section="diagnostics">Диагностика</button>
             <button class="nav-link" type="button" data-section="repairs">Ремонты</button>
             <button class="nav-link" type="button" data-section="inventory">Склад</button>
@@ -126,6 +127,65 @@
               </div>
               <div id="alerts-list" class="alerts-list"></div>
             </section>
+          </div>
+        </section>
+
+        <section id="section-profile" class="screen-section hidden">
+          <div class="owner-grid">
+            <article class="content-card owner-card">
+              <div class="section-label">Профиль механика</div>
+              <h3>Личные данные</h3>
+              <div class="profile-summary">
+                <div class="profile-avatar" id="profile-avatar">М</div>
+                <div>
+                  <div id="profile-name-display" class="profile-name-display">Механик BikeBeri</div>
+                  <div id="profile-role-display" class="muted">Механик</div>
+                </div>
+              </div>
+              <div class="stack-list">
+                <div class="stack-item">
+                  <strong>Телефон</strong>
+                  <p id="profile-phone-display" class="muted">Не заполнен</p>
+                </div>
+                <div class="stack-item">
+                  <strong>Telegram</strong>
+                  <p id="profile-telegram-display" class="muted">Не заполнен</p>
+                </div>
+                <div class="stack-item">
+                  <strong>Должность</strong>
+                  <p id="profile-position-display" class="muted">Не заполнена</p>
+                </div>
+              </div>
+            </article>
+
+            <article class="content-card owner-card owner-card-wide">
+              <div class="section-label">Редактирование</div>
+              <h3>Обновить карточку профиля</h3>
+              <form id="profile-form" class="form-grid">
+                <label>
+                  <span>ФИО</span>
+                  <input name="fullName" type="text" placeholder="Иванов Иван Иванович" required />
+                </label>
+                <label>
+                  <span>Должность</span>
+                  <input name="position" type="text" placeholder="Механик" />
+                </label>
+                <label>
+                  <span>Телефон</span>
+                  <input name="phone" type="text" placeholder="+7 900 000-00-00" />
+                </label>
+                <label>
+                  <span>Telegram</span>
+                  <input name="telegram" type="text" placeholder="@username" />
+                </label>
+                <label class="wide">
+                  <span>О себе / заметки</span>
+                  <textarea name="notes" rows="4" placeholder="Опыт, график, специализация, внутренние заметки"></textarea>
+                </label>
+                <button class="primary-btn wide" type="submit">Сохранить профиль</button>
+              </form>
+              <p id="profile-message" class="success-text hidden"></p>
+            </article>
           </div>
         </section>
 
