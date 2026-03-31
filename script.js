@@ -9,6 +9,7 @@ const state = {
   },
   repairs: [],
   inventory: [],
+  diagnostics: [],
 };
 
 const loginOverlay = document.getElementById("login-overlay");
@@ -25,9 +26,11 @@ const metricsGrid = document.getElementById("metrics-grid");
 const timeline = document.getElementById("timeline");
 const alertsList = document.getElementById("alerts-list");
 const repairsTable = document.getElementById("repairs-table");
+const diagnosticsTable = document.getElementById("diagnostics-table");
 const inventoryGrid = document.getElementById("inventory-grid");
 const repairForm = document.getElementById("repair-form");
 const inventoryForm = document.getElementById("inventory-form");
+const diagnosticForm = document.getElementById("diagnostic-form");
 const ownerKpi = document.getElementById("owner-kpi");
 const ownerKpiNote = document.getElementById("owner-kpi-note");
 const ownerProcurement = document.getElementById("owner-procurement");
@@ -47,6 +50,9 @@ const openRepairModalButton = document.getElementById("open-repair-modal");
 const closeRepairModalButton = document.getElementById("close-repair-modal");
 const openInventoryModalButton = document.getElementById("open-inventory-modal");
 const closeInventoryModalButton = document.getElementById("close-inventory-modal");
+const diagnosticOverlay = document.getElementById("diagnostic-overlay");
+const openDiagnosticModalButton = document.getElementById("open-diagnostic-modal");
+const closeDiagnosticModalButton = document.getElementById("close-diagnostic-modal");
 const refreshButton = document.getElementById("refresh-button");
 
 function escapeHtml(value) {
@@ -193,6 +199,43 @@ function renderStatusChips() {
   document.querySelectorAll("[data-status-filter]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.statusFilter === state.statusFilter);
   });
+}
+
+function renderDiagnosticsTable() {
+  const canManage = getRole() === "mechanic" || getRole() === "owner";
+  diagnosticsTable.innerHTML = state.diagnostics
+    .map(
+      (item, index) => `
+        <tr>
+          <td><span class="row-index">${index + 1}</span></td>
+          <td>${escapeHtml(item.date)}</td>
+          <td><strong>${escapeHtml(item.bike)}</strong></td>
+          <td>${escapeHtml(item.mechanic_name)}</td>
+          <td>${escapeHtml(item.symptoms)}</td>
+          <td>${escapeHtml(item.conclusion)}</td>
+          <td>${escapeHtml(item.recommendation)}</td>
+          <td class="mechanic-only">
+            ${
+              canManage
+                ? `<div class="table-actions">
+                    <button class="icon-btn" type="button" data-action="edit-diagnostic" data-id="${item.id}">Изм.</button>
+                    <button class="danger-btn" type="button" data-action="delete-diagnostic" data-id="${item.id}">Удалить</button>
+                  </div>`
+                : ""
+            }
+          </td>
+        </tr>
+      `
+    )
+    .join("");
+
+  if (!state.diagnostics.length) {
+    diagnosticsTable.innerHTML = `
+      <tr>
+        <td colspan="8" class="muted">Диагностических записей пока нет.</td>
+      </tr>
+    `;
+  }
 }
 
 function renderMetrics() {
@@ -442,6 +485,7 @@ function render() {
   renderTimeline();
   renderAlerts();
   renderRepairsTable();
+  renderDiagnosticsTable();
   renderInventory();
   renderOwnerPanel();
 }
@@ -453,6 +497,7 @@ async function bootstrap() {
     state.kpi = payload.kpi;
     state.repairs = payload.repairs;
     state.inventory = payload.inventory;
+    state.diagnostics = payload.diagnostics || [];
     if (getRole() !== "owner" && state.activeSection === "owner") {
       state.activeSection = "overview";
     }
@@ -534,6 +579,16 @@ closeInventoryModalButton?.addEventListener("click", () => {
   delete inventoryForm.dataset.editId;
 });
 
+openDiagnosticModalButton?.addEventListener("click", () => {
+  diagnosticOverlay.classList.remove("hidden");
+});
+
+closeDiagnosticModalButton?.addEventListener("click", () => {
+  diagnosticOverlay.classList.add("hidden");
+  diagnosticForm.reset();
+  delete diagnosticForm.dataset.editId;
+});
+
 refreshButton?.addEventListener("click", async () => {
   await bootstrap();
 });
@@ -610,6 +665,31 @@ inventoryForm.addEventListener("submit", async (event) => {
   delete inventoryForm.dataset.editId;
   inventoryOverlay.classList.add("hidden");
   state.activeSection = "inventory";
+  await bootstrap();
+});
+
+diagnosticForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const formData = new FormData(diagnosticForm);
+  const editingId = diagnosticForm.dataset.editId;
+
+  await api(editingId ? `/api/diagnostics/${editingId}` : "/api/diagnostics", {
+    method: editingId ? "PUT" : "POST",
+    body: JSON.stringify({
+      date: formData.get("date") || new Date().toISOString().slice(0, 10),
+      bike: String(formData.get("bike")).trim(),
+      mechanicName: String(formData.get("mechanicName")).trim(),
+      symptoms: String(formData.get("symptoms")).trim(),
+      conclusion: String(formData.get("conclusion")).trim(),
+      recommendation: String(formData.get("recommendation")).trim(),
+    }),
+  });
+
+  diagnosticForm.reset();
+  delete diagnosticForm.dataset.editId;
+  diagnosticOverlay.classList.add("hidden");
+  state.activeSection = "diagnostics";
   await bootstrap();
 });
 
@@ -692,6 +772,25 @@ document.addEventListener("click", async (event) => {
   if (action === "delete-inventory") {
     if (!window.confirm("Удалить эту складскую позицию?")) return;
     await api(`/api/inventory/${id}`, { method: "DELETE", headers: {} });
+    await bootstrap();
+  }
+
+  if (action === "edit-diagnostic") {
+    const item = state.diagnostics.find((entry) => String(entry.id) === id);
+    if (!item) return;
+    diagnosticForm.dataset.editId = id;
+    diagnosticForm.elements.date.value = item.date;
+    diagnosticForm.elements.bike.value = item.bike;
+    diagnosticForm.elements.mechanicName.value = item.mechanic_name;
+    diagnosticForm.elements.symptoms.value = item.symptoms;
+    diagnosticForm.elements.conclusion.value = item.conclusion;
+    diagnosticForm.elements.recommendation.value = item.recommendation;
+    diagnosticOverlay.classList.remove("hidden");
+  }
+
+  if (action === "delete-diagnostic") {
+    if (!window.confirm("Удалить эту диагностическую запись?")) return;
+    await api(`/api/diagnostics/${id}`, { method: "DELETE", headers: {} });
     await bootstrap();
   }
 });

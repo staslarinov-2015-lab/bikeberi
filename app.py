@@ -163,6 +163,17 @@ def init_db():
             created_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS diagnostics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            bike TEXT NOT NULL,
+            mechanic_name TEXT NOT NULL,
+            symptoms TEXT NOT NULL,
+            conclusion TEXT NOT NULL,
+            recommendation TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS inventory (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
@@ -216,6 +227,19 @@ def init_db():
                 ("2026-03-31", "U2-014", "Прокол заднего колеса", "Замена камеры и покрышки", "Камера, покрышка", "-", "Готов", now),
                 ("2026-03-31", "U2-022", "Не тянет мотор", "Диагностика цепи питания и контроллера", "-", "Контроллер", "Ожидает запчасти", now),
                 ("2026-03-30", "U2-017", "Люфт рулевой", "Разборка, протяжка, проверка рулевой", "Смазка", "-", "В ремонте", now),
+            ],
+        )
+
+    diagnostics_count = cur.execute("SELECT COUNT(*) FROM diagnostics").fetchone()[0]
+    if diagnostics_count == 0:
+        cur.executemany(
+            """
+            INSERT INTO diagnostics (date, bike, mechanic_name, symptoms, conclusion, recommendation, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                ("2026-03-31", "U2-022", "Механик BikeBeri", "Слабая тяга мотора, рывки при старте", "Нужна углубленная проверка контроллера и цепи питания", "Срочный ремонт", now),
+                ("2026-03-30", "U2-017", "Механик BikeBeri", "Чувствуется люфт в рулевой колонке", "Можно пустить в плановый ремонт в ближайшее окно", "Плановый ремонт", now),
             ],
         )
 
@@ -384,6 +408,16 @@ def fetch_bootstrap_payload(user):
         item = dict(row)
         item["need_to_order"] = item["stock"] <= item["min"]
         inventory.append(item)
+    diagnostics = [
+        dict(row)
+        for row in conn.execute(
+            """
+            SELECT id, date, bike, mechanic_name, symptoms, conclusion, recommendation
+            FROM diagnostics
+            ORDER BY date DESC, id DESC
+            """
+        ).fetchall()
+    ]
     settings = {
         row["key"]: row["value"]
         for row in conn.execute("SELECT key, value FROM settings").fetchall()
@@ -398,6 +432,7 @@ def fetch_bootstrap_payload(user):
         },
         "repairs": repairs,
         "inventory": inventory,
+        "diagnostics": diagnostics,
     }
 
 
@@ -539,6 +574,35 @@ class AppHandler(BaseHTTPRequestHandler):
             conn.close()
             return json_response(self, 201, {"ok": True})
 
+        if parsed.path == "/api/diagnostics":
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            payload = read_json(self)
+            required = ["date", "bike", "mechanicName", "symptoms", "conclusion", "recommendation"]
+            if any(not str(payload.get(key, "")).strip() for key in required):
+                return json_response(self, 400, {"error": "Заполни обязательные поля диагностики"})
+
+            conn = get_db()
+            conn.execute(
+                """
+                INSERT INTO diagnostics (date, bike, mechanic_name, symptoms, conclusion, recommendation, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(payload["date"]).strip(),
+                    str(payload["bike"]).strip(),
+                    str(payload["mechanicName"]).strip(),
+                    str(payload["symptoms"]).strip(),
+                    str(payload["conclusion"]).strip(),
+                    str(payload["recommendation"]).strip(),
+                    utc_now().isoformat(),
+                ),
+            )
+            conn.commit()
+            conn.close()
+            return json_response(self, 201, {"ok": True})
+
         if parsed.path == "/api/account/password":
             user = require_auth(self)
             if not user:
@@ -624,6 +688,37 @@ class AppHandler(BaseHTTPRequestHandler):
             conn.close()
             return json_response(self, 200, {"ok": True})
 
+        if parsed.path.startswith("/api/diagnostics/"):
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            diagnostic_id = parsed.path.rsplit("/", 1)[-1]
+            payload = read_json(self)
+            required = ["date", "bike", "mechanicName", "symptoms", "conclusion", "recommendation"]
+            if any(not str(payload.get(key, "")).strip() for key in required):
+                return json_response(self, 400, {"error": "Заполни обязательные поля диагностики"})
+
+            conn = get_db()
+            conn.execute(
+                """
+                UPDATE diagnostics
+                SET date = ?, bike = ?, mechanic_name = ?, symptoms = ?, conclusion = ?, recommendation = ?
+                WHERE id = ?
+                """,
+                (
+                    str(payload["date"]).strip(),
+                    str(payload["bike"]).strip(),
+                    str(payload["mechanicName"]).strip(),
+                    str(payload["symptoms"]).strip(),
+                    str(payload["conclusion"]).strip(),
+                    str(payload["recommendation"]).strip(),
+                    diagnostic_id,
+                ),
+            )
+            conn.commit()
+            conn.close()
+            return json_response(self, 200, {"ok": True})
+
         if parsed.path == "/api/settings":
             user = require_role(self, {"owner"})
             if not user:
@@ -670,6 +765,17 @@ class AppHandler(BaseHTTPRequestHandler):
             inventory_id = parsed.path.rsplit("/", 1)[-1]
             conn = get_db()
             conn.execute("DELETE FROM inventory WHERE id = ?", (inventory_id,))
+            conn.commit()
+            conn.close()
+            return json_response(self, 200, {"ok": True})
+
+        if parsed.path.startswith("/api/diagnostics/"):
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            diagnostic_id = parsed.path.rsplit("/", 1)[-1]
+            conn = get_db()
+            conn.execute("DELETE FROM diagnostics WHERE id = ?", (diagnostic_id,))
             conn.commit()
             conn.close()
             return json_response(self, 200, {"ok": True})
