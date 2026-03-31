@@ -252,11 +252,17 @@
                 <div>
                   <div class="section-label">Диагностика</div>
                   <h3>Осмотры и первичная проверка байков</h3>
+                  <p class="muted">Механик выбирает крупный узел, проваливается в типовую поломку и фиксирует результат осмотра.</p>
                 </div>
               </div>
               <div class="toolbar-right mechanic-only">
                 <button id="open-diagnostic-modal" class="primary-btn" type="button">＋ Добавить диагностику</button>
               </div>
+            </div>
+
+            <div class="diagnostic-entry-panel mechanic-only">
+              <div class="section-label">Быстрый запуск диагностики</div>
+              <div id="diagnostic-category-grid" class="diagnostic-category-grid"></div>
             </div>
 
             <div class="table-wrap">
@@ -267,8 +273,11 @@
                     <th>Дата</th>
                     <th>Байк</th>
                     <th>Кто проверял</th>
+                    <th>Раздел</th>
+                    <th>Поломка</th>
                     <th>Симптомы</th>
                     <th>Заключение</th>
+                    <th>Срочность</th>
                     <th>Рекомендация</th>
                     <th class="mechanic-only">Действия</th>
                   </tr>
@@ -418,12 +427,54 @@
         <div class="modal-head">
           <div>
             <div class="section-label">Диагностика</div>
-            <h2>Новая диагностическая запись</h2>
+            <h2 id="diagnostic-modal-title">Новая диагностическая запись</h2>
           </div>
           <button id="close-diagnostic-modal" class="ghost-btn" type="button">Закрыть</button>
         </div>
 
+        <div class="diagnostic-wizard">
+          <div class="diagnostic-stepper">
+            <div id="diagnostic-step-categories" class="diagnostic-step-chip is-active">1. Раздел</div>
+            <div id="diagnostic-step-faults" class="diagnostic-step-chip">2. Поломка</div>
+            <div id="diagnostic-step-details" class="diagnostic-step-chip">3. Карточка</div>
+          </div>
+
+          <section id="diagnostic-step-view-categories" class="diagnostic-step-view">
+            <div class="diagnostic-step-head">
+              <div>
+                <div class="section-label">Шаг 1</div>
+                <h3>Выбери узел байка</h3>
+              </div>
+            </div>
+            <div id="diagnostic-wizard-category-grid" class="diagnostic-category-grid diagnostic-category-grid-modal"></div>
+          </section>
+
+          <section id="diagnostic-step-view-faults" class="diagnostic-step-view hidden">
+            <div class="diagnostic-step-head">
+              <div>
+                <div class="section-label">Шаг 2</div>
+                <h3 id="diagnostic-faults-title">Выбери типовую поломку</h3>
+              </div>
+              <button id="diagnostic-back-to-categories" class="ghost-btn" type="button">Назад</button>
+            </div>
+            <div id="diagnostic-fault-grid" class="diagnostic-fault-grid"></div>
+          </section>
+        </div>
+
         <form id="diagnostic-form" class="form-grid">
+          <input name="category" type="hidden" />
+          <input name="fault" type="hidden" />
+          <div class="diagnostic-selection-summary wide">
+            <div class="diagnostic-selection-card">
+              <span class="section-label">Раздел</span>
+              <strong id="diagnostic-selected-category">Не выбран</strong>
+            </div>
+            <div class="diagnostic-selection-card">
+              <span class="section-label">Поломка</span>
+              <strong id="diagnostic-selected-fault">Не выбрана</strong>
+            </div>
+            <button id="diagnostic-back-to-faults" class="ghost-btn" type="button">Изменить выбор</button>
+          </div>
           <label>
             <span>Дата</span>
             <input name="date" type="date" />
@@ -443,6 +494,14 @@
               <option value="Плановый ремонт">Плановый ремонт</option>
               <option value="Срочный ремонт">Срочный ремонт</option>
               <option value="Снять с линии">Снять с линии</option>
+            </select>
+          </label>
+          <label>
+            <span>Срочность</span>
+            <select name="severity">
+              <option value="Низкая">Низкая</option>
+              <option value="Средняя">Средняя</option>
+              <option value="Критичная">Критичная</option>
             </select>
           </label>
           <label class="wide">

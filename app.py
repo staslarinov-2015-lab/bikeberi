@@ -172,8 +172,11 @@ def init_db():
             date TEXT NOT NULL,
             bike TEXT NOT NULL,
             mechanic_name TEXT NOT NULL,
+            category TEXT,
+            fault TEXT,
             symptoms TEXT NOT NULL,
             conclusion TEXT NOT NULL,
+            severity TEXT,
             recommendation TEXT NOT NULL,
             created_at TEXT NOT NULL
         );
@@ -199,6 +202,9 @@ def init_db():
     ensure_column(cur, "users", "position", "TEXT")
     ensure_column(cur, "users", "notes", "TEXT")
     ensure_column(cur, "inventory", "updated_at", "TEXT")
+    ensure_column(cur, "diagnostics", "category", "TEXT")
+    ensure_column(cur, "diagnostics", "fault", "TEXT")
+    ensure_column(cur, "diagnostics", "severity", "TEXT")
 
     now = utc_now().isoformat()
 
@@ -242,12 +248,12 @@ def init_db():
     if diagnostics_count == 0:
         cur.executemany(
             """
-            INSERT INTO diagnostics (date, bike, mechanic_name, symptoms, conclusion, recommendation, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO diagnostics (date, bike, mechanic_name, category, fault, symptoms, conclusion, severity, recommendation, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
-                ("2026-03-31", "U2-022", "Механик BikeBeri", "Слабая тяга мотора, рывки при старте", "Нужна углубленная проверка контроллера и цепи питания", "Срочный ремонт", now),
-                ("2026-03-30", "U2-017", "Механик BikeBeri", "Чувствуется люфт в рулевой колонке", "Можно пустить в плановый ремонт в ближайшее окно", "Плановый ремонт", now),
+                ("2026-03-31", "U2-022", "Механик BikeBeri", "Мотор", "Не тянет мотор", "Слабая тяга мотора, рывки при старте", "Нужна углубленная проверка контроллера и цепи питания", "Критичная", "Срочный ремонт", now),
+                ("2026-03-30", "U2-017", "Механик BikeBeri", "Руль и управление", "Люфт рулевой", "Чувствуется люфт в рулевой колонке", "Можно пустить в плановый ремонт в ближайшее окно", "Средняя", "Плановый ремонт", now),
             ],
         )
 
@@ -424,7 +430,7 @@ def fetch_bootstrap_payload(user):
         dict(row)
         for row in conn.execute(
             """
-            SELECT id, date, bike, mechanic_name, symptoms, conclusion, recommendation
+            SELECT id, date, bike, mechanic_name, category, fault, symptoms, conclusion, severity, recommendation
             FROM diagnostics
             ORDER BY date DESC, id DESC
             """
@@ -591,22 +597,25 @@ class AppHandler(BaseHTTPRequestHandler):
             if not user:
                 return
             payload = read_json(self)
-            required = ["date", "bike", "mechanicName", "symptoms", "conclusion", "recommendation"]
+            required = ["date", "bike", "mechanicName", "category", "fault", "symptoms", "conclusion", "recommendation", "severity"]
             if any(not str(payload.get(key, "")).strip() for key in required):
                 return json_response(self, 400, {"error": "Заполни обязательные поля диагностики"})
 
             conn = get_db()
             conn.execute(
                 """
-                INSERT INTO diagnostics (date, bike, mechanic_name, symptoms, conclusion, recommendation, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO diagnostics (date, bike, mechanic_name, category, fault, symptoms, conclusion, severity, recommendation, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     str(payload["date"]).strip(),
                     str(payload["bike"]).strip(),
                     str(payload["mechanicName"]).strip(),
+                    str(payload["category"]).strip(),
+                    str(payload["fault"]).strip(),
                     str(payload["symptoms"]).strip(),
                     str(payload["conclusion"]).strip(),
+                    str(payload["severity"]).strip(),
                     str(payload["recommendation"]).strip(),
                     utc_now().isoformat(),
                 ),
@@ -706,7 +715,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 return
             diagnostic_id = parsed.path.rsplit("/", 1)[-1]
             payload = read_json(self)
-            required = ["date", "bike", "mechanicName", "symptoms", "conclusion", "recommendation"]
+            required = ["date", "bike", "mechanicName", "category", "fault", "symptoms", "conclusion", "recommendation", "severity"]
             if any(not str(payload.get(key, "")).strip() for key in required):
                 return json_response(self, 400, {"error": "Заполни обязательные поля диагностики"})
 
@@ -714,15 +723,18 @@ class AppHandler(BaseHTTPRequestHandler):
             conn.execute(
                 """
                 UPDATE diagnostics
-                SET date = ?, bike = ?, mechanic_name = ?, symptoms = ?, conclusion = ?, recommendation = ?
+                SET date = ?, bike = ?, mechanic_name = ?, category = ?, fault = ?, symptoms = ?, conclusion = ?, severity = ?, recommendation = ?
                 WHERE id = ?
                 """,
                 (
                     str(payload["date"]).strip(),
                     str(payload["bike"]).strip(),
                     str(payload["mechanicName"]).strip(),
+                    str(payload["category"]).strip(),
+                    str(payload["fault"]).strip(),
                     str(payload["symptoms"]).strip(),
                     str(payload["conclusion"]).strip(),
+                    str(payload["severity"]).strip(),
                     str(payload["recommendation"]).strip(),
                     diagnostic_id,
                 ),

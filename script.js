@@ -11,6 +11,94 @@ const state = {
   inventory: [],
   diagnostics: [],
   repairDraftFromDiagnostic: null,
+  diagnosticFlow: {
+    mode: "create",
+    category: "",
+    fault: "",
+  },
+};
+
+const DIAGNOSTIC_LIBRARY = {
+  "Пластик": {
+    summary: "Обвес, крышки, внешние элементы корпуса",
+    faults: [
+      "Трещина пластика",
+      "Сломано крепление",
+      "Отсутствует элемент корпуса",
+      "Корпус болтается",
+      "Повреждена крышка батареи",
+    ],
+  },
+  "Руль и управление": {
+    summary: "Рулевая, ручки, рычаги, органы управления",
+    faults: [
+      "Люфт рулевой",
+      "Руль стоит криво",
+      "Не работает ручка газа",
+      "Поврежден рычаг тормоза",
+      "Тугой поворот руля",
+    ],
+  },
+  "Тормоза": {
+    summary: "Передний и задний контур торможения",
+    faults: [
+      "Скрип тормоза",
+      "Стерты колодки",
+      "Кривой тормозной диск",
+      "Не тормозит передний тормоз",
+      "Не тормозит задний тормоз",
+    ],
+  },
+  "Колеса и шины": {
+    summary: "Покрышки, камеры, подшипники, диски",
+    faults: [
+      "Прокол",
+      "Спускает колесо",
+      "Изношена покрышка",
+      "Биение колеса",
+      "Люфт колеса",
+    ],
+  },
+  "Мотор": {
+    summary: "Тяга, шум, вибрации, поведение привода",
+    faults: [
+      "Не тянет мотор",
+      "Рывки при разгоне",
+      "Посторонний шум мотора",
+      "Мотор не включается",
+      "Перегрев мотора",
+    ],
+  },
+  "Батарея": {
+    summary: "Батарея, зарядка, фиксация и контакты",
+    faults: [
+      "Батарея не заряжается",
+      "Быстро теряет заряд",
+      "Батарея не фиксируется",
+      "Не определяется батарея",
+      "Поврежден зарядный порт",
+    ],
+  },
+  "Электрика": {
+    summary: "Контроллер, проводка, кнопки, питание",
+    faults: [
+      "Не включается байк",
+      "Ошибка контроллера",
+      "Пропадает питание",
+      "Повреждена проводка",
+      "Окисление разъемов",
+    ],
+  },
+  "Свет": {
+    summary: "Фара, задний фонарь, стоп-сигнал, сигнал",
+    faults: [
+      "Не работает передняя фара",
+      "Не работает задний фонарь",
+      "Не работает стоп-сигнал",
+      "Мигает свет",
+      "Не работает сигнал",
+    ],
+  },
 };
 
 const loginOverlay = document.getElementById("login-overlay");
@@ -28,6 +116,7 @@ const timeline = document.getElementById("timeline");
 const alertsList = document.getElementById("alerts-list");
 const repairsTable = document.getElementById("repairs-table");
 const diagnosticsTable = document.getElementById("diagnostics-table");
+const diagnosticCategoryGrid = document.getElementById("diagnostic-category-grid");
 const inventoryGrid = document.getElementById("inventory-grid");
 const repairForm = document.getElementById("repair-form");
 const inventoryForm = document.getElementById("inventory-form");
@@ -62,6 +151,19 @@ const closeInventoryModalButton = document.getElementById("close-inventory-modal
 const diagnosticOverlay = document.getElementById("diagnostic-overlay");
 const openDiagnosticModalButton = document.getElementById("open-diagnostic-modal");
 const closeDiagnosticModalButton = document.getElementById("close-diagnostic-modal");
+const diagnosticModalTitle = document.getElementById("diagnostic-modal-title");
+const diagnosticWizardCategoryGrid = document.getElementById("diagnostic-wizard-category-grid");
+const diagnosticFaultGrid = document.getElementById("diagnostic-fault-grid");
+const diagnosticFaultsTitle = document.getElementById("diagnostic-faults-title");
+const diagnosticSelectedCategory = document.getElementById("diagnostic-selected-category");
+const diagnosticSelectedFault = document.getElementById("diagnostic-selected-fault");
+const diagnosticBackToCategories = document.getElementById("diagnostic-back-to-categories");
+const diagnosticBackToFaults = document.getElementById("diagnostic-back-to-faults");
+const diagnosticStepCategories = document.getElementById("diagnostic-step-categories");
+const diagnosticStepFaults = document.getElementById("diagnostic-step-faults");
+const diagnosticStepDetails = document.getElementById("diagnostic-step-details");
+const diagnosticStepViewCategories = document.getElementById("diagnostic-step-view-categories");
+const diagnosticStepViewFaults = document.getElementById("diagnostic-step-view-faults");
 const refreshButton = document.getElementById("refresh-button");
 
 function escapeHtml(value) {
@@ -107,6 +209,16 @@ function getStatusClass(status) {
   if (status === "Готов") return "status-ready";
   if (status === "В ремонте") return "status-progress";
   return "status-waiting";
+}
+
+function getSeverityClass(severity) {
+  if (severity === "Критичная") return "severity-critical";
+  if (severity === "Средняя") return "severity-medium";
+  return "severity-low";
+}
+
+function getDiagnosticCategoryCount(category) {
+  return state.diagnostics.filter((item) => item.category === category).length;
 }
 
 function getMetrics() {
@@ -247,8 +359,11 @@ function renderDiagnosticsTable() {
           <td data-label="Дата">${escapeHtml(item.date)}</td>
           <td data-label="Байк"><strong>${escapeHtml(item.bike)}</strong></td>
           <td data-label="Кто проверял">${escapeHtml(item.mechanic_name)}</td>
+          <td data-label="Раздел"><span class="diagnostic-category-tag">${escapeHtml(item.category || "Общее")}</span></td>
+          <td data-label="Поломка"><strong>${escapeHtml(item.fault || "Не указана")}</strong></td>
           <td data-label="Симптомы">${escapeHtml(item.symptoms)}</td>
           <td data-label="Заключение">${escapeHtml(item.conclusion)}</td>
+          <td data-label="Срочность"><span class="severity-pill ${getSeverityClass(item.severity)}">${escapeHtml(item.severity || "Низкая")}</span></td>
           <td data-label="Рекомендация">${escapeHtml(item.recommendation)}</td>
           <td class="mechanic-only">
             ${
@@ -269,10 +384,120 @@ function renderDiagnosticsTable() {
   if (!state.diagnostics.length) {
     diagnosticsTable.innerHTML = `
       <tr>
-        <td colspan="8" class="muted">Диагностических записей пока нет.</td>
+        <td colspan="11" class="muted">Диагностических записей пока нет.</td>
       </tr>
     `;
   }
+}
+
+function renderDiagnosticCategoryGrid() {
+  const cards = Object.entries(DIAGNOSTIC_LIBRARY).map(([category, config]) => {
+    const count = getDiagnosticCategoryCount(category);
+    return `
+      <button class="diagnostic-category-card" type="button" data-action="start-diagnostic-category" data-category="${escapeHtml(category)}">
+        <strong>${escapeHtml(category)}</strong>
+        <p>${escapeHtml(config.summary)}</p>
+        <p class="muted">Записей: ${count}</p>
+      </button>
+    `;
+  });
+
+  if (diagnosticCategoryGrid) {
+    diagnosticCategoryGrid.innerHTML = cards.join("");
+  }
+
+  if (diagnosticWizardCategoryGrid) {
+    diagnosticWizardCategoryGrid.innerHTML = cards.join("");
+  }
+}
+
+function renderDiagnosticFaultGrid() {
+  const category = state.diagnosticFlow.category;
+  const config = DIAGNOSTIC_LIBRARY[category];
+  if (!diagnosticFaultGrid || !diagnosticFaultsTitle) return;
+
+  diagnosticFaultsTitle.textContent = category
+    ? `Выбери поломку: ${category}`
+    : "Выбери типовую поломку";
+
+  if (!config) {
+    diagnosticFaultGrid.innerHTML = '<p class="muted">Сначала выбери раздел диагностики.</p>';
+    return;
+  }
+
+  diagnosticFaultGrid.innerHTML = config.faults
+    .map(
+      (fault) => `
+        <button class="diagnostic-fault-card" type="button" data-action="select-diagnostic-fault" data-fault="${escapeHtml(fault)}">
+          <strong>${escapeHtml(fault)}</strong>
+          <p>Зафиксировать эту неисправность и перейти к карточке осмотра</p>
+        </button>
+      `
+    )
+    .join("");
+}
+
+function syncDiagnosticWizard() {
+  const category = state.diagnosticFlow.category;
+  const fault = state.diagnosticFlow.fault;
+
+  diagnosticSelectedCategory.textContent = category || "Не выбран";
+  diagnosticSelectedFault.textContent = fault || "Не выбрана";
+
+  const editing = state.diagnosticFlow.mode === "edit";
+  diagnosticModalTitle.textContent = editing ? "Редактирование диагностической записи" : "Новая диагностическая запись";
+
+  diagnosticStepCategories.classList.toggle("is-active", !category);
+  diagnosticStepFaults.classList.toggle("is-active", Boolean(category) && !fault);
+  diagnosticStepDetails.classList.toggle("is-active", Boolean(category) && Boolean(fault));
+
+  diagnosticStepViewCategories.classList.toggle("hidden", Boolean(category));
+  diagnosticStepViewFaults.classList.toggle("hidden", !category || Boolean(fault));
+  diagnosticForm.classList.toggle("hidden", !category || !fault);
+}
+
+function resetDiagnosticFlow() {
+  state.diagnosticFlow = {
+    mode: "create",
+    category: "",
+    fault: "",
+  };
+  diagnosticForm.reset();
+  delete diagnosticForm.dataset.editId;
+  diagnosticForm.elements.date.value = new Date().toISOString().slice(0, 10);
+  diagnosticForm.elements.mechanicName.value = state.user?.full_name || "";
+  diagnosticForm.elements.recommendation.value = "Наблюдать";
+  diagnosticForm.elements.severity.value = "Низкая";
+  diagnosticForm.elements.category.value = "";
+  diagnosticForm.elements.fault.value = "";
+  renderDiagnosticFaultGrid();
+  syncDiagnosticWizard();
+}
+
+function openDiagnosticOverlay() {
+  diagnosticOverlay.classList.remove("hidden");
+  renderDiagnosticCategoryGrid();
+  renderDiagnosticFaultGrid();
+  syncDiagnosticWizard();
+}
+
+function chooseDiagnosticCategory(category) {
+  state.diagnosticFlow.category = category;
+  state.diagnosticFlow.fault = "";
+  diagnosticForm.elements.category.value = category;
+  diagnosticForm.elements.fault.value = "";
+  renderDiagnosticFaultGrid();
+  syncDiagnosticWizard();
+}
+
+function chooseDiagnosticFault(fault) {
+  state.diagnosticFlow.fault = fault;
+  diagnosticForm.elements.category.value = state.diagnosticFlow.category;
+  diagnosticForm.elements.fault.value = fault;
+  if (!diagnosticForm.elements.symptoms.value.trim()) {
+    diagnosticForm.elements.symptoms.value = `${state.diagnosticFlow.category}: ${fault}`;
+  }
+  syncDiagnosticWizard();
 }
 
 function renderMetrics() {
@@ -523,6 +748,9 @@ function render() {
   renderAlerts();
   renderRepairsTable();
   renderDiagnosticsTable();
+  renderDiagnosticCategoryGrid();
+  renderDiagnosticFaultGrid();
+  syncDiagnosticWizard();
   renderInventory();
   renderOwnerPanel();
   renderProfile();
@@ -629,13 +857,29 @@ closeInventoryModalButton?.addEventListener("click", () => {
 });
 
 openDiagnosticModalButton?.addEventListener("click", () => {
-  diagnosticOverlay.classList.remove("hidden");
+  resetDiagnosticFlow();
+  openDiagnosticOverlay();
 });
 
 closeDiagnosticModalButton?.addEventListener("click", () => {
   diagnosticOverlay.classList.add("hidden");
-  diagnosticForm.reset();
-  delete diagnosticForm.dataset.editId;
+  resetDiagnosticFlow();
+});
+
+diagnosticBackToCategories?.addEventListener("click", () => {
+  state.diagnosticFlow.category = "";
+  state.diagnosticFlow.fault = "";
+  diagnosticForm.elements.category.value = "";
+  diagnosticForm.elements.fault.value = "";
+  renderDiagnosticFaultGrid();
+  syncDiagnosticWizard();
+});
+
+diagnosticBackToFaults?.addEventListener("click", () => {
+  state.diagnosticFlow.fault = "";
+  diagnosticForm.elements.fault.value = "";
+  renderDiagnosticFaultGrid();
+  syncDiagnosticWizard();
 });
 
 refreshButton?.addEventListener("click", async () => {
@@ -730,14 +974,16 @@ diagnosticForm.addEventListener("submit", async (event) => {
       date: formData.get("date") || new Date().toISOString().slice(0, 10),
       bike: String(formData.get("bike")).trim(),
       mechanicName: String(formData.get("mechanicName")).trim(),
+      category: String(formData.get("category")).trim(),
+      fault: String(formData.get("fault")).trim(),
       symptoms: String(formData.get("symptoms")).trim(),
       conclusion: String(formData.get("conclusion")).trim(),
+      severity: String(formData.get("severity")).trim(),
       recommendation: String(formData.get("recommendation")).trim(),
     }),
   });
 
-  diagnosticForm.reset();
-  delete diagnosticForm.dataset.editId;
+  resetDiagnosticFlow();
   diagnosticOverlay.classList.add("hidden");
   state.activeSection = "diagnostics";
   await bootstrap();
@@ -852,14 +1098,20 @@ document.addEventListener("click", async (event) => {
   if (action === "edit-diagnostic") {
     const item = state.diagnostics.find((entry) => String(entry.id) === id);
     if (!item) return;
+    state.diagnosticFlow.mode = "edit";
+    state.diagnosticFlow.category = item.category || "";
+    state.diagnosticFlow.fault = item.fault || "";
     diagnosticForm.dataset.editId = id;
     diagnosticForm.elements.date.value = item.date;
     diagnosticForm.elements.bike.value = item.bike;
     diagnosticForm.elements.mechanicName.value = item.mechanic_name;
+    diagnosticForm.elements.category.value = item.category || "";
+    diagnosticForm.elements.fault.value = item.fault || "";
     diagnosticForm.elements.symptoms.value = item.symptoms;
     diagnosticForm.elements.conclusion.value = item.conclusion;
+    diagnosticForm.elements.severity.value = item.severity || "Низкая";
     diagnosticForm.elements.recommendation.value = item.recommendation;
-    diagnosticOverlay.classList.remove("hidden");
+    openDiagnosticOverlay();
   }
 
   if (action === "delete-diagnostic") {
@@ -871,10 +1123,11 @@ document.addEventListener("click", async (event) => {
   if (action === "create-repair-from-diagnostic") {
     const item = state.diagnostics.find((entry) => String(entry.id) === id);
     if (!item) return;
+    const issueParts = [item.category, item.fault].filter(Boolean);
     state.repairDraftFromDiagnostic = {
       date: item.date,
       bike: item.bike,
-      issue: item.symptoms,
+      issue: issueParts.length ? issueParts.join(" · ") : item.symptoms,
       work: item.conclusion,
       partsUsed: "-",
       neededParts: item.recommendation === "Срочный ремонт" ? "Уточнить после ремонта" : "-",
@@ -891,6 +1144,16 @@ document.addEventListener("click", async (event) => {
     repairForm.elements.neededParts.value = state.repairDraftFromDiagnostic.neededParts || "";
     repairForm.elements.status.value = state.repairDraftFromDiagnostic.status || "В ремонте";
     repairOverlay.classList.remove("hidden");
+  }
+
+  if (action === "start-diagnostic-category") {
+    resetDiagnosticFlow();
+    chooseDiagnosticCategory(target.dataset.category);
+    openDiagnosticOverlay();
+  }
+
+  if (action === "select-diagnostic-fault") {
+    chooseDiagnosticFault(target.dataset.fault);
   }
 });
 
