@@ -31,12 +31,14 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
   margin: 0;
   color: var(--text);
   background: var(--bg);
+  overflow-x: hidden;
 }
 
 button,
@@ -920,6 +922,18 @@ tbody tr:hover {
 }
 
 @media (max-width: 680px) {
+  .page-shell,
+  .workspace,
+  .screen-section,
+  .content-card,
+  .metric-card,
+  .owner-card,
+  .table-wrap {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
   .topbar {
     gap: 10px;
   }
@@ -993,6 +1007,8 @@ tbody tr:hover {
   tr {
     display: block;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   thead {
