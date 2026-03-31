@@ -482,7 +482,6 @@ function renderDiagnosticFaultGrid() {
       (fault) => `
         <button class="diagnostic-fault-card" type="button" data-action="select-diagnostic-fault" data-fault="${escapeHtml(fault)}">
           <strong>${escapeHtml(fault)}</strong>
-          <p>Зафиксировать эту неисправность и перейти к карточке осмотра</p>
         </button>
       `
     )
