@@ -10,6 +10,7 @@ const state = {
   repairs: [],
   inventory: [],
   diagnostics: [],
+  repairDraftFromDiagnostic: null,
 };
 
 const loginOverlay = document.getElementById("login-overlay");
@@ -218,6 +219,7 @@ function renderDiagnosticsTable() {
             ${
               canManage
                 ? `<div class="table-actions">
+                    <button class="primary-btn primary-btn-small" type="button" data-action="create-repair-from-diagnostic" data-id="${item.id}">В ремонт</button>
                     <button class="icon-btn" type="button" data-action="edit-diagnostic" data-id="${item.id}">Изм.</button>
                     <button class="danger-btn" type="button" data-action="delete-diagnostic" data-id="${item.id}">Удалить</button>
                   </div>`
@@ -560,6 +562,16 @@ closeAccountButton.addEventListener("click", () => {
 });
 
 openRepairModalButton?.addEventListener("click", () => {
+  if (state.repairDraftFromDiagnostic) {
+    const draft = state.repairDraftFromDiagnostic;
+    repairForm.elements.date.value = draft.date || "";
+    repairForm.elements.bike.value = draft.bike || "";
+    repairForm.elements.issue.value = draft.issue || "";
+    repairForm.elements.work.value = draft.work || "";
+    repairForm.elements.partsUsed.value = draft.partsUsed || "";
+    repairForm.elements.neededParts.value = draft.neededParts || "";
+    repairForm.elements.status.value = draft.status || "В ремонте";
+  }
   repairOverlay.classList.remove("hidden");
 });
 
@@ -567,6 +579,7 @@ closeRepairModalButton?.addEventListener("click", () => {
   repairOverlay.classList.add("hidden");
   repairForm.reset();
   delete repairForm.dataset.editId;
+  state.repairDraftFromDiagnostic = null;
 });
 
 openInventoryModalButton?.addEventListener("click", () => {
@@ -642,6 +655,7 @@ repairForm.addEventListener("submit", async (event) => {
   repairForm.reset();
   delete repairForm.dataset.editId;
   repairOverlay.classList.add("hidden");
+  state.repairDraftFromDiagnostic = null;
   state.activeSection = "repairs";
   await bootstrap();
 });
@@ -742,6 +756,7 @@ document.addEventListener("click", async (event) => {
   if (action === "edit-repair") {
     const repair = state.repairs.find((item) => String(item.id) === id);
     if (!repair) return;
+    state.repairDraftFromDiagnostic = null;
     repairForm.dataset.editId = id;
     repairForm.elements.date.value = repair.date;
     repairForm.elements.bike.value = repair.bike;
@@ -792,6 +807,31 @@ document.addEventListener("click", async (event) => {
     if (!window.confirm("Удалить эту диагностическую запись?")) return;
     await api(`/api/diagnostics/${id}`, { method: "DELETE", headers: {} });
     await bootstrap();
+  }
+
+  if (action === "create-repair-from-diagnostic") {
+    const item = state.diagnostics.find((entry) => String(entry.id) === id);
+    if (!item) return;
+    state.repairDraftFromDiagnostic = {
+      date: item.date,
+      bike: item.bike,
+      issue: item.symptoms,
+      work: item.conclusion,
+      partsUsed: "-",
+      neededParts: item.recommendation === "Срочный ремонт" ? "Уточнить после ремонта" : "-",
+      status: item.recommendation === "Снять с линии" ? "Ожидает запчасти" : "В ремонте",
+    };
+    state.activeSection = "repairs";
+    render();
+    repairForm.reset();
+    repairForm.elements.date.value = state.repairDraftFromDiagnostic.date || "";
+    repairForm.elements.bike.value = state.repairDraftFromDiagnostic.bike || "";
+    repairForm.elements.issue.value = state.repairDraftFromDiagnostic.issue || "";
+    repairForm.elements.work.value = state.repairDraftFromDiagnostic.work || "";
+    repairForm.elements.partsUsed.value = state.repairDraftFromDiagnostic.partsUsed || "";
+    repairForm.elements.neededParts.value = state.repairDraftFromDiagnostic.neededParts || "";
+    repairForm.elements.status.value = state.repairDraftFromDiagnostic.status || "В ремонте";
+    repairOverlay.classList.remove("hidden");
   }
 });
 
