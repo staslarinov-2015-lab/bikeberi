@@ -1,0 +1,16 @@
+[Unit]
+Description=BikeBeri Service Control
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/bikeberi-service
+EnvironmentFile=/var/www/bikeberi-service/.env
+ExecStart=/usr/bin/python3 /var/www/bikeberi-service/app.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

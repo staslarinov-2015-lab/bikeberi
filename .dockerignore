@@ -1,0 +1,9 @@
+__pycache__/
+.git
+.env
+app.db
+DEPLOY.md
+deploy_vps.sh
+bikeberi.service
+nginx-bikeberi.conf
+backup_db.sh

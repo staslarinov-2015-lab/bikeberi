@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BikeBeri Fleet Service</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="login-overlay" class="overlay">
+      <div class="auth-card">
+        <div class="brand-block auth-brand">
+          <div class="brand-mark">BB</div>
+          <div>
+            <p class="brand-label">BikeBeri Fleet</p>
+            <h1>Service Control</h1>
+          </div>
+        </div>
+
+        <div class="auth-content">
+          <p class="section-label">Вход в систему</p>
+          <h2>Учет ремонтов и сервиса</h2>
+          <p class="muted">
+            Механик работает с ремонтами и складом. Собственник видит KPI, риски и
+            доступность парка.
+          </p>
+
+          <form id="login-form" class="form-grid auth-form">
+            <label class="wide">
+              <span>Логин</span>
+              <input name="username" type="text" placeholder="mechanic" required />
+            </label>
+            <label class="wide">
+              <span>Пароль</span>
+              <input name="password" type="password" placeholder="Введите пароль" required />
+            </label>
+            <button class="primary-btn wide" type="submit">Войти</button>
+          </form>
+
+          <div class="demo-credentials">
+            <p><strong>Механик:</strong> mechanic / mechanic123</p>
+            <p><strong>Собственник:</strong> owner / owner123</p>
+          </div>
+
+          <p id="login-error" class="error-text hidden"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <div class="brand-mark">BB</div>
+          <div>
+            <p class="brand-label">BikeBeri Fleet</p>
+            <h1>Service Control</h1>
+          </div>
+        </div>
+
+        <div class="role-card">
+          <p class="section-label">Режим просмотра</p>
+          <div class="role-switch" role="tablist" aria-label="Роли">
+            <button class="role-btn is-active" type="button" data-role="mechanic">Механик</button>
+            <button class="role-btn" type="button" data-role="owner">Собственник</button>
+          </div>
+          <p id="role-description" class="role-description">
+            Операционный режим: быстро вносить ремонты, следить за проблемными байками и остатками деталей.
+          </p>
+        </div>
+
+        <nav class="sidebar-nav" aria-label="Разделы">
+          <button class="nav-link is-active" type="button" data-section="overview">Сводка</button>
+          <button class="nav-link" type="button" data-section="repairs">Ремонты</button>
+          <button class="nav-link" type="button" data-section="inventory">Склад</button>
+          <button class="nav-link owner-only" type="button" data-section="owner">Контроль собственника</button>
+        </nav>
+
+        <div class="sidebar-note">
+          <p class="section-label">Источник данных</p>
+          <p>
+            Структура приложения повторяет листы из
+            <strong>bikeberi_system_v3.xlsx</strong>:
+            ремонты, склад и KPI.
+          </p>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">fleet operations</p>
+            <h2 id="page-title">Сводка сервиса</h2>
+          </div>
+
+          <div class="topbar-actions">
+            <label class="search-wrap">
+              <span class="visually-hidden">Поиск</span>
+              <input id="global-search" type="search" placeholder="Поиск по байку, проблеме, запчастям" />
+            </label>
+            <div class="user-chip">
+              <div>
+                <p class="section-label">Пользователь</p>
+                <strong id="current-user">Не выполнен вход</strong>
+              </div>
+              <button id="logout-button" class="ghost-btn" type="button">Выйти</button>
+            </div>
+          </div>
+        </header>
+
+        <section id="section-overview" class="screen-section">
+          <div class="hero-card">
+            <div>
+              <p class="section-label">Панель управления</p>
+              <h3 id="hero-title">Рабочий день механика под контролем</h3>
+              <p id="hero-copy" class="hero-copy">
+                Видно текущую загрузку, зависшие ремонты и детали, которые нужно заказать.
+              </p>
+            </div>
+            <div class="hero-badge" id="hero-badge">Сегодня в фокусе: оперативка</div>
+          </div>
+
+          <div id="metrics-grid" class="metrics-grid"></div>
+
+          <div class="content-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="section-label">Живая очередь</p>
+                  <h3>Ключевые события</h3>
+                </div>
+              </div>
+              <div id="timeline" class="timeline"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="section-label">Узкие места</p>
+                  <h3>Риски по складу и ремонту</h3>
+                </div>
+              </div>
+              <div id="alerts-list" class="alerts-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="section-repairs" class="screen-section hidden">
+          <div class="split-grid">
+            <section class="panel table-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="section-label">Журнал ремонтов</p>
+                  <h3>Все работы по байкам</h3>
+                </div>
+                <div class="table-tools">
+                  <select id="status-filter">
+                    <option value="all">Все статусы</option>
+                    <option value="Готов">Готов</option>
+                    <option value="В ремонте">В ремонте</option>
+                    <option value="Ожидает запчасти">Ожидает запчасти</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Дата</th>
+                      <th>Байк</th>
+                      <th>Проблема</th>
+                      <th>Что сделано</th>
+                      <th>Использовано</th>
+                      <th>Нужно заказать</th>
+                      <th>Статус</th>
+                    </tr>
+                  </thead>
+                  <tbody id="repairs-table"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel mechanic-only">
+              <div class="panel-head">
+                <div>
+                  <p class="section-label">Новая запись</p>
+                  <h3>Внести ремонт</h3>
+                </div>
+              </div>
+
+              <form id="repair-form" class="form-grid">
+                <label>
+                  <span>Дата</span>
+                  <input name="date" type="date" />
+                </label>
+                <label>
+                  <span>Байк</span>
+                  <input name="bike" type="text" placeholder="U2-001" required />
+                </label>
+                <label class="wide">
+                  <span>Что сломано</span>
+                  <input name="issue" type="text" placeholder="Например: скрип тормоза" required />
+                </label>
+                <label class="wide">
+                  <span>Что сделано</span>
+                  <textarea name="work" rows="4" placeholder="Опиши выполненную работу" required></textarea>
+                </label>
+                <label>
+                  <span>Запчасти использованы</span>
+                  <input name="partsUsed" type="text" placeholder="Колодки, камера" />
+                </label>
+                <label>
+                  <span>Требуются запчасти</span>
+                  <input name="neededParts" type="text" placeholder="Контроллер" />
+                </label>
+                <label>
+                  <span>Статус</span>
+                  <select name="status">
+                    <option value="Готов">Готов</option>
+                    <option value="В ремонте">В ремонте</option>
+                    <option value="Ожидает запчасти">Ожидает запчасти</option>
+                  </select>
+                </label>
+                <button class="primary-btn wide" type="submit">Сохранить ремонт</button>
+              </form>
+            </section>
+          </div>
+        </section>
+
+        <section id="section-inventory" class="screen-section hidden">
+          <div class="split-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="section-label">Склад</p>
+                  <h3>Остатки и дефицит</h3>
+                </div>
+              </div>
+              <div id="inventory-grid" class="inventory-grid"></div>
+            </section>
+
+            <section class="panel mechanic-only">
+              <div class="panel-head">
+                <div>
+                  <p class="section-label">Новая позиция</p>
+                  <h3>Добавить деталь</h3>
+                </div>
+              </div>
+
+              <form id="inventory-form" class="form-grid">
+                <label class="wide">
+                  <span>Название запчасти</span>
+                  <input name="name" type="text" placeholder="Колодки" required />
+                </label>
+                <label>
+                  <span>Остаток</span>
+                  <input name="stock" type="number" min="0" required />
+                </label>
+                <label>
+                  <span>Минимум</span>
+                  <input name="min" type="number" min="0" required />
+                </label>
+                <button class="secondary-btn wide" type="submit">Сохранить позицию</button>
+              </form>
+            </section>
+          </div>
+        </section>
+
+        <section id="section-owner" class="screen-section hidden owner-only">
+          <div class="owner-grid">
+            <article class="panel owner-panel">
+              <p class="section-label">Готовность парка</p>
+              <h3>KPI сервиса</h3>
+              <div id="owner-kpi" class="big-number">0%</div>
+              <p id="owner-kpi-note" class="muted"></p>
+            </article>
+
+            <article class="panel owner-panel">
+              <p class="section-label">Закупка</p>
+              <h3>Что нужно заказать</h3>
+              <div id="owner-procurement" class="stack-list"></div>
+            </article>
+
+            <article class="panel owner-panel">
+              <p class="section-label">Дисциплина сервиса</p>
+              <h3>Контроль процесса</h3>
+              <div id="owner-process" class="stack-list"></div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+  </html>
