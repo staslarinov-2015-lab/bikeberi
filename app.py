@@ -486,7 +486,11 @@ def init_db():
         ).fetchall()
         for diagnostic in diagnostics_rows:
             bike_id = cur.execute("SELECT id FROM bikes WHERE code = ?", (diagnostic["bike"],)).fetchone()["id"]
-            catalog = catalog_entry_for_fault(diagnostic["fault"])
+            category = str(diagnostic["category"] or "").strip() or "Общее"
+            fault = str(diagnostic["fault"] or "").strip() or "Не указана"
+            recommendation = str(diagnostic["recommendation"] or "").strip() or "Наблюдать"
+            conclusion = str(diagnostic["conclusion"] or "").strip() or "-"
+            catalog = catalog_entry_for_fault(fault)
             required_parts = merge_parts_lists(catalog["parts"])
             cursor = cur.execute(
                 """
@@ -500,16 +504,16 @@ def init_db():
                     bike_id,
                     diagnostic["id"],
                     "ждет запчасти" if required_parts else "принят",
-                    diagnostic["fault"] or diagnostic["category"],
-                    diagnostic["category"] or "Общее",
-                    diagnostic["fault"] or diagnostic["recommendation"],
+                    fault,
+                    category,
+                    fault,
                     diagnostic["mechanic_name"],
                     diagnostic["date"],
                     int(catalog["minutes"]),
                     None,
                     ", ".join(f"{name}:{qty}" for name, qty in required_parts) or "-",
-                    diagnostic["conclusion"] or "-",
-                    "высокий" if diagnostic["recommendation"] == "Срочный ремонт" else "обычный",
+                    conclusion,
+                    "высокий" if recommendation == "Срочный ремонт" else "обычный",
                     0,
                     now,
                 ),
