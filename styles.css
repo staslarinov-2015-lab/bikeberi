@@ -930,10 +930,14 @@ tbody tr:hover {
   }
 
   .workspace-toolbar,
-  .topbar,
   .modal-head {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .topbar {
+    flex-direction: row;
+    align-items: flex-start;
   }
 
   .topbar-right,
@@ -1004,15 +1008,23 @@ tbody tr:hover {
   }
 
   .topbar-right {
-    font-size: 0.95rem;
-    gap: 10px;
-    flex-wrap: wrap;
+    display: none;
   }
 
   .mobile-menu-toggle {
     width: 44px;
     height: 44px;
     border-radius: 12px;
+  }
+
+  .topbar-title-block {
+    min-width: 0;
+  }
+
+  .topbar-title-block h2 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .screen-section {

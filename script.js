@@ -984,6 +984,12 @@ window.addEventListener("resize", () => {
   }
 });
 
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeMobileMenu();
+  }
+});
+
 globalSearch.addEventListener("input", (event) => {
   state.search = event.target.value;
   renderRepairsTable();
