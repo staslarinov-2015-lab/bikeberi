@@ -75,6 +75,13 @@ def verify_password(password: str, stored_hash: str) -> bool:
     return hmac.compare_digest(legacy, stored_hash)
 
 
+def get_asset_version(filename: str) -> str:
+    path = BASE_DIR / filename
+    if not path.exists():
+        return "0"
+    return str(int(path.stat().st_mtime))
+
+
 def json_response(handler, status, payload, extra_headers=None):
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     handler.send_response(status)
@@ -105,7 +112,6 @@ def send_security_headers(handler):
     handler.send_header("X-Content-Type-Options", "nosniff")
     handler.send_header("X-Frame-Options", "DENY")
     handler.send_header("Referrer-Policy", "same-origin")
-    handler.send_header("Cache-Control", "no-store")
 
 
 def read_json(handler):
@@ -458,11 +464,11 @@ class AppHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
         if parsed.path == "/":
-            return self.serve_file("index.html", "text/html; charset=utf-8")
+            return self.serve_index()
         if parsed.path == "/styles.css":
-            return self.serve_file("styles.css", "text/css; charset=utf-8")
+            return self.serve_file("styles.css", "text/css; charset=utf-8", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/script.js":
-            return self.serve_file("script.js", "application/javascript; charset=utf-8")
+            return self.serve_file("script.js", "application/javascript; charset=utf-8", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/api/bootstrap":
             user = require_auth(self)
             if not user:
@@ -835,7 +841,25 @@ class AppHandler(BaseHTTPRequestHandler):
 
         return text_response(self, 404, "Not found")
 
-    def serve_file(self, filename, content_type):
+    def serve_index(self):
+        path = BASE_DIR / "index.html"
+        if not path.exists():
+            return text_response(self, 404, "Not found")
+        data = (
+            path.read_text(encoding="utf-8")
+            .replace("./styles.css", f"./styles.css?v={get_asset_version('styles.css')}")
+            .replace("./script.js", f"./script.js?v={get_asset_version('script.js')}")
+            .encode("utf-8")
+        )
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        send_security_headers(self)
+        self.end_headers()
+        self.wfile.write(data)
+
+    def serve_file(self, filename, content_type, cache_control="no-store"):
         path = BASE_DIR / filename
         if not path.exists():
             return text_response(self, 404, "Not found")
@@ -843,6 +867,7 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", cache_control)
         send_security_headers(self)
         self.end_headers()
         self.wfile.write(data)
