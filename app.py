@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import secrets
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -93,9 +94,31 @@ FAULT_CATALOG = {
     "Не работает сигнал": {"minutes": 15, "parts": [("Сигнал", 1)]},
 }
 
+BIKE_CODE_RE = re.compile(r"^[PEY]{2}\d{3}[PEY]$")
+BIKE_CODE_NORMALIZE_MAP = {
+    "Р": "P",
+    "P": "P",
+    "Е": "E",
+    "E": "E",
+    "У": "Y",
+    "Y": "Y",
+}
+
 
 def utc_now():
     return datetime.now(timezone.utc)
+
+
+def normalize_bike_code(raw_value: str) -> str:
+    source = str(raw_value or "").strip().upper()
+    return "".join(BIKE_CODE_NORMALIZE_MAP.get(char, char) for char in source)
+
+
+def validate_bike_code(raw_value: str) -> str:
+    bike_code = normalize_bike_code(raw_value)
+    if not BIKE_CODE_RE.fullmatch(bike_code):
+        raise ValueError("Номер байка должен быть в формате РЕ123У. Допустимы буквы Р, Е, У и цифры 0-9")
+    return bike_code
 
 
 def pbkdf2_digest(password: str, salt: bytes, iterations: int = PBKDF2_ITERATIONS) -> bytes:
@@ -356,10 +379,10 @@ def init_db():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
-                ("2026-04-01", "U2-001", "Скрип тормоза", "Замена колодок", "Колодки (1 комплект)", "-", "Готов", now),
-                ("2026-03-31", "U2-014", "Прокол заднего колеса", "Замена камеры и покрышки", "Камера, покрышка", "-", "Готов", now),
-                ("2026-03-31", "U2-022", "Не тянет мотор", "Диагностика цепи питания и контроллера", "-", "Контроллер", "Ожидает запчасти", now),
-                ("2026-03-30", "U2-017", "Люфт рулевой", "Разборка, протяжка, проверка рулевой", "Смазка", "-", "В ремонте", now),
+                ("2026-04-01", "PE001Y", "Скрип тормоза", "Замена колодок", "Колодки (1 комплект)", "-", "Готов", now),
+                ("2026-03-31", "PE014Y", "Прокол заднего колеса", "Замена камеры и покрышки", "Камера, покрышка", "-", "Готов", now),
+                ("2026-03-31", "PE022Y", "Не тянет мотор", "Диагностика цепи питания и контроллера", "-", "Контроллер", "Ожидает запчасти", now),
+                ("2026-03-30", "PE017Y", "Люфт рулевой", "Разборка, протяжка, проверка рулевой", "Смазка", "-", "В ремонте", now),
             ],
         )
 
@@ -371,8 +394,8 @@ def init_db():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
-                ("2026-03-31", "U2-022", "Механик BikeBeri", "Мотор", "Не тянет мотор", "Слабая тяга мотора, рывки при старте", "Нужна углубленная проверка контроллера и цепи питания", "Критичная", "Срочный ремонт", now),
-                ("2026-03-30", "U2-017", "Механик BikeBeri", "Руль и управление", "Люфт рулевой", "Чувствуется люфт в рулевой колонке", "Можно пустить в плановый ремонт в ближайшее окно", "Средняя", "Плановый ремонт", now),
+                ("2026-03-31", "PE022Y", "Механик BikeBeri", "Мотор", "Не тянет мотор", "Слабая тяга мотора, рывки при старте", "Нужна углубленная проверка контроллера и цепи питания", "Критичная", "Срочный ремонт", now),
+                ("2026-03-30", "PE017Y", "Механик BikeBeri", "Руль и управление", "Люфт рулевой", "Чувствуется люфт в рулевой колонке", "Можно пустить в плановый ремонт в ближайшее окно", "Средняя", "Плановый ремонт", now),
             ],
         )
 
@@ -401,7 +424,7 @@ def init_db():
 
     bike_count = cur.execute("SELECT COUNT(*) FROM bikes").fetchone()[0]
     if bike_count == 0:
-        known_codes = {"U2-001", "U2-014", "U2-022", "U2-017"}
+        known_codes = {"PE001Y", "PE014Y", "PE022Y", "PE017Y"}
         for row in cur.execute("SELECT DISTINCT bike FROM diagnostics").fetchall():
             known_codes.add(str(row["bike"]))
         for row in cur.execute("SELECT DISTINCT bike FROM repairs").fetchall():
@@ -655,7 +678,7 @@ def merge_parts_lists(*part_lists):
 
 
 def ensure_bike(conn, bike_code: str):
-    bike_code = str(bike_code).strip()
+    bike_code = validate_bike_code(bike_code)
     row = conn.execute("SELECT id FROM bikes WHERE code = ?", (bike_code,)).fetchone()
     if row:
         return row["id"]
@@ -968,6 +991,10 @@ class AppHandler(BaseHTTPRequestHandler):
             required = ["date", "bike", "issue", "work", "status"]
             if any(not str(payload.get(key, "")).strip() for key in required):
                 return json_response(self, 400, {"error": "Заполни обязательные поля ремонта"})
+            try:
+                bike_code = validate_bike_code(payload.get("bike", ""))
+            except ValueError as error:
+                return json_response(self, 400, {"error": str(error)})
 
             conn = get_db()
             conn.execute(
@@ -977,7 +1004,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 """,
                 (
                     str(payload["date"]).strip(),
-                    str(payload["bike"]).strip(),
+                    bike_code,
                     str(payload["issue"]).strip(),
                     str(payload["work"]).strip(),
                     str(payload.get("parts_used", "-")).strip() or "-",
@@ -1034,6 +1061,10 @@ class AppHandler(BaseHTTPRequestHandler):
             required = ["date", "bike", "mechanicName", "category", "fault", "symptoms", "conclusion", "recommendation", "severity"]
             if any(not str(payload.get(key, "")).strip() for key in required):
                 return json_response(self, 400, {"error": "Заполни обязательные поля диагностики"})
+            try:
+                bike_code = validate_bike_code(payload.get("bike", ""))
+            except ValueError as error:
+                return json_response(self, 400, {"error": str(error)})
 
             conn = get_db()
             cursor = conn.execute(
@@ -1043,7 +1074,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 """,
                 (
                     str(payload["date"]).strip(),
-                    str(payload["bike"]).strip(),
+                    bike_code,
                     str(payload["mechanicName"]).strip(),
                     str(payload["category"]).strip(),
                     str(payload["fault"]).strip(),
@@ -1055,7 +1086,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 ),
             )
             diagnostic_id = cursor.lastrowid
-            bike_id = ensure_bike(conn, payload["bike"])
+            bike_id = ensure_bike(conn, bike_code)
             set_bike_status(conn, bike_id, "на диагностике")
 
             catalog = catalog_entry_for_fault(payload["fault"])
@@ -1312,6 +1343,10 @@ class AppHandler(BaseHTTPRequestHandler):
             required = ["date", "bike", "issue", "work", "status"]
             if any(not str(payload.get(key, "")).strip() for key in required):
                 return json_response(self, 400, {"error": "Заполни обязательные поля ремонта"})
+            try:
+                bike_code = validate_bike_code(payload.get("bike", ""))
+            except ValueError as error:
+                return json_response(self, 400, {"error": str(error)})
 
             conn = get_db()
             conn.execute(
@@ -1322,7 +1357,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 """,
                 (
                     str(payload["date"]).strip(),
-                    str(payload["bike"]).strip(),
+                    bike_code,
                     str(payload["issue"]).strip(),
                     str(payload["work"]).strip(),
                     str(payload.get("parts_used", "-")).strip() or "-",
@@ -1368,6 +1403,10 @@ class AppHandler(BaseHTTPRequestHandler):
             required = ["date", "bike", "mechanicName", "category", "fault", "symptoms", "conclusion", "recommendation", "severity"]
             if any(not str(payload.get(key, "")).strip() for key in required):
                 return json_response(self, 400, {"error": "Заполни обязательные поля диагностики"})
+            try:
+                bike_code = validate_bike_code(payload.get("bike", ""))
+            except ValueError as error:
+                return json_response(self, 400, {"error": str(error)})
 
             conn = get_db()
             conn.execute(
@@ -1378,7 +1417,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 """,
                 (
                     str(payload["date"]).strip(),
-                    str(payload["bike"]).strip(),
+                    bike_code,
                     str(payload["mechanicName"]).strip(),
                     str(payload["category"]).strip(),
                     str(payload["fault"]).strip(),

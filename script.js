@@ -149,6 +149,17 @@ const DIAGNOSTIC_LIBRARY = {
   },
 };
 
+const BIKE_CODE_ALLOWED_LETTERS = ["P", "E", "Y"];
+const BIKE_CODE_ALLOWED_DIGITS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+const BIKE_CODE_NORMALIZE_MAP = {
+  Р: "P",
+  P: "P",
+  Е: "E",
+  E: "E",
+  У: "Y",
+  Y: "Y",
+};
+
 const loginOverlay = document.getElementById("login-overlay");
 const loginForm = document.getElementById("login-form");
 const loginError = document.getElementById("login-error");
@@ -218,6 +229,71 @@ const diagnosticStepDetails = document.getElementById("diagnostic-step-details")
 const diagnosticStepViewCategories = document.getElementById("diagnostic-step-view-categories");
 const diagnosticStepViewFaults = document.getElementById("diagnostic-step-view-faults");
 const refreshButton = document.getElementById("refresh-button");
+const bikeCodeBuilders = Array.from(document.querySelectorAll("[data-bike-code-root]"));
+
+function normalizeBikeCode(rawValue) {
+  const source = String(rawValue || "").trim().toUpperCase();
+  if (!source) return "";
+  return source
+    .split("")
+    .map((char) => BIKE_CODE_NORMALIZE_MAP[char] || char)
+    .join("");
+}
+
+function isValidBikeCode(rawValue) {
+  const normalized = normalizeBikeCode(rawValue);
+  return /^[PEY]{2}\d{3}[PEY]$/.test(normalized);
+}
+
+function getBikeBuilder(rootName) {
+  return document.querySelector(`[data-bike-code-root="${rootName}"]`);
+}
+
+function updateBikeCodeHiddenInput(rootName) {
+  const builder = getBikeBuilder(rootName);
+  if (!builder) return "";
+  const parts = ["l1", "l2", "d1", "d2", "d3", "l3"].map((part) => {
+    const field = builder.querySelector(`[data-bike-part="${part}"]`);
+    return field ? String(field.value || "").trim() : "";
+  });
+  const hiddenInput = builder.parentElement.querySelector('input[name="bike"]');
+  const complete = parts.every(Boolean);
+  const bikeCode = complete ? normalizeBikeCode(parts.join("")) : "";
+  if (hiddenInput) {
+    hiddenInput.value = bikeCode;
+    hiddenInput.setCustomValidity(complete && isValidBikeCode(bikeCode) ? "" : "Укажи номер байка в формате РЕ123У");
+  }
+  return bikeCode;
+}
+
+function setBikeCodeValue(rootName, value) {
+  const builder = getBikeBuilder(rootName);
+  if (!builder) return;
+  const normalized = normalizeBikeCode(value);
+  const parts = normalized.length === 6 ? normalized.split("") : [];
+  ["l1", "l2", "d1", "d2", "d3", "l3"].forEach((partName, index) => {
+    const field = builder.querySelector(`[data-bike-part="${partName}"]`);
+    if (!field) return;
+    field.value = parts[index] || "";
+  });
+  updateBikeCodeHiddenInput(rootName);
+}
+
+function resetBikeCodeValue(rootName) {
+  setBikeCodeValue(rootName, "");
+}
+
+function syncBikeCodeBuilders() {
+  bikeCodeBuilders.forEach((builder) => {
+    const rootName = builder.dataset.bikeCodeRoot;
+    builder.querySelectorAll("[data-bike-part]").forEach((field) => {
+      field.addEventListener("change", () => {
+        updateBikeCodeHiddenInput(rootName);
+      });
+    });
+    updateBikeCodeHiddenInput(rootName);
+  });
+}
 
 function escapeHtml(value) {
   return String(value)
@@ -548,6 +624,7 @@ function resetDiagnosticFlow() {
     fault: "",
   };
   diagnosticForm.reset();
+  resetBikeCodeValue("diagnostic");
   delete diagnosticForm.dataset.editId;
   diagnosticForm.elements.date.value = new Date().toISOString().slice(0, 10);
   diagnosticForm.elements.mechanicName.value = state.user?.full_name || "";
@@ -1001,12 +1078,14 @@ openRepairModalButton?.addEventListener("click", () => {
   if (state.repairDraftFromDiagnostic) {
     const draft = state.repairDraftFromDiagnostic;
     repairForm.elements.date.value = draft.date || "";
-    repairForm.elements.bike.value = draft.bike || "";
+    setBikeCodeValue("repair", draft.bike || "");
     repairForm.elements.issue.value = draft.issue || "";
     repairForm.elements.work.value = draft.work || "";
     repairForm.elements.partsUsed.value = draft.partsUsed || "";
     repairForm.elements.neededParts.value = draft.neededParts || "";
     repairForm.elements.status.value = draft.status || "В ремонте";
+  } else {
+    resetBikeCodeValue("repair");
   }
   repairOverlay.classList.remove("hidden");
 });
@@ -1014,6 +1093,7 @@ openRepairModalButton?.addEventListener("click", () => {
 closeRepairModalButton?.addEventListener("click", () => {
   repairOverlay.classList.add("hidden");
   repairForm.reset();
+  resetBikeCodeValue("repair");
   delete repairForm.dataset.editId;
   state.repairDraftFromDiagnostic = null;
 });
@@ -1111,12 +1191,18 @@ repairForm.addEventListener("submit", async (event) => {
 
   const formData = new FormData(repairForm);
   const editingId = repairForm.dataset.editId;
+  const bikeCode = updateBikeCodeHiddenInput("repair");
+
+  if (!isValidBikeCode(bikeCode)) {
+    repairForm.reportValidity();
+    return;
+  }
 
   await api(editingId ? `/api/repairs/${editingId}` : "/api/repairs", {
     method: editingId ? "PUT" : "POST",
     body: JSON.stringify({
       date: formData.get("date") || new Date().toISOString().slice(0, 10),
-      bike: String(formData.get("bike")).trim(),
+      bike: bikeCode,
       issue: String(formData.get("issue")).trim(),
       work: String(formData.get("work")).trim(),
       parts_used: String(formData.get("partsUsed")).trim() || "-",
@@ -1126,6 +1212,7 @@ repairForm.addEventListener("submit", async (event) => {
   });
 
   repairForm.reset();
+  resetBikeCodeValue("repair");
   delete repairForm.dataset.editId;
   repairOverlay.classList.add("hidden");
   state.repairDraftFromDiagnostic = null;
@@ -1160,12 +1247,18 @@ diagnosticForm.addEventListener("submit", async (event) => {
 
   const formData = new FormData(diagnosticForm);
   const editingId = diagnosticForm.dataset.editId;
+  const bikeCode = updateBikeCodeHiddenInput("diagnostic");
+
+  if (!isValidBikeCode(bikeCode)) {
+    diagnosticForm.reportValidity();
+    return;
+  }
 
   await api(editingId ? `/api/diagnostics/${editingId}` : "/api/diagnostics", {
     method: editingId ? "PUT" : "POST",
     body: JSON.stringify({
       date: formData.get("date") || new Date().toISOString().slice(0, 10),
-      bike: String(formData.get("bike")).trim(),
+      bike: bikeCode,
       mechanicName: String(formData.get("mechanicName")).trim(),
       category: String(formData.get("category")).trim(),
       fault: String(formData.get("fault")).trim(),
@@ -1258,7 +1351,7 @@ document.addEventListener("click", async (event) => {
     state.repairDraftFromDiagnostic = null;
     repairForm.dataset.editId = id;
     repairForm.elements.date.value = repair.date;
-    repairForm.elements.bike.value = repair.bike;
+    setBikeCodeValue("repair", repair.bike);
     repairForm.elements.issue.value = repair.issue;
     repairForm.elements.work.value = repair.work;
     repairForm.elements.partsUsed.value = repair.parts_used;
@@ -1297,7 +1390,7 @@ document.addEventListener("click", async (event) => {
     state.diagnosticFlow.fault = item.fault || "";
     diagnosticForm.dataset.editId = id;
     diagnosticForm.elements.date.value = item.date;
-    diagnosticForm.elements.bike.value = item.bike;
+    setBikeCodeValue("diagnostic", item.bike);
     diagnosticForm.elements.mechanicName.value = item.mechanic_name;
     diagnosticForm.elements.category.value = item.category || "";
     diagnosticForm.elements.fault.value = item.fault || "";
@@ -1331,7 +1424,7 @@ document.addEventListener("click", async (event) => {
     render();
     repairForm.reset();
     repairForm.elements.date.value = state.repairDraftFromDiagnostic.date || "";
-    repairForm.elements.bike.value = state.repairDraftFromDiagnostic.bike || "";
+    setBikeCodeValue("repair", state.repairDraftFromDiagnostic.bike || "");
     repairForm.elements.issue.value = state.repairDraftFromDiagnostic.issue || "";
     repairForm.elements.work.value = state.repairDraftFromDiagnostic.work || "";
     repairForm.elements.partsUsed.value = state.repairDraftFromDiagnostic.partsUsed || "";
@@ -1366,4 +1459,5 @@ document.addEventListener("click", async (event) => {
   }
 });
 
+syncBikeCodeBuilders();
 bootstrap();

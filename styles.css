@@ -52,6 +52,17 @@ textarea {
   font: inherit;
 }
 
+.bike-code-builder {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.bike-code-builder select {
+  text-align: center;
+  padding-inline: 10px;
+}
+
 .hidden {
   display: none !important;
 }
@@ -980,6 +991,10 @@ tbody tr:hover {
   .diagnostic-selection-summary {
     grid-template-columns: 1fr;
   }
+
+  .bike-code-builder {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 680px) {
@@ -1145,6 +1160,10 @@ tbody tr:hover {
   .diagnostic-category-grid-modal,
   .diagnostic-fault-grid {
     grid-template-columns: 1fr;
+  }
+
+  .bike-code-builder {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .modal-card {
