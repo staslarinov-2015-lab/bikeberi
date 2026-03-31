@@ -355,6 +355,16 @@ def require_role(handler, allowed_roles):
     return user
 
 
+def parse_positive_int(value, field_name):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{field_name} должно быть числом")
+    if parsed < 0:
+        raise ValueError(f"{field_name} не может быть отрицательным")
+    return parsed
+
+
 def fetch_bootstrap_payload(user):
     conn = get_db()
     repairs = [
@@ -528,6 +538,141 @@ class AppHandler(BaseHTTPRequestHandler):
             conn.commit()
             conn.close()
             return json_response(self, 201, {"ok": True})
+
+        if parsed.path == "/api/account/password":
+            user = require_auth(self)
+            if not user:
+                return
+            payload = read_json(self)
+            current_password = str(payload.get("currentPassword", ""))
+            new_password = str(payload.get("newPassword", ""))
+            if len(new_password) < 8:
+                return json_response(self, 400, {"error": "Новый пароль должен быть не короче 8 символов"})
+
+            conn = get_db()
+            user_row = conn.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+            if not user_row or not verify_password(current_password, user_row["password_hash"]):
+                conn.close()
+                return json_response(self, 400, {"error": "Текущий пароль введен неверно"})
+
+            conn.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (hash_password(new_password), user["id"]),
+            )
+            conn.commit()
+            conn.close()
+            return json_response(self, 200, {"message": "Пароль успешно обновлен"})
+
+        return text_response(self, 404, "Not found")
+
+    def do_PUT(self):
+        parsed = urlparse(self.path)
+
+        if parsed.path.startswith("/api/repairs/"):
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            repair_id = parsed.path.rsplit("/", 1)[-1]
+            payload = read_json(self)
+            required = ["date", "bike", "issue", "work", "status"]
+            if any(not str(payload.get(key, "")).strip() for key in required):
+                return json_response(self, 400, {"error": "Заполни обязательные поля ремонта"})
+
+            conn = get_db()
+            conn.execute(
+                """
+                UPDATE repairs
+                SET date = ?, bike = ?, issue = ?, work = ?, parts_used = ?, needed_parts = ?, status = ?
+                WHERE id = ?
+                """,
+                (
+                    str(payload["date"]).strip(),
+                    str(payload["bike"]).strip(),
+                    str(payload["issue"]).strip(),
+                    str(payload["work"]).strip(),
+                    str(payload.get("parts_used", "-")).strip() or "-",
+                    str(payload.get("needed_parts", "-")).strip() or "-",
+                    str(payload["status"]).strip(),
+                    repair_id,
+                ),
+            )
+            conn.commit()
+            conn.close()
+            return json_response(self, 200, {"ok": True})
+
+        if parsed.path.startswith("/api/inventory/"):
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            inventory_id = parsed.path.rsplit("/", 1)[-1]
+            payload = read_json(self)
+            name = str(payload.get("name", "")).strip()
+            if not name:
+                return json_response(self, 400, {"error": "Название запчасти обязательно"})
+            try:
+                stock = parse_positive_int(payload.get("stock"), "Остаток")
+                minimum = parse_positive_int(payload.get("min"), "Минимум")
+            except ValueError as error:
+                return json_response(self, 400, {"error": str(error)})
+
+            conn = get_db()
+            conn.execute(
+                "UPDATE inventory SET name = ?, stock = ?, min = ?, updated_at = ? WHERE id = ?",
+                (name, stock, minimum, utc_now().isoformat(), inventory_id),
+            )
+            conn.commit()
+            conn.close()
+            return json_response(self, 200, {"ok": True})
+
+        if parsed.path == "/api/settings":
+            user = require_role(self, {"owner"})
+            if not user:
+                return
+            payload = read_json(self)
+            try:
+                total_bikes = parse_positive_int(payload.get("totalBikes"), "Количество байков")
+                target_rate = parse_positive_int(payload.get("targetRate"), "Цель KPI")
+            except ValueError as error:
+                return json_response(self, 400, {"error": str(error)})
+
+            if total_bikes < 1:
+                return json_response(self, 400, {"error": "Количество байков должно быть больше нуля"})
+            if not 1 <= target_rate <= 100:
+                return json_response(self, 400, {"error": "Цель KPI должна быть от 1 до 100"})
+
+            conn = get_db()
+            conn.execute("UPDATE settings SET value = ? WHERE key = 'total_bikes'", (str(total_bikes),))
+            conn.execute("UPDATE settings SET value = ? WHERE key = 'target_rate'", (str(target_rate),))
+            conn.commit()
+            conn.close()
+            return json_response(self, 200, {"ok": True})
+
+        return text_response(self, 404, "Not found")
+
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+
+        if parsed.path.startswith("/api/repairs/"):
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            repair_id = parsed.path.rsplit("/", 1)[-1]
+            conn = get_db()
+            conn.execute("DELETE FROM repairs WHERE id = ?", (repair_id,))
+            conn.commit()
+            conn.close()
+            return json_response(self, 200, {"ok": True})
+
+        if parsed.path.startswith("/api/inventory/"):
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            inventory_id = parsed.path.rsplit("/", 1)[-1]
+            conn = get_db()
+            conn.execute("DELETE FROM inventory WHERE id = ?", (inventory_id,))
+            conn.commit()
+            conn.close()
+            return json_response(self, 200, {"ok": True})
 
         return text_response(self, 404, "Not found")
 
