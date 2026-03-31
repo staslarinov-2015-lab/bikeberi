@@ -95,6 +95,7 @@ FAULT_CATALOG = {
 }
 
 BIKE_CODE_RE = re.compile(r"^[PEY]{2}\d{3}[PEY]$")
+LEGACY_BIKE_CODE_RE = re.compile(r"^U2-(\d{3})$")
 BIKE_CODE_NORMALIZE_MAP = {
     "Р": "P",
     "P": "P",
@@ -114,8 +115,16 @@ def normalize_bike_code(raw_value: str) -> str:
     return "".join(BIKE_CODE_NORMALIZE_MAP.get(char, char) for char in source)
 
 
+def migrate_legacy_bike_code(raw_value: str) -> str:
+    source = str(raw_value or "").strip().upper()
+    match = LEGACY_BIKE_CODE_RE.fullmatch(source)
+    if match:
+        return f"PE{match.group(1)}Y"
+    return source
+
+
 def validate_bike_code(raw_value: str) -> str:
-    bike_code = normalize_bike_code(raw_value)
+    bike_code = normalize_bike_code(migrate_legacy_bike_code(raw_value))
     if not BIKE_CODE_RE.fullmatch(bike_code):
         raise ValueError("Номер байка должен быть в формате РЕ123У. Допустимы буквы Р, Е, У и цифры 0-9")
     return bike_code
@@ -421,6 +430,39 @@ def init_db():
                 ("Сигнал", 4, 1, 0, now),
             ],
         )
+
+    for table_name in ("repairs", "diagnostics"):
+        rows = cur.execute(f"SELECT id, bike FROM {table_name}").fetchall()
+        for row in rows:
+            migrated_code = migrate_legacy_bike_code(row["bike"])
+            if migrated_code != str(row["bike"]).strip():
+                cur.execute(
+                    f"UPDATE {table_name} SET bike = ? WHERE id = ?",
+                    (migrated_code, row["id"]),
+                )
+
+    bike_rows = cur.execute("SELECT id, code FROM bikes ORDER BY id ASC").fetchall()
+    existing_bike_codes = {str(row["code"]).strip() for row in bike_rows}
+    for row in bike_rows:
+        migrated_code = migrate_legacy_bike_code(row["code"])
+        current_code = str(row["code"]).strip()
+        if migrated_code == current_code:
+            continue
+        if migrated_code in existing_bike_codes:
+            target_row = cur.execute("SELECT id FROM bikes WHERE code = ?", (migrated_code,)).fetchone()
+            if target_row:
+                cur.execute(
+                    "UPDATE work_orders SET bike_id = ? WHERE bike_id = ?",
+                    (target_row["id"], row["id"]),
+                )
+            cur.execute("DELETE FROM bikes WHERE id = ?", (row["id"],))
+            continue
+        cur.execute(
+            "UPDATE bikes SET code = ?, updated_at = ? WHERE id = ?",
+            (migrated_code, now, row["id"]),
+        )
+        existing_bike_codes.discard(current_code)
+        existing_bike_codes.add(migrated_code)
 
     bike_count = cur.execute("SELECT COUNT(*) FROM bikes").fetchone()[0]
     if bike_count == 0:
