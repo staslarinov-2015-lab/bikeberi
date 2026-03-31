@@ -33,7 +33,21 @@ const ownerKpiNote = document.getElementById("owner-kpi-note");
 const ownerProcurement = document.getElementById("owner-procurement");
 const ownerProcess = document.getElementById("owner-process");
 const currentUser = document.getElementById("current-user");
+const accountButton = document.getElementById("account-button");
+const accountOverlay = document.getElementById("account-overlay");
+const closeAccountButton = document.getElementById("close-account-button");
+const passwordForm = document.getElementById("password-form");
+const passwordMessage = document.getElementById("password-message");
+const passwordError = document.getElementById("password-error");
+const settingsForm = document.getElementById("settings-form");
 const logoutButton = document.getElementById("logout-button");
+const repairOverlay = document.getElementById("repair-overlay");
+const inventoryOverlay = document.getElementById("inventory-overlay");
+const openRepairModalButton = document.getElementById("open-repair-modal");
+const closeRepairModalButton = document.getElementById("close-repair-modal");
+const openInventoryModalButton = document.getElementById("open-inventory-modal");
+const closeInventoryModalButton = document.getElementById("close-inventory-modal");
+const refreshButton = document.getElementById("refresh-button");
 
 function escapeHtml(value) {
   return String(value)
@@ -172,6 +186,12 @@ function renderSections() {
 
   document.querySelectorAll(".screen-section").forEach((section) => {
     section.classList.toggle("hidden", section.id !== `section-${state.activeSection}`);
+  });
+}
+
+function renderStatusChips() {
+  document.querySelectorAll("[data-status-filter]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.statusFilter === state.statusFilter);
   });
 }
 
@@ -317,11 +337,13 @@ function renderAlerts() {
 
 function renderRepairsTable() {
   const rows = getFilteredRepairs();
+  const canManage = getRole() === "mechanic" || getRole() === "owner";
 
   repairsTable.innerHTML = rows
     .map(
-      (item) => `
+      (item, index) => `
         <tr>
+          <td><span class="row-index">${index + 1}</span></td>
           <td>${escapeHtml(item.date)}</td>
           <td><strong>${escapeHtml(item.bike)}</strong></td>
           <td>${escapeHtml(item.issue)}</td>
@@ -329,6 +351,16 @@ function renderRepairsTable() {
           <td>${escapeHtml(item.parts_used)}</td>
           <td>${escapeHtml(item.needed_parts)}</td>
           <td><span class="status-pill ${getStatusClass(item.status)}">${escapeHtml(item.status)}</span></td>
+          <td class="mechanic-only">
+            ${
+              canManage
+                ? `<div class="table-actions">
+                    <button class="icon-btn" type="button" data-action="edit-repair" data-id="${item.id}">Изм.</button>
+                    <button class="danger-btn" type="button" data-action="delete-repair" data-id="${item.id}">Удалить</button>
+                  </div>`
+                : ""
+            }
+          </td>
         </tr>
       `
     )
@@ -337,13 +369,14 @@ function renderRepairsTable() {
   if (!rows.length) {
     repairsTable.innerHTML = `
       <tr>
-        <td colspan="7" class="muted">По текущему фильтру записей не найдено.</td>
+        <td colspan="9" class="muted">По текущему фильтру записей не найдено.</td>
       </tr>
     `;
   }
 }
 
 function renderInventory() {
+  const canManage = getRole() === "mechanic" || getRole() === "owner";
   inventoryGrid.innerHTML = state.inventory
     .map((item) => {
       const isLow = Number(item.stock) <= Number(item.min);
@@ -356,6 +389,14 @@ function renderInventory() {
           <div class="inventory-stock">${escapeHtml(item.stock)}</div>
           <p class="muted">Минимум: ${escapeHtml(item.min)}</p>
           <p class="muted">Нужно заказать: ${escapeHtml(item.need_to_order ? "Да" : "Нет")}</p>
+          ${
+            canManage
+              ? `<div class="inventory-actions">
+                  <button class="icon-btn" type="button" data-action="edit-inventory" data-id="${item.id}">Изменить</button>
+                  <button class="danger-btn" type="button" data-action="delete-inventory" data-id="${item.id}">Удалить</button>
+                </div>`
+              : ""
+          }
         </article>
       `;
     })
@@ -390,8 +431,13 @@ function render() {
   loginOverlay.classList.toggle("hidden", Boolean(state.user));
   globalSearch.value = state.search;
   statusFilter.value = state.statusFilter;
+  if (settingsForm) {
+    settingsForm.elements.totalBikes.value = state.kpi.totalBikes || "";
+    settingsForm.elements.targetRate.value = state.kpi.targetRate || "";
+  }
   renderRoleContent();
   renderSections();
+  renderStatusChips();
   renderMetrics();
   renderTimeline();
   renderAlerts();
@@ -457,6 +503,41 @@ logoutButton.addEventListener("click", async () => {
   }
 });
 
+accountButton.addEventListener("click", () => {
+  passwordError.classList.add("hidden");
+  passwordMessage.classList.add("hidden");
+  passwordForm.reset();
+  accountOverlay.classList.remove("hidden");
+});
+
+closeAccountButton.addEventListener("click", () => {
+  accountOverlay.classList.add("hidden");
+});
+
+openRepairModalButton?.addEventListener("click", () => {
+  repairOverlay.classList.remove("hidden");
+});
+
+closeRepairModalButton?.addEventListener("click", () => {
+  repairOverlay.classList.add("hidden");
+  repairForm.reset();
+  delete repairForm.dataset.editId;
+});
+
+openInventoryModalButton?.addEventListener("click", () => {
+  inventoryOverlay.classList.remove("hidden");
+});
+
+closeInventoryModalButton?.addEventListener("click", () => {
+  inventoryOverlay.classList.add("hidden");
+  inventoryForm.reset();
+  delete inventoryForm.dataset.editId;
+});
+
+refreshButton?.addEventListener("click", async () => {
+  await bootstrap();
+});
+
 document.querySelectorAll(".nav-link").forEach((button) => {
   button.addEventListener("click", () => {
     state.activeSection = button.dataset.section;
@@ -471,16 +552,27 @@ globalSearch.addEventListener("input", (event) => {
 
 statusFilter.addEventListener("change", (event) => {
   state.statusFilter = event.target.value;
+  renderStatusChips();
   renderRepairsTable();
+});
+
+document.querySelectorAll("[data-status-filter]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.statusFilter = button.dataset.statusFilter;
+    statusFilter.value = state.statusFilter;
+    renderStatusChips();
+    renderRepairsTable();
+  });
 });
 
 repairForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const formData = new FormData(repairForm);
+  const editingId = repairForm.dataset.editId;
 
-  await api("/api/repairs", {
-    method: "POST",
+  await api(editingId ? `/api/repairs/${editingId}` : "/api/repairs", {
+    method: editingId ? "PUT" : "POST",
     body: JSON.stringify({
       date: formData.get("date") || new Date().toISOString().slice(0, 10),
       bike: String(formData.get("bike")).trim(),
@@ -493,6 +585,8 @@ repairForm.addEventListener("submit", async (event) => {
   });
 
   repairForm.reset();
+  delete repairForm.dataset.editId;
+  repairOverlay.classList.add("hidden");
   state.activeSection = "repairs";
   await bootstrap();
 });
@@ -501,9 +595,10 @@ inventoryForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const formData = new FormData(inventoryForm);
+  const editingId = inventoryForm.dataset.editId;
 
-  await api("/api/inventory", {
-    method: "POST",
+  await api(editingId ? `/api/inventory/${editingId}` : "/api/inventory", {
+    method: editingId ? "PUT" : "POST",
     body: JSON.stringify({
       name: String(formData.get("name")).trim(),
       stock: Number(formData.get("stock")),
@@ -512,8 +607,93 @@ inventoryForm.addEventListener("submit", async (event) => {
   });
 
   inventoryForm.reset();
+  delete inventoryForm.dataset.editId;
+  inventoryOverlay.classList.add("hidden");
   state.activeSection = "inventory";
   await bootstrap();
+});
+
+passwordForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  passwordError.classList.add("hidden");
+  passwordMessage.classList.add("hidden");
+
+  const formData = new FormData(passwordForm);
+
+  try {
+    const payload = await api("/api/account/password", {
+      method: "POST",
+      body: JSON.stringify({
+        currentPassword: String(formData.get("currentPassword")),
+        newPassword: String(formData.get("newPassword")),
+      }),
+    });
+    passwordMessage.textContent = payload.message;
+    passwordMessage.classList.remove("hidden");
+    passwordForm.reset();
+  } catch (error) {
+    passwordError.textContent = error.message;
+    passwordError.classList.remove("hidden");
+  }
+});
+
+if (settingsForm) {
+  settingsForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(settingsForm);
+    await api("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify({
+        totalBikes: Number(formData.get("totalBikes")),
+        targetRate: Number(formData.get("targetRate")),
+      }),
+    });
+    await bootstrap();
+  });
+}
+
+document.addEventListener("click", async (event) => {
+  const target = event.target.closest("[data-action]");
+  if (!target) return;
+
+  const id = target.dataset.id;
+  const action = target.dataset.action;
+
+  if (action === "edit-repair") {
+    const repair = state.repairs.find((item) => String(item.id) === id);
+    if (!repair) return;
+    repairForm.dataset.editId = id;
+    repairForm.elements.date.value = repair.date;
+    repairForm.elements.bike.value = repair.bike;
+    repairForm.elements.issue.value = repair.issue;
+    repairForm.elements.work.value = repair.work;
+    repairForm.elements.partsUsed.value = repair.parts_used;
+    repairForm.elements.neededParts.value = repair.needed_parts;
+    repairForm.elements.status.value = repair.status;
+    repairOverlay.classList.remove("hidden");
+  }
+
+  if (action === "delete-repair") {
+    if (!window.confirm("Удалить эту запись ремонта?")) return;
+    await api(`/api/repairs/${id}`, { method: "DELETE", headers: {} });
+    await bootstrap();
+  }
+
+  if (action === "edit-inventory") {
+    const item = state.inventory.find((entry) => String(entry.id) === id);
+    if (!item) return;
+    inventoryForm.dataset.editId = id;
+    inventoryForm.elements.name.value = item.name;
+    inventoryForm.elements.stock.value = item.stock;
+    inventoryForm.elements.min.value = item.min;
+    inventoryOverlay.classList.remove("hidden");
+  }
+
+  if (action === "delete-inventory") {
+    if (!window.confirm("Удалить эту складскую позицию?")) return;
+    await api(`/api/inventory/${id}`, { method: "DELETE", headers: {} });
+    await bootstrap();
+  }
 });
 
 bootstrap();
