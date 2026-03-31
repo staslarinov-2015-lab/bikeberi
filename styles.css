@@ -122,7 +122,8 @@ textarea {
 .nav-link,
 .primary-btn,
 .secondary-btn,
-.ghost-btn {
+.ghost-btn,
+.danger-btn {
   border: 0;
   border-radius: 18px;
   cursor: pointer;
@@ -215,6 +216,12 @@ textarea {
   border: 1px solid var(--line);
 }
 
+.danger-btn {
+  background: var(--red-soft);
+  color: var(--red);
+  padding: 11px 14px;
+}
+
 .screen-section {
   display: block;
 }
@@ -292,6 +299,10 @@ textarea {
 
 .split-grid {
   grid-template-columns: 1.45fr 1fr;
+}
+
+.table-panel {
+  min-width: 0;
 }
 
 .panel {
@@ -475,6 +486,34 @@ th {
   border: 1px solid var(--line);
 }
 
+.inventory-actions,
+.table-actions,
+.modal-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.inventory-actions {
+  margin-top: 12px;
+}
+
+.table-actions {
+  justify-content: flex-end;
+}
+
+.icon-btn {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 12px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.success-text {
+  color: var(--green);
+}
+
 .demo-credentials p {
   margin: 0;
 }
@@ -535,6 +574,16 @@ th {
   .metrics-grid,
   .owner-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1380px) {
+  .split-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .table-panel {
+    overflow: hidden;
   }
 }
 
