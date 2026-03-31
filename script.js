@@ -208,13 +208,13 @@ function renderDiagnosticsTable() {
     .map(
       (item, index) => `
         <tr>
-          <td><span class="row-index">${index + 1}</span></td>
-          <td>${escapeHtml(item.date)}</td>
-          <td><strong>${escapeHtml(item.bike)}</strong></td>
-          <td>${escapeHtml(item.mechanic_name)}</td>
-          <td>${escapeHtml(item.symptoms)}</td>
-          <td>${escapeHtml(item.conclusion)}</td>
-          <td>${escapeHtml(item.recommendation)}</td>
+          <td data-label="#"><span class="row-index">${index + 1}</span></td>
+          <td data-label="Дата">${escapeHtml(item.date)}</td>
+          <td data-label="Байк"><strong>${escapeHtml(item.bike)}</strong></td>
+          <td data-label="Кто проверял">${escapeHtml(item.mechanic_name)}</td>
+          <td data-label="Симптомы">${escapeHtml(item.symptoms)}</td>
+          <td data-label="Заключение">${escapeHtml(item.conclusion)}</td>
+          <td data-label="Рекомендация">${escapeHtml(item.recommendation)}</td>
           <td class="mechanic-only">
             ${
               canManage
@@ -388,14 +388,14 @@ function renderRepairsTable() {
     .map(
       (item, index) => `
         <tr>
-          <td><span class="row-index">${index + 1}</span></td>
-          <td>${escapeHtml(item.date)}</td>
-          <td><strong>${escapeHtml(item.bike)}</strong></td>
-          <td>${escapeHtml(item.issue)}</td>
-          <td>${escapeHtml(item.work)}</td>
-          <td>${escapeHtml(item.parts_used)}</td>
-          <td>${escapeHtml(item.needed_parts)}</td>
-          <td><span class="status-pill ${getStatusClass(item.status)}">${escapeHtml(item.status)}</span></td>
+          <td data-label="#"><span class="row-index">${index + 1}</span></td>
+          <td data-label="Дата">${escapeHtml(item.date)}</td>
+          <td data-label="Байк"><strong>${escapeHtml(item.bike)}</strong></td>
+          <td data-label="Проблема">${escapeHtml(item.issue)}</td>
+          <td data-label="Что сделано">${escapeHtml(item.work)}</td>
+          <td data-label="Использовано">${escapeHtml(item.parts_used)}</td>
+          <td data-label="Нужно заказать">${escapeHtml(item.needed_parts)}</td>
+          <td data-label="Статус"><span class="status-pill ${getStatusClass(item.status)}">${escapeHtml(item.status)}</span></td>
           <td class="mechanic-only">
             ${
               canManage

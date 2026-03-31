@@ -656,9 +656,7 @@ tbody tr:hover {
   }
 
   .sidebar {
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    position: static;
   }
 
   .sidebar-footer {
@@ -706,5 +704,172 @@ tbody tr:hover {
   .status-filter-select {
     margin-left: 0;
     max-width: none;
+  }
+
+  .sidebar-brand,
+  .sidebar-user,
+  .sidebar-group,
+  .sidebar-footer {
+    padding: 16px 14px;
+  }
+
+  .sidebar-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nav-link {
+    justify-content: center;
+    text-align: center;
+    padding: 12px;
+    font-size: 0.94rem;
+  }
+
+  .workspace {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .topbar {
+    gap: 10px;
+  }
+
+  .topbar-title-block h2 {
+    font-size: 1.3rem;
+  }
+
+  .topbar-subtitle {
+    font-size: 0.92rem;
+  }
+
+  .topbar-right {
+    font-size: 0.95rem;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .screen-section {
+    padding: 12px;
+  }
+
+  .content-card,
+  .metric-card,
+  .auth-card,
+  .modal-card {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .workspace-toolbar {
+    align-items: stretch;
+  }
+
+  .toolbar-right,
+  .toolbar-left {
+    width: 100%;
+  }
+
+  .toolbar-right {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .toolbar-right .primary-btn,
+  .toolbar-right .ghost-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .status-toolbar {
+    gap: 8px;
+  }
+
+  .status-filter-chip {
+    padding: 9px 12px;
+    font-size: 0.88rem;
+  }
+
+  .table-wrap {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  table,
+  thead,
+  tbody,
+  th,
+  td,
+  tr {
+    display: block;
+    width: 100%;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  tbody tr {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 12px;
+    box-shadow: var(--shadow);
+  }
+
+  tbody td {
+    border-bottom: 0;
+    padding: 8px 0;
+  }
+
+  tbody td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--muted);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  tbody td:first-child::before {
+    display: none;
+  }
+
+  .table-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .row-index {
+    width: 32px;
+    height: 32px;
+  }
+
+  .inventory-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inventory-actions {
+    flex-wrap: wrap;
+  }
+
+  .modal-card {
+    width: min(100%, 100%);
+    max-height: 92vh;
+    overflow: auto;
+  }
+
+  .ghost-btn,
+  .primary-btn,
+  .danger-btn,
+  .icon-btn {
+    min-height: 44px;
   }
 }
