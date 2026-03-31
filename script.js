@@ -10,6 +10,8 @@ const state = {
   repairs: [],
   inventory: [],
   diagnostics: [],
+  bikes: [],
+  workOrders: [],
   repairDraftFromDiagnostic: null,
   diagnosticFlow: {
     mode: "create",
@@ -166,6 +168,8 @@ const repairsTable = document.getElementById("repairs-table");
 const diagnosticsTable = document.getElementById("diagnostics-table");
 const diagnosticCategoryGrid = document.getElementById("diagnostic-category-grid");
 const inventoryGrid = document.getElementById("inventory-grid");
+const bikesGrid = document.getElementById("bikes-grid");
+const workOrdersBoard = document.getElementById("work-orders-board");
 const repairForm = document.getElementById("repair-form");
 const inventoryForm = document.getElementById("inventory-form");
 const diagnosticForm = document.getElementById("diagnostic-form");
@@ -260,6 +264,12 @@ function getStatusClass(status) {
   return "status-waiting";
 }
 
+function getBikeStatusClass(status) {
+  if (status === "готов" || status === "в аренде") return "status-ready";
+  if (status === "в ремонте" || status === "проверка" || status === "принят") return "status-progress";
+  return "status-waiting";
+}
+
 function getSeverityClass(severity) {
   if (severity === "Критичная") return "severity-critical";
   if (severity === "Средняя") return "severity-medium";
@@ -295,11 +305,10 @@ function toggleMobileMenu() {
 
 function getMetrics() {
   const readyRepairs = state.repairs.filter((item) => item.status === "Готов").length;
-  const inRepair = state.repairs.filter((item) => item.status === "В ремонте").length;
-  const waiting = state.repairs.filter((item) => item.status === "Ожидает запчасти").length;
+  const inRepair = state.workOrders.filter((item) => item.status === "в ремонте").length;
+  const waiting = state.workOrders.filter((item) => item.status === "ждет запчасти").length;
   const lowStock = state.inventory.filter((item) => Number(item.stock) <= Number(item.min));
-  const brokenBikes = inRepair + waiting;
-  const workingBikes = Math.max(state.kpi.totalBikes - brokenBikes, 0);
+  const workingBikes = state.bikes.filter((item) => ["готов", "в аренде"].includes(item.status)).length;
   const readyRate = state.kpi.totalBikes
     ? Math.round((workingBikes / state.kpi.totalBikes) * 100)
     : 0;
@@ -681,17 +690,17 @@ function renderAlerts() {
   metrics.lowStock.forEach((item) => {
     alerts.push({
       title: item.name,
-      copy: `Остаток ${item.stock}, минимум ${item.min}. Пора формировать закупку.`,
+      copy: `Доступно ${item.available}, минимум ${item.min}. Пора формировать закупку.`,
       state: "danger",
     });
   });
 
-  state.repairs
-    .filter((item) => item.status === "Ожидает запчасти")
+  state.workOrders
+    .filter((item) => item.status === "ждет запчасти")
     .forEach((item) => {
       alerts.push({
-        title: item.bike,
-        copy: `${item.issue}. Нужно заказать: ${item.needed_parts}.`,
+        title: item.bike_code,
+        copy: `${item.issue}. Не хватает: ${item.missing_parts?.map((part) => `${part.name} x${part.missing}`).join(", ") || "запчастей"}.`,
         state: "danger",
       });
     });
@@ -768,8 +777,8 @@ function renderInventory() {
             <span>${isLow ? "Дефицит" : "Норма"}</span>
           </div>
           <div class="inventory-stock">${escapeHtml(item.stock)}</div>
-          <p class="muted">Минимум: ${escapeHtml(item.min)}</p>
-          <p class="muted">Нужно заказать: ${escapeHtml(item.need_to_order ? "Да" : "Нет")}</p>
+          <p class="muted">Минимум: ${escapeHtml(item.min)} · Зарезервировано: ${escapeHtml(item.reserved || 0)}</p>
+          <p class="muted">Доступно сейчас: ${escapeHtml(item.available || 0)} · Нужно заказать: ${escapeHtml(item.need_to_order ? "Да" : "Нет")}</p>
           ${
             canManage
               ? `<div class="inventory-actions">
@@ -778,6 +787,89 @@ function renderInventory() {
                 </div>`
               : ""
           }
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderBikes() {
+  if (!bikesGrid) return;
+  bikesGrid.innerHTML = state.bikes
+    .map(
+      (bike) => `
+        <article class="inventory-card">
+          <div class="inventory-meta">
+            <span>${escapeHtml(bike.code)}</span>
+            <span class="status-pill ${getBikeStatusClass(bike.status)}">${escapeHtml(bike.status)}</span>
+          </div>
+          <div class="inventory-stock">${escapeHtml(bike.model)}</div>
+          <p class="muted">Последний сервис: ${escapeHtml(bike.last_service_at || "еще не было")}</p>
+          <p class="muted">${escapeHtml(bike.notes || "Без заметок по байку")}</p>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderWorkOrders() {
+  if (!workOrdersBoard) return;
+  if (!state.workOrders.length) {
+    workOrdersBoard.innerHTML = '<div class="stack-item"><strong>Активных заявок нет</strong><p class="muted">Новые заявки создаются автоматически после диагностики.</p></div>';
+    return;
+  }
+
+  workOrdersBoard.innerHTML = state.workOrders
+    .map((order) => {
+      const etaText = order.estimated_ready_at
+        ? new Date(order.estimated_ready_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+        : "появится после комплектации";
+      const parts = order.parts?.length
+        ? order.parts
+            .map((part) => {
+              const reserved = Number(part.qty_reserved || 0);
+              const required = Number(part.qty_required || 0);
+              return `<span class="diagnostic-category-tag">${escapeHtml(part.part_name)} ${reserved}/${required}</span>`;
+            })
+            .join(" ")
+        : '<span class="muted">Запчасти не требуются</span>';
+      const missing = order.missing_parts?.length
+        ? `<p class="error-text">Не хватает: ${escapeHtml(order.missing_parts.map((item) => `${item.name} x${item.missing}`).join(", "))}</p>`
+        : '<p class="success-text">Комплект собран, можно запускать ремонт</p>';
+      const history = order.history?.length
+        ? `<div class="stack-list">${order.history
+            .map(
+              (entry) => `<div class="stack-item"><strong>${escapeHtml(entry.actor_name)}</strong><p class="muted">${escapeHtml(entry.message)}</p></div>`
+            )
+            .join("")}</div>`
+        : "";
+
+      return `
+        <article class="content-card owner-card">
+          <div class="inventory-meta">
+            <span><strong>${escapeHtml(order.bike_code)}</strong> · ${escapeHtml(order.issue)}</span>
+            <span class="status-pill ${getBikeStatusClass(order.status)}">${escapeHtml(order.status)}</span>
+          </div>
+          <p class="muted">Раздел: ${escapeHtml(order.category)} · Поломка: ${escapeHtml(order.fault)}</p>
+          <p class="muted">Нужно времени: ${escapeHtml(order.estimated_minutes)} мин · ETA: ${escapeHtml(etaText)}</p>
+          <div class="stack-item">
+            <strong>Нужные запчасти</strong>
+            <p class="muted">${escapeHtml(order.required_parts_text || "-")}</p>
+            <div class="status-toolbar">${parts}</div>
+            ${missing}
+          </div>
+          <div class="stack-item">
+            <strong>План работ</strong>
+            <p class="muted">${escapeHtml(order.planned_work || "-")}</p>
+          </div>
+          <div class="table-actions">
+            ${order.can_reserve ? `<button class="icon-btn" type="button" data-action="work-order-reserve" data-id="${order.id}">Проверить склад</button>` : ""}
+            ${order.can_start ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-start" data-id="${order.id}">Начать ремонт</button>` : ""}
+            ${order.can_send_to_check ? `<button class="icon-btn" type="button" data-action="work-order-check" data-id="${order.id}">На проверку</button>` : ""}
+            ${order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">Готов</button>` : ""}
+            ${order.status === "проверка" ? `<button class="danger-btn" type="button" data-action="work-order-return" data-id="${order.id}">Вернуть в ремонт</button>` : ""}
+          </div>
+          ${history}
         </article>
       `;
     })
@@ -828,6 +920,8 @@ function render() {
   renderDiagnosticFaultGrid();
   syncDiagnosticWizard();
   renderInventory();
+  renderBikes();
+  renderWorkOrders();
   renderOwnerPanel();
   renderProfile();
 }
@@ -837,9 +931,11 @@ async function bootstrap() {
     const payload = await api("/api/bootstrap", { method: "GET", headers: {} });
     state.user = payload.user;
     state.kpi = payload.kpi;
+    state.bikes = payload.bikes || [];
     state.repairs = payload.repairs;
     state.inventory = payload.inventory;
     state.diagnostics = payload.diagnostics || [];
+    state.workOrders = payload.workOrders || [];
     if (getRole() !== "owner" && state.activeSection === "owner") {
       state.activeSection = "overview";
     }
@@ -1077,6 +1173,7 @@ diagnosticForm.addEventListener("submit", async (event) => {
       conclusion: String(formData.get("conclusion")).trim(),
       severity: String(formData.get("severity")).trim(),
       recommendation: String(formData.get("recommendation")).trim(),
+      required_parts_text: String(formData.get("requiredParts")).trim(),
     }),
   });
 
@@ -1241,6 +1338,21 @@ document.addEventListener("click", async (event) => {
     repairForm.elements.neededParts.value = state.repairDraftFromDiagnostic.neededParts || "";
     repairForm.elements.status.value = state.repairDraftFromDiagnostic.status || "В ремонте";
     repairOverlay.classList.remove("hidden");
+  }
+
+  if (action.startsWith("work-order-")) {
+    const actionMap = {
+      "work-order-reserve": "reserve",
+      "work-order-start": "start_repair",
+      "work-order-check": "send_to_check",
+      "work-order-ready": "mark_ready",
+      "work-order-return": "return_to_repair",
+    };
+    await api(`/api/work-orders/${id}/transition`, {
+      method: "POST",
+      body: JSON.stringify({ action: actionMap[action] }),
+    });
+    await bootstrap();
   }
 
   if (action === "start-diagnostic-category") {

@@ -64,6 +64,7 @@
           <div class="sidebar-group-title">Сервис</div>
           <nav class="sidebar-nav" aria-label="Разделы">
             <button class="nav-link is-active" type="button" data-section="overview">Дашборд</button>
+            <button class="nav-link" type="button" data-section="bikes">Байки</button>
             <button class="nav-link" type="button" data-section="profile">Профиль</button>
             <button class="nav-link" type="button" data-section="diagnostics">Диагностика</button>
             <button class="nav-link" type="button" data-section="repairs">Ремонты</button>
@@ -195,8 +196,31 @@
           </div>
         </section>
 
+        <section id="section-bikes" class="screen-section hidden">
+          <section class="content-card">
+            <div class="workspace-toolbar">
+              <div class="toolbar-left">
+                <div>
+                  <div class="section-label">Парк</div>
+                  <h3>Карточки байков</h3>
+                  <p class="muted">У каждого байка теперь есть собственный статус в сервисном цикле.</p>
+                </div>
+              </div>
+            </div>
+            <div id="bikes-grid" class="inventory-grid"></div>
+          </section>
+        </section>
+
         <section id="section-repairs" class="screen-section hidden">
           <section class="content-card">
+            <div class="content-card-head content-card-head-space">
+              <div>
+                <div class="section-label">Активные заявки</div>
+                <h3>Очередь ремонта и приемки</h3>
+              </div>
+            </div>
+            <div id="work-orders-board" class="stack-list"></div>
+
             <div class="workspace-toolbar">
               <div class="toolbar-left">
                 <label class="search-wrap search-wrap-wide">
@@ -225,8 +249,8 @@
 
             <div class="content-card-head content-card-head-space">
               <div>
-                <div class="section-label">Журнал ремонтов</div>
-                <h3>Все работы по байкам</h3>
+                <div class="section-label">История ремонтов</div>
+                <h3>Завершенные работы по байкам</h3>
               </div>
             </div>
 
@@ -517,6 +541,10 @@
           <label class="wide">
             <span>Заключение</span>
             <textarea name="conclusion" rows="4" placeholder="Предварительный вывод по байку" required></textarea>
+          </label>
+          <label class="wide">
+            <span>Нужные запчасти</span>
+            <input name="requiredParts" type="text" placeholder="Например: Колодки:1, Камера:1" />
           </label>
           <button class="primary-btn wide" type="submit">Сохранить диагностику</button>
         </form>
