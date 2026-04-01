@@ -53,14 +53,15 @@ textarea {
 }
 
 .bike-code-builder {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px;
+  display: block;
 }
 
-.bike-code-builder select {
-  text-align: center;
-  padding-inline: 10px;
+.bike-code-builder [data-bike-code-input] {
+  width: 100%;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 1.05rem;
 }
 
 .hidden {

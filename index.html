@@ -416,41 +416,19 @@
             <span>Байк</span>
             <input name="bike" type="hidden" required />
             <div class="bike-code-builder" data-bike-code-root="repair">
-              <select data-bike-part="l1" aria-label="Первая буква">
-                <option value="">Буква</option>
-                <option value="P">Р</option>
-                <option value="E">Е</option>
-                <option value="Y">У</option>
-              </select>
-              <select data-bike-part="l2" aria-label="Вторая буква">
-                <option value="">Буква</option>
-                <option value="P">Р</option>
-                <option value="E">Е</option>
-                <option value="Y">У</option>
-              </select>
-              <select data-bike-part="d1" aria-label="Первая цифра">
-                <option value="">0-9</option>
-                <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
-                <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option>
-              </select>
-              <select data-bike-part="d2" aria-label="Вторая цифра">
-                <option value="">0-9</option>
-                <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
-                <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option>
-              </select>
-              <select data-bike-part="d3" aria-label="Третья цифра">
-                <option value="">0-9</option>
-                <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
-                <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option>
-              </select>
-              <select data-bike-part="l3" aria-label="Третья буква">
-                <option value="">Буква</option>
-                <option value="P">Р</option>
-                <option value="E">Е</option>
-                <option value="Y">У</option>
-              </select>
+              <input
+                data-bike-code-input
+                type="text"
+                inputmode="text"
+                autocapitalize="characters"
+                autocomplete="off"
+                spellcheck="false"
+                maxlength="6"
+                placeholder="РЕ123У"
+                aria-label="Номер байка"
+              />
             </div>
-            <span class="muted">Формат: РЕ123У</span>
+            <span class="muted">Формат: 2 буквы + 3 цифры + 1 буква. Допустимы буквы Р, Е, У.</span>
           </label>
           <label class="wide">
             <span>Что сломано</span>
@@ -524,41 +502,19 @@
             <span>Номер байка</span>
             <input name="bike" type="hidden" required />
             <div class="bike-code-builder" data-bike-code-root="bike">
-              <select data-bike-part="l1" aria-label="Первая буква">
-                <option value="">Буква</option>
-                <option value="P">Р</option>
-                <option value="E">Е</option>
-                <option value="Y">У</option>
-              </select>
-              <select data-bike-part="l2" aria-label="Вторая буква">
-                <option value="">Буква</option>
-                <option value="P">Р</option>
-                <option value="E">Е</option>
-                <option value="Y">У</option>
-              </select>
-              <select data-bike-part="d1" aria-label="Первая цифра">
-                <option value="">0-9</option>
-                <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
-                <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option>
-              </select>
-              <select data-bike-part="d2" aria-label="Вторая цифра">
-                <option value="">0-9</option>
-                <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
-                <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option>
-              </select>
-              <select data-bike-part="d3" aria-label="Третья цифра">
-                <option value="">0-9</option>
-                <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
-                <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option>
-              </select>
-              <select data-bike-part="l3" aria-label="Третья буква">
-                <option value="">Буква</option>
-                <option value="P">Р</option>
-                <option value="E">Е</option>
-                <option value="Y">У</option>
-              </select>
+              <input
+                data-bike-code-input
+                type="text"
+                inputmode="text"
+                autocapitalize="characters"
+                autocomplete="off"
+                spellcheck="false"
+                maxlength="6"
+                placeholder="РЕ123У"
+                aria-label="Номер байка"
+              />
             </div>
-            <span class="muted">Формат: РЕ123У</span>
+            <span class="muted">Формат: 2 буквы + 3 цифры + 1 буква. Допустимы буквы Р, Е, У.</span>
           </label>
           <label>
             <span>Модель</span>
@@ -646,41 +602,19 @@
             <span>Байк</span>
             <input name="bike" type="hidden" required />
             <div class="bike-code-builder" data-bike-code-root="diagnostic">
-              <select data-bike-part="l1" aria-label="Первая буква">
-                <option value="">Буква</option>
-                <option value="P">Р</option>
-                <option value="E">Е</option>
-                <option value="Y">У</option>
-              </select>
-              <select data-bike-part="l2" aria-label="Вторая буква">
-                <option value="">Буква</option>
-                <option value="P">Р</option>
-                <option value="E">Е</option>
-                <option value="Y">У</option>
-              </select>
-              <select data-bike-part="d1" aria-label="Первая цифра">
-                <option value="">0-9</option>
-                <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
-                <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option>
-              </select>
-              <select data-bike-part="d2" aria-label="Вторая цифра">
-                <option value="">0-9</option>
-                <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
-                <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option>
-              </select>
-              <select data-bike-part="d3" aria-label="Третья цифра">
-                <option value="">0-9</option>
-                <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
-                <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option>
-              </select>
-              <select data-bike-part="l3" aria-label="Третья буква">
-                <option value="">Буква</option>
-                <option value="P">Р</option>
-                <option value="E">Е</option>
-                <option value="Y">У</option>
-              </select>
+              <input
+                data-bike-code-input
+                type="text"
+                inputmode="text"
+                autocapitalize="characters"
+                autocomplete="off"
+                spellcheck="false"
+                maxlength="6"
+                placeholder="РЕ123У"
+                aria-label="Номер байка"
+              />
             </div>
-            <span class="muted">Формат: РЕ123У</span>
+            <span class="muted">Формат: 2 буквы + 3 цифры + 1 буква. Допустимы буквы Р, Е, У.</span>
           </label>
           <label>
             <span>Кто проверял</span>

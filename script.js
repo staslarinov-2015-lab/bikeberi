@@ -247,6 +247,8 @@ function normalizeBikeCode(rawValue) {
   return source
     .split("")
     .map((char) => BIKE_CODE_NORMALIZE_MAP[char] || char)
+    .filter((char, index) => (index === 0 || index === 1 || index === 5 ? BIKE_CODE_ALLOWED_LETTERS.includes(char) : BIKE_CODE_ALLOWED_DIGITS.includes(char)))
+    .slice(0, 6)
     .join("");
 }
 
@@ -262,30 +264,28 @@ function getBikeBuilder(rootName) {
 function updateBikeCodeHiddenInput(rootName) {
   const builder = getBikeBuilder(rootName);
   if (!builder) return "";
-  const parts = ["l1", "l2", "d1", "d2", "d3", "l3"].map((part) => {
-    const field = builder.querySelector(`[data-bike-part="${part}"]`);
-    return field ? String(field.value || "").trim() : "";
-  });
+  const visibleInput = builder.querySelector("[data-bike-code-input]");
   const hiddenInput = builder.parentElement.querySelector('input[name="bike"]');
-  const complete = parts.every(Boolean);
-  const bikeCode = complete ? normalizeBikeCode(parts.join("")) : "";
+  const bikeCode = normalizeBikeCode(visibleInput ? visibleInput.value : "");
+  const complete = bikeCode.length === 6;
+  if (visibleInput) {
+    visibleInput.value = bikeCode;
+  }
   if (hiddenInput) {
-    hiddenInput.value = bikeCode;
+    hiddenInput.value = complete ? bikeCode : "";
     hiddenInput.setCustomValidity(complete && isValidBikeCode(bikeCode) ? "" : "Укажи номер байка в формате РЕ123У");
   }
-  return bikeCode;
+  return complete ? bikeCode : "";
 }
 
 function setBikeCodeValue(rootName, value) {
   const builder = getBikeBuilder(rootName);
   if (!builder) return;
   const normalized = normalizeBikeCode(value);
-  const parts = normalized.length === 6 ? normalized.split("") : [];
-  ["l1", "l2", "d1", "d2", "d3", "l3"].forEach((partName, index) => {
-    const field = builder.querySelector(`[data-bike-part="${partName}"]`);
-    if (!field) return;
-    field.value = parts[index] || "";
-  });
+  const visibleInput = builder.querySelector("[data-bike-code-input]");
+  if (visibleInput) {
+    visibleInput.value = normalized;
+  }
   updateBikeCodeHiddenInput(rootName);
 }
 
@@ -296,11 +296,15 @@ function resetBikeCodeValue(rootName) {
 function syncBikeCodeBuilders() {
   bikeCodeBuilders.forEach((builder) => {
     const rootName = builder.dataset.bikeCodeRoot;
-    builder.querySelectorAll("[data-bike-part]").forEach((field) => {
-      field.addEventListener("change", () => {
+    const visibleInput = builder.querySelector("[data-bike-code-input]");
+    if (visibleInput) {
+      visibleInput.addEventListener("input", () => {
         updateBikeCodeHiddenInput(rootName);
       });
-    });
+      visibleInput.addEventListener("blur", () => {
+        updateBikeCodeHiddenInput(rootName);
+      });
+    }
     updateBikeCodeHiddenInput(rootName);
   });
 }
