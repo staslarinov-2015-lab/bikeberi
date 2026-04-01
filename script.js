@@ -20,6 +20,11 @@ const state = {
   },
 };
 
+const repairDeadlineNotifications = new Set();
+const repairAlerts = document.createElement("div");
+repairAlerts.className = "repair-alerts";
+document.body.appendChild(repairAlerts);
+
 const DIAGNOSTIC_LIBRARY = {
   "Пластик": {
     summary: "Обвес, крышки, внешние элементы корпуса",
@@ -180,6 +185,7 @@ const diagnosticCategoryGrid = document.getElementById("diagnostic-category-grid
 const inventoryGrid = document.getElementById("inventory-grid");
 const bikesGrid = document.getElementById("bikes-grid");
 const workOrdersBoard = document.getElementById("work-orders-board");
+const activeRepairBoard = document.getElementById("active-repair-board");
 const repairForm = document.getElementById("repair-form");
 const inventoryForm = document.getElementById("inventory-form");
 const bikeForm = document.getElementById("bike-form");
@@ -411,6 +417,72 @@ function getMetrics() {
 
 function formatHours(value) {
   return `${Number(value || 0).toFixed(1)} ч`;
+}
+
+function formatRepairCountdown(deadlineRaw) {
+  if (!deadlineRaw) return "Таймер еще не запущен";
+  const deadline = new Date(deadlineRaw).getTime();
+  const diff = deadline - Date.now();
+  if (Number.isNaN(deadline)) return "Таймер недоступен";
+  const abs = Math.abs(diff);
+  const hours = Math.floor(abs / 3600000);
+  const minutes = Math.floor((abs % 3600000) / 60000);
+  const seconds = Math.floor((abs % 60000) / 1000);
+  const parts = [hours, minutes, seconds].map((part) => String(part).padStart(2, "0"));
+  return diff >= 0 ? `${parts.join(":")} до завершения` : `Просрочено на ${parts.join(":")}`;
+}
+
+async function ensureNotificationPermission() {
+  if (!("Notification" in window)) return "unsupported";
+  if (Notification.permission === "granted") return "granted";
+  if (Notification.permission === "denied") return "denied";
+  try {
+    return await Notification.requestPermission();
+  } catch (error) {
+    return "denied";
+  }
+}
+
+function notifyRepairDeadline(order) {
+  if (!order || repairDeadlineNotifications.has(order.id) || order.status !== "в ремонте" || !order.estimated_ready_at) {
+    return;
+  }
+  if (new Date(order.estimated_ready_at).getTime() > Date.now()) {
+    return;
+  }
+  repairDeadlineNotifications.add(order.id);
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification("Пора завершать ремонт", {
+      body: `${order.bike_code}: ${order.issue}`,
+    });
+  }
+  showRepairAlert(`Пора завершать ремонт: ${order.bike_code} — ${order.issue}`);
+}
+
+function refreshRepairTimers() {
+  document.querySelectorAll("[data-repair-deadline]").forEach((node) => {
+    const deadline = node.dataset.repairDeadline;
+    node.textContent = formatRepairCountdown(deadline);
+    node.classList.toggle("error-text", Boolean(deadline) && new Date(deadline).getTime() <= Date.now());
+  });
+  state.workOrders.forEach((order) => notifyRepairDeadline(order));
+}
+
+function showRepairAlert(message) {
+  const alert = document.createElement("div");
+  alert.className = "repair-alert";
+  alert.innerHTML = `
+    <strong>Ремонт требует внимания</strong>
+    <p>${escapeHtml(message)}</p>
+  `;
+  repairAlerts.appendChild(alert);
+  window.setTimeout(() => {
+    alert.classList.add("is-visible");
+  }, 20);
+  window.setTimeout(() => {
+    alert.classList.remove("is-visible");
+    window.setTimeout(() => alert.remove(), 250);
+  }, 7000);
 }
 
 function getOverviewBreakdown(metrics) {
@@ -1035,13 +1107,47 @@ function renderBikes() {
 }
 
 function renderWorkOrders() {
-  if (!workOrdersBoard) return;
-  if (!state.workOrders.length) {
-    workOrdersBoard.innerHTML = '<div class="stack-item"><strong>Активных заявок нет</strong><p class="muted">Новые заявки создаются автоматически после диагностики.</p></div>';
+  if (!workOrdersBoard || !activeRepairBoard) return;
+  const activeOrders = state.workOrders.filter((order) => order.status === "в ремонте");
+  const queueOrders = state.workOrders.filter((order) => order.status !== "в ремонте");
+
+  if (!activeOrders.length) {
+    activeRepairBoard.innerHTML = '<div class="stack-item"><strong>Активных ремонтов нет</strong><p class="muted">Когда механик нажимает "Начать ремонт", здесь запускается таймер по расчетному времени.</p></div>';
+  } else {
+    activeRepairBoard.innerHTML = activeOrders
+      .map((order) => {
+        const etaText = order.estimated_ready_at
+          ? new Date(order.estimated_ready_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+          : "появится после запуска";
+        return `
+          <article class="content-card owner-card">
+            <div class="inventory-meta">
+              <span><strong>${escapeHtml(order.bike_code)}</strong> · ${escapeHtml(order.issue)}</span>
+              <span class="status-pill ${getBikeStatusClass(order.status)}">${escapeHtml(order.status)}</span>
+            </div>
+            <p class="muted">Диагностика: ${escapeHtml(order.intake_date)} · Норма времени: ${escapeHtml(order.estimated_minutes)} мин</p>
+            <div class="stack-item">
+              <strong>Таймер ремонта</strong>
+              <p class="metric-value repair-timer" data-repair-deadline="${escapeHtml(order.estimated_ready_at || "")}">${escapeHtml(formatRepairCountdown(order.estimated_ready_at))}</p>
+              <p class="muted">Плановое завершение: ${escapeHtml(etaText)}</p>
+            </div>
+            <div class="table-actions">
+              ${order.can_send_to_check ? `<button class="icon-btn" type="button" data-action="work-order-check" data-id="${order.id}">На проверку</button>` : ""}
+              ${order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">Готов</button>` : ""}
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+  }
+
+  if (!queueOrders.length) {
+    workOrdersBoard.innerHTML = '<div class="stack-item"><strong>Очередь пуста</strong><p class="muted">Новые заявки создаются автоматически после диагностики.</p></div>';
+    refreshRepairTimers();
     return;
   }
 
-  workOrdersBoard.innerHTML = state.workOrders
+  workOrdersBoard.innerHTML = queueOrders
     .map((order) => {
       const etaText = order.estimated_ready_at
         ? new Date(order.estimated_ready_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
@@ -1073,7 +1179,7 @@ function renderWorkOrders() {
             <span class="status-pill ${getBikeStatusClass(order.status)}">${escapeHtml(order.status)}</span>
           </div>
           <p class="muted">Раздел: ${escapeHtml(order.category)} · Поломка: ${escapeHtml(order.fault)}</p>
-          <p class="muted">Нужно времени: ${escapeHtml(order.estimated_minutes)} мин · ETA: ${escapeHtml(etaText)}</p>
+          <p class="muted">Диагностика: ${escapeHtml(order.intake_date)} · Нужно времени: ${escapeHtml(order.estimated_minutes)} мин · ETA: ${escapeHtml(etaText)}</p>
           <div class="stack-item">
             <strong>Нужные запчасти</strong>
             <p class="muted">${escapeHtml(order.required_parts_text || "-")}</p>
@@ -1096,6 +1202,8 @@ function renderWorkOrders() {
       `;
     })
     .join("");
+
+  refreshRepairTimers();
 }
 
 function renderOwnerPanel() {
@@ -1670,6 +1778,9 @@ document.addEventListener("click", async (event) => {
       "work-order-ready": "mark_ready",
       "work-order-return": "return_to_repair",
     };
+    if (action === "work-order-start") {
+      await ensureNotificationPermission();
+    }
     await api(`/api/work-orders/${id}/transition`, {
       method: "POST",
       body: JSON.stringify({ action: actionMap[action] }),
@@ -1689,4 +1800,5 @@ document.addEventListener("click", async (event) => {
 });
 
 syncBikeCodeBuilders();
+window.setInterval(refreshRepairTimers, 1000);
 bootstrap();

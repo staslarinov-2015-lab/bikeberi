@@ -315,6 +315,7 @@ def init_db():
             priority TEXT NOT NULL DEFAULT 'обычный',
             parts_ready INTEGER NOT NULL DEFAULT 0,
             completed_repair_id INTEGER,
+            started_at TEXT,
             created_at TEXT NOT NULL,
             completed_at TEXT,
             FOREIGN KEY (bike_id) REFERENCES bikes(id),
@@ -365,6 +366,7 @@ def init_db():
     ensure_column(cur, "work_orders", "priority", "TEXT NOT NULL DEFAULT 'обычный'")
     ensure_column(cur, "work_orders", "parts_ready", "INTEGER NOT NULL DEFAULT 0")
     ensure_column(cur, "work_orders", "completed_repair_id", "INTEGER")
+    ensure_column(cur, "work_orders", "started_at", "TEXT")
     ensure_column(cur, "work_orders", "completed_at", "TEXT")
 
     now = utc_now().isoformat()
@@ -844,6 +846,7 @@ def hydrate_work_orders(conn):
             work_orders.planned_work,
             work_orders.priority,
             work_orders.parts_ready,
+            work_orders.started_at,
             work_orders.created_at,
             work_orders.completed_at
         FROM work_orders
@@ -1263,7 +1266,7 @@ class AppHandler(BaseHTTPRequestHandler):
             order = conn.execute(
                 """
                 SELECT id, bike_id, status, issue, category, fault, mechanic_name, intake_date,
-                       estimated_minutes, required_parts_text, planned_work, completed_repair_id
+                       estimated_minutes, required_parts_text, planned_work, completed_repair_id, started_at
                 FROM work_orders
                 WHERE id = ?
                 """,
@@ -1304,12 +1307,20 @@ class AppHandler(BaseHTTPRequestHandler):
                     conn.close()
                     return json_response(self, 400, {"error": "Не все запчасти в наличии"})
                 next_status = "в ремонте"
+                started_at = utc_now().isoformat()
+                eta = (utc_now() + timedelta(minutes=int(order["estimated_minutes"] or 0))).isoformat()
                 conn.execute(
-                    "UPDATE work_orders SET status = ?, parts_ready = 1 WHERE id = ?",
-                    (next_status, work_order_id),
+                    "UPDATE work_orders SET status = ?, parts_ready = 1, started_at = ?, estimated_ready_at = ? WHERE id = ?",
+                    (next_status, started_at, eta, work_order_id),
                 )
                 set_bike_status(conn, order["bike_id"], next_status)
-                add_work_order_history(conn, int(work_order_id), user["full_name"], "status", "Механик начал ремонт")
+                add_work_order_history(
+                    conn,
+                    int(work_order_id),
+                    user["full_name"],
+                    "status",
+                    f"Механик начал ремонт, таймер запущен на {int(order['estimated_minutes'] or 0)} мин",
+                )
 
             elif action == "send_to_check":
                 if order["status"] != "в ремонте":
@@ -1325,9 +1336,20 @@ class AppHandler(BaseHTTPRequestHandler):
                     conn.close()
                     return json_response(self, 400, {"error": "Возврат доступен только из проверки"})
                 next_status = "в ремонте"
-                conn.execute("UPDATE work_orders SET status = ? WHERE id = ?", (next_status, work_order_id))
+                started_at = utc_now().isoformat()
+                eta = (utc_now() + timedelta(minutes=int(order["estimated_minutes"] or 0))).isoformat()
+                conn.execute(
+                    "UPDATE work_orders SET status = ?, started_at = ?, estimated_ready_at = ? WHERE id = ?",
+                    (next_status, started_at, eta, work_order_id),
+                )
                 set_bike_status(conn, order["bike_id"], next_status)
-                add_work_order_history(conn, int(work_order_id), user["full_name"], "status", "Байк возвращен из проверки в ремонт")
+                add_work_order_history(
+                    conn,
+                    int(work_order_id),
+                    user["full_name"],
+                    "status",
+                    "Байк возвращен из проверки в ремонт, таймер перезапущен",
+                )
 
             elif action == "mark_ready":
                 if order["status"] != "проверка":
