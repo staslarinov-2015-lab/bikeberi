@@ -1024,14 +1024,15 @@ function chooseDiagnosticFault(fault) {
 
 function renderMetrics() {
   const stats = getDashboardStats();
+  const ownerMode = getRole() === "owner";
   document.querySelectorAll("[data-dashboard-period]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.dashboardPeriod === state.dashboardPeriod);
   });
   const cards = [
     {
       key: "repair",
-      icon: "⌁",
-      tint: "is-soft-blue",
+      icon: "🔧",
+      tint: "is-soft-yellow",
       label: "Байков в ремонте",
       value: String(stats.repairsInPeriod),
       details: state.workOrders
@@ -1056,7 +1057,7 @@ function renderMetrics() {
     },
     {
       key: "ready",
-      icon: "◌",
+      icon: "✓",
       tint: "is-soft-green",
       label: "Готово ремонтов",
       value: String(stats.readyAfterRepair),
@@ -1065,7 +1066,8 @@ function renderMetrics() {
         .slice(0, 6)
         .map((item) => `${item.bike} · ${item.issue}`),
     },
-    {
+    ...(ownerMode
+      ? [{
       key: "idle",
       icon: "⚲",
       tint: "is-soft-yellow",
@@ -1075,7 +1077,8 @@ function renderMetrics() {
         .filter((item) => item.status === "готов")
         .slice(0, 6)
         .map((item) => `${item.code} · ${formatBikeModel(item.model)}`),
-    },
+      }]
+      : []),
   ];
 
   metricsGrid.innerHTML = cards
