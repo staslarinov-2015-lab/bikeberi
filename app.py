@@ -559,6 +559,32 @@ def init_db():
             [("total_bikes", "40"), ("target_rate", "95")],
         )
 
+    cleanup_key = "service_history_reset_v1"
+    cleanup_done = cur.execute("SELECT 1 FROM settings WHERE key = ?", (cleanup_key,)).fetchone()
+    if not cleanup_done:
+        cur.execute("DELETE FROM work_order_history")
+        cur.execute("DELETE FROM work_order_parts")
+        cur.execute("DELETE FROM work_orders")
+        cur.execute("DELETE FROM repairs")
+        cur.execute("DELETE FROM diagnostics")
+        cur.execute("UPDATE inventory SET reserved = 0, updated_at = ?", (now,))
+        cur.execute(
+            """
+            UPDATE bikes
+            SET status = CASE
+                    WHEN status = 'в аренде' THEN 'в аренде'
+                    ELSE 'готов'
+                END,
+                last_service_at = NULL,
+                updated_at = ?
+            """,
+            (now,),
+        )
+        cur.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            (cleanup_key, now),
+        )
+
     conn.commit()
     conn.close()
 
