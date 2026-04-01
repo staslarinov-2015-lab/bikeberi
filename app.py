@@ -1728,6 +1728,28 @@ class AppHandler(BaseHTTPRequestHandler):
             conn.close()
             return json_response(self, 200, {"ok": True})
 
+        if parsed.path.startswith("/api/bikes/"):
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            bike_id = parsed.path.rsplit("/", 1)[-1]
+            conn = get_db()
+            order_ids = [
+                row["id"]
+                for row in conn.execute(
+                    "SELECT id FROM work_orders WHERE bike_id = ?",
+                    (bike_id,),
+                ).fetchall()
+            ]
+            for work_order_id in order_ids:
+                conn.execute("DELETE FROM work_order_history WHERE work_order_id = ?", (work_order_id,))
+                conn.execute("DELETE FROM work_order_parts WHERE work_order_id = ?", (work_order_id,))
+            conn.execute("DELETE FROM work_orders WHERE bike_id = ?", (bike_id,))
+            conn.execute("DELETE FROM bikes WHERE id = ?", (bike_id,))
+            conn.commit()
+            conn.close()
+            return json_response(self, 200, {"ok": True})
+
         return text_response(self, 404, "Not found")
 
     def serve_index(self):

@@ -1220,6 +1220,7 @@ function renderBikes() {
                   </select>
                   <button class="primary-btn primary-btn-small" type="button" data-action="save-bike-status" data-id="${bike.id}">Сохранить статус</button>
                   <button class="icon-btn" type="button" data-action="edit-bike" data-id="${bike.id}">Изменить</button>
+                  <button class="danger-btn" type="button" data-action="delete-bike" data-id="${bike.id}">Удалить</button>
                 </div>`
               : ""
           }
@@ -1905,6 +1906,12 @@ document.addEventListener("click", async (event) => {
         notes: bike.notes || "",
       }),
     });
+    await bootstrap();
+  }
+
+  if (action === "delete-bike") {
+    if (!window.confirm("Удалить этот байк из парка? Связанные активные заявки по нему тоже будут удалены.")) return;
+    await api(`/api/bikes/${id}`, { method: "DELETE", headers: {} });
     await bootstrap();
   }
 
