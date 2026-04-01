@@ -428,6 +428,66 @@ function syncRoleButtons() {
   });
 }
 
+function renderSectionHeader() {
+  const ownerMode = getRole() === "owner";
+  const sectionMeta = {
+    overview: ownerMode
+      ? {
+          title: "Контроль парка и сервиса",
+          heroTitleText: "Собственник видит бизнес-картину, а не только список поломок",
+          heroCopyText: "На одном экране видно, сколько байков реально готовы к аренде, где застревают ремонты и какие позиции тянут закупку.",
+          badge: "Сегодня в фокусе: KPI и доступность парка",
+        }
+      : {
+          title: "Сводка сервиса",
+          heroTitleText: "Рабочий день механика под контролем",
+          heroCopyText: "Видно текущую загрузку, зависшие ремонты и детали, которые нужно заказать.",
+          badge: "Сегодня в фокусе: оперативка",
+        },
+    bikes: {
+      title: "Парк байков",
+      heroTitleText: "Справочный состав парка",
+      heroCopyText: "Раздел только для просмотра текущих байков и их статусов в сервисном цикле.",
+      badge: "Только просмотр",
+    },
+    profile: {
+      title: "Профиль механика",
+      heroTitleText: "Личная карточка сотрудника",
+      heroCopyText: "Здесь можно обновить имя, контакты, должность и рабочие заметки.",
+      badge: "Аккаунт",
+    },
+    diagnostics: {
+      title: "Диагностика",
+      heroTitleText: "Первичный осмотр и фиксация поломок",
+      heroCopyText: "Механик выбирает узел байка, указывает неисправность и формирует основание для ремонта.",
+      badge: "Осмотр",
+    },
+    repairs: {
+      title: "Ремонты",
+      heroTitleText: "Активные заявки и завершенные работы",
+      heroCopyText: "Здесь видна очередь ремонта, этапы заявок и история закрытых работ.",
+      badge: "Сервисный цикл",
+    },
+    inventory: {
+      title: "Склад",
+      heroTitleText: "Остатки и дефицит запчастей",
+      heroCopyText: "Раздел помогает держать в норме доступные детали и вовремя замечать нехватку.",
+      badge: "Запчасти",
+    },
+    owner: {
+      title: "Настройки KPI",
+      heroTitleText: "Управление целями сервиса",
+      heroCopyText: "Собственник задает ключевые ориентиры по готовности парка и контролирует исполнение.",
+      badge: "Контроль",
+    },
+  };
+  const meta = sectionMeta[state.activeSection] || sectionMeta.overview;
+  pageTitle.textContent = meta.title;
+  heroTitle.textContent = meta.heroTitleText;
+  heroCopy.textContent = meta.heroCopyText;
+  heroBadge.textContent = meta.badge;
+}
+
 function renderRoleContent() {
   const ownerMode = getRole() === "owner";
   const roleLabel = ownerMode ? "Владелец" : "Механик";
@@ -435,17 +495,6 @@ function renderRoleContent() {
   roleDescription.textContent = ownerMode
     ? "Управленческий режим: контроль KPI, закупки, доступности парка и дисциплины сервиса."
     : "Операционный режим: быстро вносить ремонты, следить за проблемными байками и остатками деталей.";
-
-  pageTitle.textContent = ownerMode ? "Контроль парка и сервиса" : "Сводка сервиса";
-  heroTitle.textContent = ownerMode
-    ? "Собственник видит бизнес-картину, а не только список поломок"
-    : "Рабочий день механика под контролем";
-  heroCopy.textContent = ownerMode
-    ? "На одном экране видно, сколько байков реально готовы к аренде, где застревают ремонты и какие позиции тянут закупку."
-    : "Видно текущую загрузку, зависшие ремонты и детали, которые нужно заказать.";
-  heroBadge.textContent = ownerMode
-    ? "Сегодня в фокусе: KPI и доступность парка"
-    : "Сегодня в фокусе: оперативка";
 
   if (sidebarRoleTitle) {
     sidebarRoleTitle.textContent = roleLabel;
@@ -499,6 +548,10 @@ function renderSections() {
     button.classList.toggle("hidden", !allowed);
     button.classList.toggle("is-active", button.dataset.section === state.activeSection);
   });
+
+  if (currentUser) {
+    currentUser.classList.toggle("is-active-profile", state.activeSection === "profile");
+  }
 
   document.querySelectorAll(".screen-section").forEach((section) => {
     section.classList.toggle("hidden", section.id !== `section-${state.activeSection}`);
@@ -986,6 +1039,7 @@ function render() {
     settingsForm.elements.targetRate.value = state.kpi.targetRate || "";
   }
   renderRoleContent();
+  renderSectionHeader();
   renderSections();
   renderStatusChips();
   renderMetrics();
@@ -1068,6 +1122,12 @@ accountButton.addEventListener("click", () => {
   passwordMessage.classList.add("hidden");
   passwordForm.reset();
   accountOverlay.classList.remove("hidden");
+});
+
+currentUser?.addEventListener("click", () => {
+  state.activeSection = "profile";
+  closeMobileMenu();
+  render();
 });
 
 closeAccountButton.addEventListener("click", () => {

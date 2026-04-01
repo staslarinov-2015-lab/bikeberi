@@ -158,6 +158,18 @@ textarea {
   font-weight: 600;
 }
 
+.sidebar-user-button {
+  appearance: none;
+  border: 0;
+  text-align: left;
+  width: fit-content;
+}
+
+.sidebar-user-button:hover,
+.sidebar-user-button.is-active-profile {
+  background: rgba(255, 122, 19, 0.24);
+}
+
 .sidebar-nav {
   display: grid;
   gap: 10px;
@@ -295,6 +307,24 @@ textarea {
 
 .screen-section {
   padding: 22px;
+}
+
+.overview-horizontal-board {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(360px, 420px) minmax(560px, 1.1fr) minmax(380px, 0.9fr);
+  min-width: 1320px;
+  align-items: start;
+}
+
+.overview-metrics-panel .metrics-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 14px 0 0;
+}
+
+.overview-panel,
+.overview-metrics-panel {
+  min-height: 100%;
 }
 
 .metrics-grid {
@@ -782,6 +812,18 @@ tbody tr:hover {
   gap: 12px;
 }
 
+.readonly-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
 .owner-grid {
   display: grid;
   gap: 18px;
@@ -864,7 +906,6 @@ tbody tr:hover {
 }
 
 @media (max-width: 1280px) {
-  .metrics-grid,
   .owner-grid,
   .content-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -926,10 +967,18 @@ tbody tr:hover {
   .screen-section {
     padding: 18px;
   }
+
+  #section-overview {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .overview-horizontal-board {
+    min-width: 1180px;
+  }
 }
 
 @media (max-width: 900px) {
-  .metrics-grid,
   .content-grid,
   .owner-grid,
   .form-grid {
@@ -1040,6 +1089,15 @@ tbody tr:hover {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .overview-horizontal-board {
+    min-width: 1040px;
+    grid-template-columns: 320px 420px 300px;
+  }
+
+  .overview-metrics-panel .metrics-grid {
+    grid-template-columns: 1fr;
   }
 
   .screen-section {

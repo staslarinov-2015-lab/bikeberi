@@ -57,7 +57,7 @@
 
         <div class="sidebar-user">
           <div id="sidebar-role-title" class="sidebar-role-title">Механик</div>
-          <div id="current-user" class="sidebar-user-pill">Не выполнен вход</div>
+          <button id="current-user" class="sidebar-user-pill sidebar-user-button" type="button">Не выполнен вход</button>
         </div>
 
         <div class="sidebar-group">
@@ -65,7 +65,6 @@
           <nav class="sidebar-nav" aria-label="Разделы">
             <button class="nav-link is-active" type="button" data-section="overview">Дашборд</button>
             <button class="nav-link" type="button" data-section="bikes">Байки</button>
-            <button class="nav-link" type="button" data-section="profile">Профиль</button>
             <button class="nav-link" type="button" data-section="diagnostics">Диагностика</button>
             <button class="nav-link" type="button" data-section="repairs">Ремонты</button>
             <button class="nav-link" type="button" data-section="inventory">Склад</button>
@@ -112,10 +111,18 @@
         </header>
 
         <section id="section-overview" class="screen-section">
-          <div class="metrics-grid" id="metrics-grid"></div>
+          <div class="overview-horizontal-board">
+            <section class="content-card overview-metrics-panel">
+              <div class="content-card-head">
+                <div>
+                  <div class="section-label">Ключевые метрики</div>
+                  <h3>Ситуация по сервису сейчас</h3>
+                </div>
+              </div>
+              <div class="metrics-grid" id="metrics-grid"></div>
+            </section>
 
-          <div class="content-grid">
-            <section class="content-card">
+            <section class="content-card overview-panel">
               <div class="content-card-head">
                 <div>
                   <div class="section-label">Живая очередь</div>
@@ -125,7 +132,7 @@
               <div id="timeline" class="timeline"></div>
             </section>
 
-            <section class="content-card">
+            <section class="content-card overview-panel">
               <div class="content-card-head">
                 <div>
                   <div class="section-label">Риски</div>
@@ -203,8 +210,11 @@
                 <div>
                   <div class="section-label">Парк</div>
                   <h3>Карточки байков</h3>
-                  <p class="muted">У каждого байка теперь есть собственный статус в сервисном цикле.</p>
+                  <p class="muted">Справочный раздел: здесь только просмотр текущего состава парка без ручного добавления и удаления.</p>
                 </div>
+              </div>
+              <div class="toolbar-right">
+                <span class="readonly-badge">Только просмотр</span>
               </div>
             </div>
             <div id="bikes-grid" class="inventory-grid"></div>
