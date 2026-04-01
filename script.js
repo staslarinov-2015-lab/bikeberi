@@ -384,7 +384,10 @@ function getMetrics() {
   const inRepair = state.workOrders.filter((item) => item.status === "в ремонте").length;
   const waiting = state.workOrders.filter((item) => item.status === "ждет запчасти").length;
   const lowStock = state.inventory.filter((item) => Number(item.stock) <= Number(item.min));
-  const workingBikes = state.bikes.filter((item) => ["готов", "в аренде"].includes(item.status)).length;
+  const rented = state.bikes.filter((item) => item.status === "в аренде").length;
+  const readyForRent = state.bikes.filter((item) => item.status === "готов").length;
+  const technical = state.bikes.filter((item) => item.status === "на диагностике").length;
+  const workingBikes = rented + readyForRent;
   const readyRate = state.kpi.totalBikes
     ? Math.round((workingBikes / state.kpi.totalBikes) * 100)
     : 0;
@@ -394,9 +397,67 @@ function getMetrics() {
     inRepair,
     waiting,
     lowStock,
+    rented,
+    readyForRent,
+    technical,
     workingBikes,
     readyRate,
   };
+}
+
+function formatHours(value) {
+  return `${Number(value || 0).toFixed(1)} ч`;
+}
+
+function getOverviewBreakdown(metrics) {
+  const total = Math.max(state.kpi.totalBikes || state.bikes.length || 1, 1);
+  const perBikeHours = 8.47;
+  return [
+    {
+      key: "rented",
+      label: "В аренде",
+      count: metrics.rented,
+      hours: metrics.rented * perBikeHours,
+      percent: Math.round((metrics.rented / total) * 100),
+      color: "#10a36e",
+      tint: "is-soft-green",
+      icon: "⚲",
+      extra: "активная аренда",
+    },
+    {
+      key: "ready",
+      label: "Готов к аренде",
+      count: metrics.readyForRent,
+      hours: metrics.readyForRent * perBikeHours,
+      percent: Math.round((metrics.readyForRent / total) * 100),
+      color: "#f5a000",
+      tint: "is-soft-yellow",
+      icon: "◌",
+      extra: "ждут выдачи",
+    },
+    {
+      key: "repair",
+      label: "В ремонте",
+      count: metrics.inRepair,
+      hours: metrics.inRepair * perBikeHours,
+      percent: Math.round((metrics.inRepair / total) * 100),
+      color: "#3367e0",
+      tint: "is-soft-blue",
+      icon: "⌁",
+      extra: "сервис в работе",
+    },
+    {
+      key: "waiting",
+      label: "Ждут запчасти",
+      count: metrics.waiting + metrics.technical,
+      hours: (metrics.waiting + metrics.technical) * perBikeHours,
+      percent: Math.round(((metrics.waiting + metrics.technical) / total) * 100),
+      color: "#19b3d4",
+      tint: "is-soft-blue",
+      icon: "△",
+      extra: "простой парка",
+    },
+  ];
 }
 
 function getFilteredRepairs() {
@@ -433,13 +494,13 @@ function renderSectionHeader() {
   const sectionMeta = {
     overview: ownerMode
       ? {
-          title: "Контроль парка и сервиса",
+          title: "Дашборд",
           heroTitleText: "Собственник видит бизнес-картину, а не только список поломок",
           heroCopyText: "На одном экране видно, сколько байков реально готовы к аренде, где застревают ремонты и какие позиции тянут закупку.",
           badge: "Сегодня в фокусе: KPI и доступность парка",
         }
       : {
-          title: "Сводка сервиса",
+          title: "Дашборд",
           heroTitleText: "Рабочий день механика под контролем",
           heroCopyText: "Видно текущую загрузку, зависшие ремонты и детали, которые нужно заказать.",
           badge: "Сегодня в фокусе: оперативка",
@@ -717,95 +778,108 @@ function chooseDiagnosticFault(fault) {
 
 function renderMetrics() {
   const metrics = getMetrics();
-  const ownerMode = getRole() === "owner";
-  const cards = ownerMode
-    ? [
-        {
-          label: "Исправных байков",
-          value: metrics.workingBikes,
-          note: `Из ${state.kpi.totalBikes} байков в парке`,
-          state: "ok",
-        },
-        {
-          label: "KPI готовности",
-          value: `${metrics.readyRate}%`,
-          note:
-            metrics.readyRate >= state.kpi.targetRate
-              ? "Цель выполняется"
-              : `Ниже цели ${state.kpi.targetRate}%`,
-          state: metrics.readyRate >= state.kpi.targetRate ? "ok" : "danger",
-        },
-        {
-          label: "Зависшие ремонты",
-          value: metrics.waiting,
-          note: "Байки ждут поставку деталей",
-          state: metrics.waiting ? "danger" : "ok",
-        },
-        {
-          label: "Проблемные позиции",
-          value: metrics.lowStock.length,
-          note: metrics.lowStock.length ? "Есть риск по закупке" : "Склад в норме",
-          state: metrics.lowStock.length ? "danger" : "ok",
-        },
-      ]
-    : [
-        {
-          label: "Готово сегодня",
-          value: metrics.readyRepairs,
-          note: "Закрытые ремонты",
-          state: "ok",
-        },
-        {
-          label: "В ремонте",
-          value: metrics.inRepair,
-          note: "Активная загрузка механика",
-          state: "neutral",
-        },
-        {
-          label: "Ждут запчасти",
-          value: metrics.waiting,
-          note: metrics.waiting ? "Нужен контроль поставки" : "Ожиданий нет",
-          state: metrics.waiting ? "danger" : "ok",
-        },
-        {
-          label: "Мало на складе",
-          value: metrics.lowStock.length,
-          note: metrics.lowStock.length ? "Есть дефицит" : "Остатки в норме",
-          state: metrics.lowStock.length ? "danger" : "ok",
-        },
-      ];
+  const totalHours = (state.kpi.totalBikes || state.bikes.length || 0) * 8.47;
+  const productiveHours = metrics.rented * 8.47;
+  const downtimeHours = (metrics.inRepair + metrics.waiting + metrics.technical) * 8.47;
+  const cards = [
+    {
+      icon: "◫",
+      tint: "is-soft-blue",
+      label: "Потенциал 100%",
+      value: `${Math.round(totalHours)} ч`,
+      note: `${state.kpi.totalBikes || state.bikes.length || 0} байков · полный день`,
+    },
+    {
+      icon: "⚲",
+      tint: "is-soft-green",
+      label: "Заработано",
+      value: formatHours(productiveHours),
+      note: `${metrics.rented} байков в аренде`,
+    },
+    {
+      icon: "↘",
+      tint: "is-soft-red",
+      label: "Потери",
+      value: formatHours(downtimeHours),
+      note: `${metrics.inRepair + metrics.waiting + metrics.technical} байков простаивают`,
+    },
+    {
+      icon: "ϟ",
+      tint: "is-soft-green",
+      label: "КПД",
+      value: `${metrics.readyRate}%`,
+      note: `цель ${state.kpi.targetRate}%`,
+    },
+  ];
 
   metricsGrid.innerHTML = cards
     .map(
       (card) => `
-        <article class="metric-card ${card.state === "danger" ? "is-danger" : card.state === "ok" ? "is-ok" : ""}">
-          <p class="section-label">${escapeHtml(card.label)}</p>
-          <div class="metric-value">${escapeHtml(card.value)}</div>
-          <p class="metric-note">${escapeHtml(card.note)}</p>
+        <article class="crm-kpi-card">
+          <div class="crm-kpi-icon ${card.tint}">${card.icon}</div>
+          <div>
+            <span class="crm-kpi-label">${escapeHtml(card.label)}</span>
+            <strong class="crm-kpi-value">${escapeHtml(card.value)}</strong>
+            <span class="crm-kpi-note">${escapeHtml(card.note)}</span>
+          </div>
         </article>
       `
     )
     .join("");
+
+  const breakdown = getOverviewBreakdown(metrics).filter((item) => item.count > 0);
+  const totalActiveHours = breakdown.reduce((sum, item) => sum + item.hours, 0);
+  const donut = breakdown.length
+    ? `conic-gradient(${(() => {
+        let angle = 0;
+        return breakdown
+          .map((item) => {
+            const share = totalActiveHours ? (item.hours / totalActiveHours) * 360 : 0;
+            const segment = `${item.color} ${angle.toFixed(2)}deg ${(angle + share).toFixed(2)}deg`;
+            angle += share;
+            return segment;
+          })
+          .join(", ");
+      })()})`
+    : "conic-gradient(#e8eff8 0deg 360deg)";
+  const donutNode = document.getElementById("dashboard-donut");
+  const donutTotalNode = document.getElementById("dashboard-donut-total");
+  const donutLegendNode = document.getElementById("dashboard-donut-legend");
+  if (donutNode) {
+    donutNode.style.setProperty("--donut", donut);
+  }
+  if (donutTotalNode) {
+    donutTotalNode.textContent = `${Math.round(totalActiveHours || totalHours)} ч`;
+  }
+  if (donutLegendNode) {
+    donutLegendNode.innerHTML = breakdown
+      .map(
+        (item) => `
+          <div class="crm-legend-item">
+            <span class="crm-legend-dot" style="background:${item.color}"></span>
+            <span>${escapeHtml(item.label)} · ${escapeHtml(formatHours(item.hours))}</span>
+          </div>
+        `
+      )
+      .join("");
+  }
 }
 
 function renderTimeline() {
-  const items = [...state.repairs]
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 5);
-
-  timeline.innerHTML = items
+  const metrics = getMetrics();
+  const total = Math.max(state.kpi.totalBikes || state.bikes.length || 1, 1);
+  timeline.innerHTML = getOverviewBreakdown(metrics)
     .map(
       (item) => `
-        <article class="timeline-item">
-          <div class="timeline-meta">
-            <span>${escapeHtml(item.date)}</span>
-            <span>${escapeHtml(item.bike)}</span>
+        <article class="crm-status-row">
+          <div class="crm-status-icon ${item.tint}">${item.icon}</div>
+          <div>
+            <div class="crm-status-title">${escapeHtml(item.label)}</div>
+            <div class="crm-status-subtitle">${escapeHtml(formatHours(item.hours))} · ${item.count} из ${total} байков</div>
           </div>
-          <h4>${escapeHtml(item.issue)}</h4>
-          <p class="muted">${escapeHtml(item.work)}</p>
-          <div class="timeline-meta">
-            <span>${escapeHtml(item.parts_used)}</span>
-            <span class="status-pill ${getStatusClass(item.status)}">${escapeHtml(item.status)}</span>
+          <div class="crm-status-metrics">
+            <span class="crm-status-percent" style="color:${item.color}">${item.percent}%</span>
+            <span class="crm-status-extra">${escapeHtml(item.extra)}</span>
           </div>
         </article>
       `
@@ -815,44 +889,54 @@ function renderTimeline() {
 
 function renderAlerts() {
   const metrics = getMetrics();
-  const alerts = [];
-
-  metrics.lowStock.forEach((item) => {
-    alerts.push({
-      title: item.name,
-      copy: `Доступно ${item.available}, минимум ${item.min}. Пора формировать закупку.`,
-      state: "danger",
-    });
-  });
-
-  state.workOrders
-    .filter((item) => item.status === "ждет запчасти")
-    .forEach((item) => {
-      alerts.push({
+  const totalHours = (state.kpi.totalBikes || state.bikes.length || 0) * 8.47;
+  const distributedHours = getOverviewBreakdown(metrics).reduce((sum, item) => sum + item.hours, 0);
+  const loadItems = [
+    ...state.workOrders
+      .filter((item) => ["ждет запчасти", "в ремонте", "проверка", "принят"].includes(item.status))
+      .slice(0, 4)
+      .map((item) => ({
         title: item.bike_code,
-        copy: `${item.issue}. Не хватает: ${item.missing_parts?.map((part) => `${part.name} x${part.missing}`).join(", ") || "запчастей"}.`,
-        state: "danger",
-      });
-    });
+        copy: `${item.issue}. ${item.missing_parts?.length ? `Не хватает: ${item.missing_parts.map((part) => `${part.name} x${part.missing}`).join(", ")}` : "Комплект собран"}`,
+        state: item.missing_parts?.length ? "danger" : "ok",
+        hours: `${item.estimated_minutes || 0} мин`,
+      })),
+  ];
 
-  if (!alerts.length) {
-    alerts.push({
-      title: "Система в норме",
-      copy: "Критичных зависаний и дефицитов сейчас нет.",
+  if (!loadItems.length) {
+    loadItems.push({
+      title: "Сервисный поток стабилен",
+      copy: "Сейчас нет критичных заявок и дефицитов по текущему парку.",
       state: "ok",
+      hours: formatHours(metrics.workingBikes * 8.47),
     });
   }
 
-  alertsList.innerHTML = alerts
+  alertsList.innerHTML = `
+    <div class="crm-load-meta">
+      <span>Прошло: <strong>${escapeHtml(formatHours(metrics.workingBikes * 8.47))}</strong></span>
+      <span>Распределено: <strong>${escapeHtml(formatHours(distributedHours))}</strong></span>
+    </div>
+    <div class="crm-load-footnote">из ${escapeHtml(formatHours(totalHours))} сервисного времени на текущий парк</div>
+    <div class="crm-load-list">
+      ${loadItems
     .map(
-      (alert) => `
-        <article class="alert-card ${alert.state === "danger" ? "is-danger" : "is-ok"}">
-          <h4>${escapeHtml(alert.title)}</h4>
-          <p class="alert-copy">${escapeHtml(alert.copy)}</p>
+      (item) => `
+        <article class="crm-load-item">
+          <div>
+            <div class="crm-load-item-title">${escapeHtml(item.title)}</div>
+            <div class="crm-load-item-copy">${escapeHtml(item.copy)}</div>
+          </div>
+          <span class="crm-load-pill ${item.state === "danger" ? "is-danger" : "is-ok"}">
+            ${item.state === "danger" ? "Внимание" : "Норма"}
+          </span>
+          <span class="crm-load-hours">${escapeHtml(item.hours)}</span>
         </article>
       `
     )
-    .join("");
+    .join("")}
+    </div>
+  `;
 }
 
 function renderRepairsTable() {

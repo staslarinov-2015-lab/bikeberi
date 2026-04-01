@@ -111,37 +111,51 @@
         </header>
 
         <section id="section-overview" class="screen-section">
-          <div class="overview-horizontal-board">
-            <section class="content-card overview-metrics-panel">
-              <div class="content-card-head">
-                <div>
-                  <div class="section-label">Ключевые метрики</div>
-                  <h3>Ситуация по сервису сейчас</h3>
-                </div>
+          <div class="crm-overview">
+            <section class="content-card crm-overview-panel">
+              <div class="crm-panel-head">
+                <span class="crm-panel-line"></span>
+                <h3>Причины потерь • сегодня</h3>
               </div>
-              <div class="metrics-grid" id="metrics-grid"></div>
+
+              <div class="crm-chip-row">
+                <button class="crm-filter-chip is-active" type="button">Сегодня</button>
+                <button class="crm-filter-chip" type="button">Вчера</button>
+                <button class="crm-filter-chip" type="button">7 дней</button>
+                <button class="crm-filter-chip" type="button">Месяц</button>
+                <button class="crm-filter-chip" type="button">Период</button>
+              </div>
+
+              <div id="metrics-grid" class="crm-kpi-grid"></div>
+
+              <div class="crm-donut-section">
+                <div id="dashboard-donut" class="crm-donut-chart">
+                  <div class="crm-donut-center">
+                    <span>Итого</span>
+                    <strong id="dashboard-donut-total">0 ч</strong>
+                  </div>
+                </div>
+                <div id="dashboard-donut-legend" class="crm-donut-legend"></div>
+              </div>
             </section>
 
-            <section class="content-card overview-panel">
-              <div class="content-card-head">
-                <div>
-                  <div class="section-label">Живая очередь</div>
-                  <h3 id="hero-title">Последние события сервиса</h3>
-                </div>
+            <section class="content-card crm-overview-panel">
+              <div class="crm-panel-head">
+                <span class="crm-panel-line"></span>
+                <h3>Статусы байков</h3>
               </div>
-              <div id="timeline" class="timeline"></div>
+              <div id="timeline" class="crm-status-list"></div>
             </section>
 
-            <section class="content-card overview-panel">
-              <div class="content-card-head">
-                <div>
-                  <div class="section-label">Риски</div>
-                  <h3>Что требует внимания</h3>
-                </div>
+            <section class="content-card crm-overview-panel">
+              <div class="crm-panel-head">
+                <span class="crm-panel-line"></span>
+                <h3>Загрузка байков</h3>
               </div>
-              <div id="alerts-list" class="alerts-list"></div>
+              <div id="alerts-list" class="crm-load-panel"></div>
             </section>
           </div>
+          <button class="crm-fab" type="button" aria-label="Быстрое действие">⌁</button>
         </section>
 
         <section id="section-profile" class="screen-section hidden">
