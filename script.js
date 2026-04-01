@@ -1240,45 +1240,18 @@ function renderWorkOrders() {
   } else {
     activeRepairBoard.innerHTML = activeOrders
       .map((order) => {
-        const partsStatus = getWorkOrderPartsStatus(order);
-        const etaText = order.estimated_ready_at
-          ? new Date(order.estimated_ready_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
-          : "появится после запуска";
         return `
-          <article class="content-card owner-card">
-            <div class="bike-card-head">
+          <article class="content-card owner-card repair-compact-card repair-compact-card-active">
+            <div class="bike-card-head repair-compact-head">
               <div>
                 <div class="bike-card-code">${escapeHtml(order.bike_code)}</div>
-                <div class="bike-card-model">Wenbox U2</div>
+                <div class="bike-card-model">Активный ремонт</div>
               </div>
               <span class="status-pill ${getBikeStatusClass(order.status)}">${escapeHtml(order.status)}</span>
             </div>
-            <div class="bike-card-history">
-              <span class="bike-card-label">Текущая поломка</span>
-              <strong>${escapeHtml(order.fault || order.issue || "-")}</strong>
-            </div>
-            <p class="muted">Диагностика: ${escapeHtml(order.intake_date)} · Норма времени: ${escapeHtml(order.estimated_minutes)} мин</p>
-            <div class="stack-item">
-              <strong>Что сломано</strong>
-              <p class="muted">${escapeHtml(order.fault || order.issue || "-")}</p>
-            </div>
-            <div class="stack-item">
-              <strong>Какие запчасти нужны</strong>
-              <p class="muted">${escapeHtml(order.required_parts_text || "Запчасти не требуются")}</p>
-            </div>
-            <div class="stack-item">
-              <strong>Статус запчастей</strong>
-              <p class="muted">${escapeHtml(partsStatus.summary)}</p>
-              ${partsStatus.details}
-            </div>
-            <div class="stack-item">
-              <strong>Таймер ремонта</strong>
+            <div class="repair-compact-main">
               <p class="metric-value repair-timer" data-repair-deadline="${escapeHtml(order.estimated_ready_at || "")}">${escapeHtml(formatRepairCountdown(order.estimated_ready_at))}</p>
-              <p class="muted">Плановое завершение: ${escapeHtml(etaText)}</p>
-            </div>
-            <div class="stack-item">
-              <strong>Подсказка</strong>
-              <p class="muted">${escapeHtml(order.planned_work || "Открой диагностику и проверь типовую схему ремонта для этой поломки.")}</p>
+              <p class="muted">Осталось времени на ремонт</p>
             </div>
             <div class="table-actions">
               ${order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">Завершить ремонт</button>` : ""}
@@ -1297,38 +1270,18 @@ function renderWorkOrders() {
 
   workOrdersBoard.innerHTML = queueOrders
     .map((order) => {
-      const partsStatus = getWorkOrderPartsStatus(order);
-      const etaText = order.estimated_ready_at
-        ? new Date(order.estimated_ready_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
-        : "появится после комплектации";
-
       return `
-        <article class="content-card owner-card">
-          <div class="inventory-meta">
-            <span><strong>${escapeHtml(order.bike_code)}</strong> · ${escapeHtml(order.issue)}</span>
+        <article class="content-card owner-card repair-compact-card">
+          <div class="repair-compact-row">
+            <div>
+              <div class="bike-card-code repair-queue-code">${escapeHtml(order.bike_code)}</div>
+              <div class="muted repair-queue-meta">Диагностика: ${escapeHtml(order.intake_date)}</div>
+            </div>
             <span class="status-pill ${getBikeStatusClass(order.status)}">${escapeHtml(order.status)}</span>
           </div>
-          <div class="stack-item">
-            <strong>Что сломано</strong>
-            <p class="muted">${escapeHtml(order.fault || order.issue || "-")}</p>
-          </div>
-          <div class="stack-item">
-            <strong>Какие запчасти нужны</strong>
-            <p class="muted">${escapeHtml(order.required_parts_text || "Запчасти не требуются")}</p>
-          </div>
-          <div class="stack-item">
-            <strong>Статус запчастей</strong>
-            <p class="muted">${escapeHtml(partsStatus.summary)}</p>
-            ${partsStatus.details}
-          </div>
-          <div class="stack-item">
-            <strong>Таймер на работу</strong>
-            <p class="muted">${escapeHtml(order.estimated_minutes)} мин · старт после нажатия на кнопку</p>
-            <p class="muted">Диагностика: ${escapeHtml(order.intake_date)} · Плановое завершение: ${escapeHtml(etaText)}</p>
-          </div>
-          <div class="stack-item">
-            <strong>Подсказка</strong>
-            <p class="muted">${escapeHtml(order.planned_work || "Открой диагностику и проверь типовую схему ремонта для этой поломки.")}</p>
+          <div class="repair-compact-main">
+            <p class="metric-value">${escapeHtml(String(order.estimated_minutes || 0))} мин</p>
+            <p class="muted">Расчетное время на ремонт</p>
           </div>
           <div class="table-actions">
             ${order.can_start ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-start" data-id="${order.id}">Начать ремонт</button>` : ""}

@@ -1143,6 +1143,39 @@ tbody tr:hover {
   margin: 14px 2px 0;
 }
 
+.repair-compact-card {
+  padding: 18px 20px;
+}
+
+.repair-compact-head,
+.repair-compact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.repair-compact-main {
+  display: grid;
+  gap: 4px;
+  padding: 12px 0 2px;
+}
+
+.repair-compact-main .metric-value {
+  margin: 0;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.repair-queue-code {
+  font-size: 1.45rem;
+}
+
+.repair-queue-meta {
+  margin-top: 6px;
+}
+
 .icon-btn {
   border-radius: 12px;
   border: 1px solid var(--line);
