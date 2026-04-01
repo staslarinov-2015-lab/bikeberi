@@ -3,6 +3,7 @@ const state = {
   activeSection: "overview",
   search: "",
   statusFilter: "all",
+  dashboardPeriod: "today",
   kpi: {
     totalBikes: 0,
     targetRate: 95,
@@ -588,6 +589,66 @@ function getFilteredRepairs() {
   });
 }
 
+function getDashboardDateRange() {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfTomorrow = new Date(startOfToday);
+  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+
+  if (state.dashboardPeriod === "yesterday") {
+    const start = new Date(startOfToday);
+    start.setDate(start.getDate() - 1);
+    return { start, end: startOfToday };
+  }
+
+  if (state.dashboardPeriod === "week") {
+    const start = new Date(startOfToday);
+    start.setDate(start.getDate() - 6);
+    return { start, end: startOfTomorrow };
+  }
+
+  if (state.dashboardPeriod === "month") {
+    const start = new Date(startOfToday);
+    start.setDate(start.getDate() - 29);
+    return { start, end: startOfTomorrow };
+  }
+
+  return { start: startOfToday, end: startOfTomorrow };
+}
+
+function isDateInDashboardPeriod(rawValue) {
+  if (!rawValue) return false;
+  const { start, end } = getDashboardDateRange();
+  let date;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(rawValue).trim())) {
+    date = new Date(`${rawValue}T00:00:00`);
+  } else {
+    date = new Date(rawValue);
+  }
+  if (Number.isNaN(date.getTime())) return false;
+  return date >= start && date < end;
+}
+
+function getDashboardStats() {
+  const repairsInPeriod = state.workOrders.filter(
+    (item) => Boolean(item.started_at) && isDateInDashboardPeriod(item.started_at)
+  ).length;
+  const waitingParts = state.workOrders.filter(
+    (item) => item.status === "ждет запчасти" && isDateInDashboardPeriod(item.intake_date)
+  ).length;
+  const readyAfterRepair = state.repairs.filter(
+    (item) => item.status === "Готов" && isDateInDashboardPeriod(item.date)
+  ).length;
+  const idleReadyBikes = state.bikes.filter((item) => item.status === "готов").length;
+
+  return {
+    repairsInPeriod,
+    waitingParts,
+    readyAfterRepair,
+    idleReadyBikes,
+  };
+}
+
 function renderSectionHeader() {
   const ownerMode = getRole() === "owner";
   const sectionMeta = {
@@ -925,38 +986,38 @@ function chooseDiagnosticFault(fault) {
 }
 
 function renderMetrics() {
-  const metrics = getMetrics();
-  const totalHours = (state.kpi.totalBikes || state.bikes.length || 0) * 8.47;
-  const productiveHours = metrics.rented * 8.47;
-  const downtimeHours = (metrics.inRepair + metrics.waiting + metrics.technical) * 8.47;
+  const stats = getDashboardStats();
+  document.querySelectorAll("[data-dashboard-period]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.dashboardPeriod === state.dashboardPeriod);
+  });
   const cards = [
     {
-      icon: "◫",
+      icon: "⌁",
       tint: "is-soft-blue",
-      label: "Потенциал 100%",
-      value: `${Math.round(totalHours)} ч`,
-      note: `${state.kpi.totalBikes || state.bikes.length || 0} байков · полный день`,
+      label: "Байков в ремонте",
+      value: String(stats.repairsInPeriod),
+      note: "за выбранный период",
+    },
+    {
+      icon: "△",
+      tint: "is-soft-red",
+      label: "Ждут запчасти",
+      value: String(stats.waitingParts),
+      note: "нужна комплектация",
+    },
+    {
+      icon: "◌",
+      tint: "is-soft-green",
+      label: "Готово ремонтов",
+      value: String(stats.readyAfterRepair),
+      note: "закрыто механиком",
     },
     {
       icon: "⚲",
-      tint: "is-soft-green",
-      label: "Заработано",
-      value: formatHours(productiveHours),
-      note: `${metrics.rented} байков в аренде`,
-    },
-    {
-      icon: "↘",
-      tint: "is-soft-red",
-      label: "Потери",
-      value: formatHours(downtimeHours),
-      note: `${metrics.inRepair + metrics.waiting + metrics.technical} байков простаивают`,
-    },
-    {
-      icon: "ϟ",
-      tint: "is-soft-green",
-      label: "КПД",
-      value: `${metrics.readyRate}%`,
-      note: `цель ${state.kpi.targetRate}%`,
+      tint: "is-soft-yellow",
+      label: "Простаивают и готовы",
+      value: String(stats.idleReadyBikes),
+      note: "можно выдавать в аренду",
     },
   ];
 
@@ -974,60 +1035,26 @@ function renderMetrics() {
       `
     )
     .join("");
-
-  const breakdown = getOverviewBreakdown(metrics).filter((item) => item.count > 0);
-  const totalActiveHours = breakdown.reduce((sum, item) => sum + item.hours, 0);
-  const donut = breakdown.length
-    ? `conic-gradient(${(() => {
-        let angle = 0;
-        return breakdown
-          .map((item) => {
-            const share = totalActiveHours ? (item.hours / totalActiveHours) * 360 : 0;
-            const segment = `${item.color} ${angle.toFixed(2)}deg ${(angle + share).toFixed(2)}deg`;
-            angle += share;
-            return segment;
-          })
-          .join(", ");
-      })()})`
-    : "conic-gradient(#e8eff8 0deg 360deg)";
-  const donutNode = document.getElementById("dashboard-donut");
-  const donutTotalNode = document.getElementById("dashboard-donut-total");
-  const donutLegendNode = document.getElementById("dashboard-donut-legend");
-  if (donutNode) {
-    donutNode.style.setProperty("--donut", donut);
-  }
-  if (donutTotalNode) {
-    donutTotalNode.textContent = `${Math.round(totalActiveHours || totalHours)} ч`;
-  }
-  if (donutLegendNode) {
-    donutLegendNode.innerHTML = breakdown
-      .map(
-        (item) => `
-          <div class="crm-legend-item">
-            <span class="crm-legend-dot" style="background:${item.color}"></span>
-            <span>${escapeHtml(item.label)} · ${escapeHtml(formatHours(item.hours))}</span>
-          </div>
-        `
-      )
-      .join("");
-  }
 }
 
 function renderTimeline() {
   const metrics = getMetrics();
-  const total = Math.max(state.kpi.totalBikes || state.bikes.length || 1, 1);
-  timeline.innerHTML = getOverviewBreakdown(metrics)
+  const rows = [
+    { label: "В ремонте сейчас", value: metrics.inRepair, note: "активные заявки" },
+    { label: "Ждут запчасти сейчас", value: metrics.waiting, note: "ремонты в ожидании" },
+    { label: "Готовы к аренде сейчас", value: metrics.readyForRent, note: "байки со статусом готов" },
+    { label: "На диагностике", value: metrics.technical, note: "первичный осмотр" },
+  ];
+  timeline.innerHTML = rows
     .map(
-      (item) => `
+      (row) => `
         <article class="crm-status-row">
-          <div class="crm-status-icon ${item.tint}">${item.icon}</div>
           <div>
-            <div class="crm-status-title">${escapeHtml(item.label)}</div>
-            <div class="crm-status-subtitle">${escapeHtml(formatHours(item.hours))} · ${item.count} из ${total} байков</div>
+            <div class="crm-status-title">${escapeHtml(row.label)}</div>
+            <div class="crm-status-subtitle">${escapeHtml(row.note)}</div>
           </div>
           <div class="crm-status-metrics">
-            <span class="crm-status-percent" style="color:${item.color}">${item.percent}%</span>
-            <span class="crm-status-extra">${escapeHtml(item.extra)}</span>
+            <span class="crm-status-percent">${escapeHtml(String(row.value))}</span>
           </div>
         </article>
       `
@@ -1036,36 +1063,38 @@ function renderTimeline() {
 }
 
 function renderAlerts() {
-  const metrics = getMetrics();
-  const totalHours = (state.kpi.totalBikes || state.bikes.length || 0) * 8.47;
-  const distributedHours = getOverviewBreakdown(metrics).reduce((sum, item) => sum + item.hours, 0);
-  const loadItems = [
-    ...state.workOrders
-      .filter((item) => ["ждет запчасти", "в ремонте", "проверка", "принят"].includes(item.status))
-      .slice(0, 4)
-      .map((item) => ({
-        title: item.bike_code,
-        copy: `${item.issue}. ${item.missing_parts?.length ? `Не хватает: ${item.missing_parts.map((part) => `${part.name} x${part.missing}`).join(", ")}` : "Комплект собран"}`,
-        state: item.missing_parts?.length ? "danger" : "ok",
-        hours: `${item.estimated_minutes || 0} мин`,
-      })),
-  ];
+  const urgentWaiting = state.workOrders
+    .filter((item) => item.status === "ждет запчасти")
+    .slice(0, 4)
+    .map((item) => ({
+      title: item.bike_code,
+      copy: item.missing_parts?.length
+        ? `Не хватает: ${item.missing_parts.map((part) => `${part.name} x${part.missing}`).join(", ")}`
+        : "Ожидает комплектность",
+      state: "danger",
+      hours: `${item.estimated_minutes || 0} мин`,
+    }));
+  const activeRepairs = state.workOrders
+    .filter((item) => item.status === "в ремонте")
+    .slice(0, Math.max(0, 4 - urgentWaiting.length))
+    .map((item) => ({
+      title: item.bike_code,
+      copy: item.fault || item.issue,
+      state: "ok",
+      hours: `${item.estimated_minutes || 0} мин`,
+    }));
+  const loadItems = [...urgentWaiting, ...activeRepairs];
 
   if (!loadItems.length) {
     loadItems.push({
-      title: "Сервисный поток стабилен",
-      copy: "Сейчас нет критичных заявок и дефицитов по текущему парку.",
+      title: "Спокойная смена",
+      copy: "Сейчас нет активных ремонтов и заявок, которые ждут запчасти.",
       state: "ok",
-      hours: formatHours(metrics.workingBikes * 8.47),
+      hours: "Норма",
     });
   }
 
   alertsList.innerHTML = `
-    <div class="crm-load-meta">
-      <span>Прошло: <strong>${escapeHtml(formatHours(metrics.workingBikes * 8.47))}</strong></span>
-      <span>Распределено: <strong>${escapeHtml(formatHours(distributedHours))}</strong></span>
-    </div>
-    <div class="crm-load-footnote">из ${escapeHtml(formatHours(totalHours))} сервисного времени на текущий парк</div>
     <div class="crm-load-list">
       ${loadItems
     .map(
@@ -1892,6 +1921,12 @@ document.addEventListener("click", async (event) => {
       body: JSON.stringify({ action: actionMap[action] }),
     });
     await bootstrap();
+  }
+
+  if (target.matches("[data-dashboard-period]")) {
+    state.dashboardPeriod = target.dataset.dashboardPeriod;
+    renderMetrics();
+    return;
   }
 
   if (action === "start-diagnostic-category") {

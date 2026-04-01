@@ -104,34 +104,23 @@
             <section class="content-card crm-overview-panel">
               <div class="crm-panel-head">
                 <span class="crm-panel-line"></span>
-                <h3>Причины потерь • сегодня</h3>
+                <h3>Сервисный дашборд</h3>
               </div>
 
               <div class="crm-chip-row">
-                <button class="crm-filter-chip is-active" type="button">Сегодня</button>
-                <button class="crm-filter-chip" type="button">Вчера</button>
-                <button class="crm-filter-chip" type="button">7 дней</button>
-                <button class="crm-filter-chip" type="button">Месяц</button>
-                <button class="crm-filter-chip" type="button">Период</button>
+                <button class="crm-filter-chip is-active" type="button" data-dashboard-period="today">Сегодня</button>
+                <button class="crm-filter-chip" type="button" data-dashboard-period="yesterday">Вчера</button>
+                <button class="crm-filter-chip" type="button" data-dashboard-period="week">7 дней</button>
+                <button class="crm-filter-chip" type="button" data-dashboard-period="month">Месяц</button>
               </div>
 
               <div id="metrics-grid" class="crm-kpi-grid"></div>
-
-              <div class="crm-donut-section">
-                <div id="dashboard-donut" class="crm-donut-chart">
-                  <div class="crm-donut-center">
-                    <span>Итого</span>
-                    <strong id="dashboard-donut-total">0 ч</strong>
-                  </div>
-                </div>
-                <div id="dashboard-donut-legend" class="crm-donut-legend"></div>
-              </div>
             </section>
 
             <section class="content-card crm-overview-panel">
               <div class="crm-panel-head">
                 <span class="crm-panel-line"></span>
-                <h3>Статусы байков</h3>
+                <h3>Состояние парка сейчас</h3>
               </div>
               <div id="timeline" class="crm-status-list"></div>
             </section>
@@ -139,7 +128,7 @@
             <section class="content-card crm-overview-panel">
               <div class="crm-panel-head">
                 <span class="crm-panel-line"></span>
-                <h3>Загрузка байков</h3>
+                <h3>Что требует внимания</h3>
               </div>
               <div id="alerts-list" class="crm-load-panel"></div>
             </section>
