@@ -191,6 +191,17 @@ const diagnosticOverlay = document.getElementById("diagnostic-overlay");
 const openDiagnosticModalButton = document.getElementById("open-diagnostic-modal");
 const closeDiagnosticModalButton = document.getElementById("close-diagnostic-modal");
 const diagnosticModalTitle = document.getElementById("diagnostic-modal-title");
+const workOrderOverlay = document.getElementById("work-order-overlay");
+const closeWorkOrderModalButton = document.getElementById("close-work-order-modal");
+const workOrderModalTitle = document.getElementById("work-order-modal-title");
+const workOrderDetailBike = document.getElementById("work-order-detail-bike");
+const workOrderDetailStatus = document.getElementById("work-order-detail-status");
+const workOrderDetailFault = document.getElementById("work-order-detail-fault");
+const workOrderDetailParts = document.getElementById("work-order-detail-parts");
+const workOrderDetailPartsStatus = document.getElementById("work-order-detail-parts-status");
+const workOrderDetailDate = document.getElementById("work-order-detail-date");
+const workOrderDetailMinutes = document.getElementById("work-order-detail-minutes");
+const workOrderDetailHint = document.getElementById("work-order-detail-hint");
 const diagnosticWizardCategoryGrid = document.getElementById("diagnostic-wizard-category-grid");
 const diagnosticFaultGrid = document.getElementById("diagnostic-fault-grid");
 const diagnosticFaultsTitle = document.getElementById("diagnostic-faults-title");
@@ -463,6 +474,31 @@ function getWorkOrderPartsStatus(order) {
     summary: "Все нужные запчасти в наличии",
     details: '<p class="success-text">Комплект собран, ремонт можно запускать.</p>',
   };
+}
+
+function openWorkOrderDetail(order) {
+  if (!order || !workOrderOverlay) return;
+  const partsStatus = getWorkOrderPartsStatus(order);
+  if (workOrderModalTitle) workOrderModalTitle.textContent = `Ремонт ${order.bike_code || ""}`.trim();
+  if (workOrderDetailBike) workOrderDetailBike.textContent = order.bike_code || "-";
+  if (workOrderDetailStatus) {
+    workOrderDetailStatus.className = `status-pill ${getBikeStatusClass(order.status)}`;
+    workOrderDetailStatus.textContent = order.status || "-";
+  }
+  if (workOrderDetailFault) workOrderDetailFault.textContent = order.fault || order.issue || "-";
+  if (workOrderDetailParts) workOrderDetailParts.textContent = order.required_parts_text || "Запчасти не требуются";
+  if (workOrderDetailPartsStatus) {
+    workOrderDetailPartsStatus.innerHTML = `
+      <p class="muted">${escapeHtml(partsStatus.summary)}</p>
+      ${partsStatus.details}
+    `;
+  }
+  if (workOrderDetailDate) workOrderDetailDate.textContent = order.intake_date || "-";
+  if (workOrderDetailMinutes) workOrderDetailMinutes.textContent = `${order.estimated_minutes || 0} мин`;
+  if (workOrderDetailHint) {
+    workOrderDetailHint.textContent = order.planned_work || "Открой диагностику и проверь типовую схему ремонта для этой поломки.";
+  }
+  workOrderOverlay.classList.remove("hidden");
 }
 
 async function ensureNotificationPermission() {
@@ -1274,7 +1310,7 @@ function renderWorkOrders() {
     activeRepairBoard.innerHTML = activeOrders
       .map((order) => {
         return `
-          <article class="content-card owner-card repair-compact-card repair-compact-card-active">
+          <article class="content-card owner-card repair-compact-card repair-compact-card-active" data-action="open-work-order" data-id="${order.id}">
             <div class="bike-card-head repair-compact-head">
               <div>
                 <div class="bike-card-code">${escapeHtml(order.bike_code)}</div>
@@ -1304,7 +1340,7 @@ function renderWorkOrders() {
   workOrdersBoard.innerHTML = queueOrders
     .map((order) => {
       return `
-        <article class="content-card owner-card repair-compact-card">
+        <article class="content-card owner-card repair-compact-card" data-action="open-work-order" data-id="${order.id}">
           <div class="repair-compact-row">
             <div>
               <div class="bike-card-code repair-queue-code">${escapeHtml(order.bike_code)}</div>
@@ -1518,6 +1554,9 @@ openDiagnosticModalButton?.addEventListener("click", () => {
 closeDiagnosticModalButton?.addEventListener("click", () => {
   diagnosticOverlay.classList.add("hidden");
   resetDiagnosticFlow();
+});
+closeWorkOrderModalButton?.addEventListener("click", () => {
+  workOrderOverlay?.classList.add("hidden");
 });
 
 mobileMenuToggle?.addEventListener("click", () => {
@@ -1921,6 +1960,13 @@ document.addEventListener("click", async (event) => {
     if (!window.confirm("Удалить этот байк из парка? Связанные активные заявки по нему тоже будут удалены.")) return;
     await api(`/api/bikes/${id}`, { method: "DELETE", headers: {} });
     await bootstrap();
+  }
+
+  if (action === "open-work-order") {
+    const order = state.workOrders.find((entry) => String(entry.id) === id);
+    if (!order) return;
+    openWorkOrderDetail(order);
+    return;
   }
 
   if (action.startsWith("work-order-")) {

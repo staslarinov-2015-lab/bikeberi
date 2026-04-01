@@ -448,6 +448,58 @@
       </div>
     </div>
 
+    <div id="work-order-overlay" class="overlay hidden">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <div class="section-label">Карточка ремонта</div>
+            <h2 id="work-order-modal-title">Ремонт байка</h2>
+          </div>
+          <button id="close-work-order-modal" class="ghost-btn" type="button">Закрыть</button>
+        </div>
+
+        <div class="work-order-detail-grid">
+          <article class="work-order-hero">
+            <div>
+              <div id="work-order-detail-bike" class="bike-card-code">PE000Y</div>
+              <div class="bike-card-model">Wenbox U2</div>
+            </div>
+            <span id="work-order-detail-status" class="status-pill">в ремонте</span>
+          </article>
+
+          <article class="stack-item">
+            <strong>Что нужно ремонтировать</strong>
+            <p id="work-order-detail-fault" class="muted">-</p>
+          </article>
+
+          <article class="stack-item">
+            <strong>Какие запчасти нужны</strong>
+            <p id="work-order-detail-parts" class="muted">-</p>
+          </article>
+
+          <article class="stack-item">
+            <strong>Статус запчастей</strong>
+            <div id="work-order-detail-parts-status"></div>
+          </article>
+
+          <article class="stack-item">
+            <strong>Дата диагностики</strong>
+            <p id="work-order-detail-date" class="muted">-</p>
+          </article>
+
+          <article class="stack-item">
+            <strong>Время на ремонт</strong>
+            <p id="work-order-detail-minutes" class="muted">-</p>
+          </article>
+
+          <article class="stack-item wide">
+            <strong>Подсказка</strong>
+            <p id="work-order-detail-hint" class="muted">-</p>
+          </article>
+        </div>
+      </div>
+    </div>
+
     <div id="inventory-overlay" class="overlay hidden">
       <div class="modal-card">
         <div class="modal-head">
