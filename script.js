@@ -375,6 +375,32 @@ function getBikeStatusClass(status) {
   return "status-waiting";
 }
 
+function getBikeStatusOptions() {
+  if (getRole() === "mechanic") {
+    return [
+      ["на диагностике", "На диагностике"],
+      ["ждет запчасти", "Ждет запчасти"],
+      ["в ремонте", "В ремонте"],
+      ["готов", "Готов"],
+    ];
+  }
+
+  return [
+    ["в аренде", "В аренде"],
+    ["на диагностике", "На диагностике"],
+    ["ждет запчасти", "Ждет запчасти"],
+    ["в ремонте", "В ремонте"],
+    ["проверка", "Проверка"],
+    ["готов", "Готов"],
+    ["принят", "Принят"],
+  ];
+}
+
+function formatBikeModel(model) {
+  const normalized = String(model || "U2").trim();
+  return normalized.replace(/^Wenbox\s+/i, "");
+}
+
 function getSeverityClass(severity) {
   if (severity === "Критичная") return "severity-critical";
   if (severity === "Средняя") return "severity-medium";
@@ -688,6 +714,18 @@ function renderProfile() {
     profileForm.elements.telegram.value = state.user.telegram || "";
     profileForm.elements.notes.value = state.user.notes || "";
   }
+}
+
+function renderBikeFormStatusOptions() {
+  if (!bikeForm) return;
+  const statusSelect = bikeForm.elements.status;
+  if (!statusSelect) return;
+  const currentValue = String(statusSelect.value || "").trim();
+  statusSelect.innerHTML = getBikeStatusOptions()
+    .map(([value, label]) => `<option value="${value}">${label}</option>`)
+    .join("");
+  const fallbackValue = getRole() === "owner" ? "в аренде" : "на диагностике";
+  statusSelect.value = getBikeStatusOptions().some(([value]) => value === currentValue) ? currentValue : fallbackValue;
 }
 
 function renderSections() {
@@ -1097,28 +1135,36 @@ function renderInventory() {
 function renderBikes() {
   if (!bikesGrid) return;
   const canManage = getRole() === "mechanic" || getRole() === "owner";
+  const statusOptions = getBikeStatusOptions();
   bikesGrid.innerHTML = state.bikes
-    .map(
-      (bike) => `
-        <article class="inventory-card">
-          <div class="inventory-meta">
-            <span>${escapeHtml(bike.code)}</span>
+    .map((bike) => {
+      const latestRepair = bike.latest_repair_issue
+        ? `${bike.latest_repair_date || "Без даты"} · ${bike.latest_repair_issue}`
+        : "Ремонтов еще не было";
+      return `
+        <article class="inventory-card bike-card">
+          <div class="bike-card-head">
+            <div>
+              <div class="bike-card-code">${escapeHtml(bike.code)}</div>
+              <div class="bike-card-model">${escapeHtml(formatBikeModel(bike.model))}</div>
+            </div>
             <span class="status-pill ${getBikeStatusClass(bike.status)}">${escapeHtml(bike.status)}</span>
           </div>
-          <div class="inventory-stock">${escapeHtml(bike.model)}</div>
-          <p class="muted">Последний сервис: ${escapeHtml(bike.last_service_at || "еще не было")}</p>
-          <p class="muted">${escapeHtml(bike.notes || "Без заметок по байку")}</p>
+          <div class="bike-card-history">
+            <span class="bike-card-label">Последний ремонт</span>
+            <strong>${escapeHtml(latestRepair)}</strong>
+          </div>
+          <p class="muted bike-card-notes">${escapeHtml(bike.notes || "Без заметок по байку")}</p>
           ${
             canManage
               ? `<div class="inventory-actions inventory-actions-bike">
                   <select class="bike-status-select" data-bike-status-id="${bike.id}">
-                    <option value="в аренде" ${bike.status === "в аренде" ? "selected" : ""}>В аренде</option>
-                    <option value="готов" ${bike.status === "готов" ? "selected" : ""}>Готов</option>
-                    <option value="на диагностике" ${bike.status === "на диагностике" ? "selected" : ""}>На диагностике</option>
-                    <option value="принят" ${bike.status === "принят" ? "selected" : ""}>Принят</option>
-                    <option value="ждет запчасти" ${bike.status === "ждет запчасти" ? "selected" : ""}>Ждет запчасти</option>
-                    <option value="в ремонте" ${bike.status === "в ремонте" ? "selected" : ""}>В ремонте</option>
-                    <option value="проверка" ${bike.status === "проверка" ? "selected" : ""}>Проверка</option>
+                    ${statusOptions
+                      .map(
+                        ([value, label]) =>
+                          `<option value="${value}" ${bike.status === value ? "selected" : ""}>${label}</option>`
+                      )
+                      .join("")}
                   </select>
                   <button class="primary-btn primary-btn-small" type="button" data-action="save-bike-status" data-id="${bike.id}">Сохранить статус</button>
                   <button class="icon-btn" type="button" data-action="edit-bike" data-id="${bike.id}">Изменить</button>
@@ -1126,8 +1172,8 @@ function renderBikes() {
               : ""
           }
         </article>
-      `
-    )
+      `;
+    })
     .join("");
 }
 
@@ -1280,6 +1326,7 @@ function render() {
   renderWorkOrders();
   renderOwnerPanel();
   renderProfile();
+  renderBikeFormStatusOptions();
 }
 
 async function bootstrap() {
@@ -1400,7 +1447,7 @@ openBikeModalButton?.addEventListener("click", () => {
   delete bikeForm.dataset.editId;
   if (bikeForm) {
     bikeForm.elements.model.value = "Wenbox U2";
-    bikeForm.elements.status.value = "в аренде";
+    bikeForm.elements.status.value = getRole() === "owner" ? "в аренде" : "на диагностике";
   }
   bikeOverlay?.classList.remove("hidden");
 });
@@ -1774,7 +1821,7 @@ document.addEventListener("click", async (event) => {
     if (bikeModalTitle) bikeModalTitle.textContent = "Редактирование байка";
     setBikeCodeValue("bike", bike.code);
     bikeForm.elements.model.value = bike.model || "Wenbox U2";
-    bikeForm.elements.status.value = bike.status || "в аренде";
+    bikeForm.elements.status.value = bike.status || (getRole() === "owner" ? "в аренде" : "на диагностике");
     bikeForm.elements.notes.value = bike.notes || "";
     bikeOverlay?.classList.remove("hidden");
   }

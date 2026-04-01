@@ -64,15 +64,22 @@ WORK_ORDER_STATUSES = {
     "готов",
 }
 
-BIKE_STATUS_OPTIONS = {
+BIKE_STATUS_OPTIONS = (
     "в аренде",
-    "готов",
     "на диагностике",
-    "принят",
     "ждет запчасти",
     "в ремонте",
     "проверка",
-}
+    "готов",
+    "принят",
+)
+
+MECHANIC_BIKE_STATUS_OPTIONS = (
+    "на диагностике",
+    "ждет запчасти",
+    "в ремонте",
+    "готов",
+)
 
 FAULT_CATALOG = {
     "Трещина пластика": {"minutes": 30, "parts": [("Крепеж пластика", 2)]},
@@ -716,9 +723,10 @@ def parse_positive_int(value, field_name):
     return parsed
 
 
-def validate_bike_status(raw_value: str) -> str:
+def validate_bike_status(raw_value: str, role: str = "mechanic") -> str:
     status = str(raw_value or "").strip()
-    if status not in BIKE_STATUS_OPTIONS:
+    allowed = MECHANIC_BIKE_STATUS_OPTIONS if role == "mechanic" else BIKE_STATUS_OPTIONS
+    if status not in allowed:
         raise ValueError("Указан недопустимый статус байка")
     return status
 
@@ -966,7 +974,27 @@ def fetch_bootstrap_payload(user):
         dict(row)
         for row in conn.execute(
             """
-            SELECT id, code, model, status, notes, last_service_at
+            SELECT
+                bikes.id,
+                bikes.code,
+                bikes.model,
+                bikes.status,
+                bikes.notes,
+                bikes.last_service_at,
+                (
+                    SELECT repairs.date
+                    FROM repairs
+                    WHERE repairs.bike = bikes.code
+                    ORDER BY repairs.date DESC, repairs.id DESC
+                    LIMIT 1
+                ) AS latest_repair_date,
+                (
+                    SELECT repairs.issue
+                    FROM repairs
+                    WHERE repairs.bike = bikes.code
+                    ORDER BY repairs.date DESC, repairs.id DESC
+                    LIMIT 1
+                ) AS latest_repair_issue
             FROM bikes
             ORDER BY code COLLATE NOCASE ASC
             """
@@ -1152,7 +1180,7 @@ class AppHandler(BaseHTTPRequestHandler):
             payload = read_json(self)
             try:
                 code = validate_bike_code(payload.get("code", ""))
-                status = validate_bike_status(payload.get("status", ""))
+                status = validate_bike_status(payload.get("status", ""), user["role"])
             except ValueError as error:
                 return json_response(self, 400, {"error": str(error)})
 
@@ -1542,7 +1570,7 @@ class AppHandler(BaseHTTPRequestHandler):
             payload = read_json(self)
             try:
                 code = validate_bike_code(payload.get("code", ""))
-                status = validate_bike_status(payload.get("status", ""))
+                status = validate_bike_status(payload.get("status", ""), user["role"])
             except ValueError as error:
                 return json_response(self, 400, {"error": str(error)})
 
