@@ -165,7 +165,6 @@ const loginForm = document.getElementById("login-form");
 const loginError = document.getElementById("login-error");
 const mobileNavOverlay = document.getElementById("mobile-nav-overlay");
 const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
-const roleDescription = document.getElementById("role-description");
 const pageTitle = document.getElementById("page-title");
 const heroTitle = document.getElementById("hero-title");
 const heroCopy = document.getElementById("hero-copy");
@@ -486,14 +485,6 @@ function getFilteredRepairs() {
   });
 }
 
-function syncRoleButtons() {
-  document.querySelectorAll(".role-btn").forEach((button) => {
-    const buttonRole = button.dataset.role;
-    button.classList.toggle("hidden", buttonRole !== getRole());
-    button.classList.toggle("is-active", buttonRole === getRole());
-  });
-}
-
 function renderSectionHeader() {
   const ownerMode = getRole() === "owner";
   const sectionMeta = {
@@ -558,10 +549,6 @@ function renderRoleContent() {
   const ownerMode = getRole() === "owner";
   const roleLabel = ownerMode ? "Владелец" : "Механик";
 
-  roleDescription.textContent = ownerMode
-    ? "Управленческий режим: контроль KPI, закупки, доступности парка и дисциплины сервиса."
-    : "Операционный режим: быстро вносить ремонты, следить за проблемными байками и остатками деталей.";
-
   if (sidebarRoleTitle) {
     sidebarRoleTitle.textContent = roleLabel;
   }
@@ -577,8 +564,6 @@ function renderRoleContent() {
   document.querySelectorAll(".owner-only").forEach((node) => {
     node.classList.toggle("hidden", !ownerMode);
   });
-
-  syncRoleButtons();
 }
 
 function renderProfile() {

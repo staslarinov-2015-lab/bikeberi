@@ -177,7 +177,6 @@ textarea {
 }
 
 .nav-link,
-.role-btn,
 .ghost-btn,
 .primary-btn,
 .danger-btn,
@@ -204,31 +203,6 @@ textarea {
 .nav-link.is-active {
   background: var(--accent);
   color: #fff;
-}
-
-.role-switch {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.role-btn {
-  border-radius: 14px;
-  padding: 11px 14px;
-  background: #262626;
-  color: #aeb8c7;
-  font-weight: 700;
-}
-
-.role-btn.is-active {
-  background: #fff;
-  color: #1f2f47;
-}
-
-.sidebar-help {
-  margin: 12px 0 0;
-  line-height: 1.5;
 }
 
 .sidebar-footer {
