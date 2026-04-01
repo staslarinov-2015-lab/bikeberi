@@ -612,9 +612,15 @@ function renderSectionHeader() {
   };
   const meta = sectionMeta[state.activeSection] || sectionMeta.overview;
   pageTitle.textContent = meta.title;
-  heroTitle.textContent = meta.heroTitleText;
-  heroCopy.textContent = meta.heroCopyText;
-  heroBadge.textContent = meta.badge;
+  if (heroTitle) {
+    heroTitle.textContent = meta.heroTitleText;
+  }
+  if (heroCopy) {
+    heroCopy.textContent = meta.heroCopyText;
+  }
+  if (heroBadge) {
+    heroBadge.textContent = meta.badge;
+  }
 }
 
 function renderRoleContent() {
