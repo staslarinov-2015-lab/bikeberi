@@ -244,12 +244,23 @@ const bikeCodeBuilders = Array.from(document.querySelectorAll("[data-bike-code-r
 function normalizeBikeCode(rawValue) {
   const source = String(rawValue || "").trim().toUpperCase();
   if (!source) return "";
-  return source
+  const normalizedChars = source
     .split("")
-    .map((char) => BIKE_CODE_NORMALIZE_MAP[char] || char)
-    .filter((char, index) => (index === 0 || index === 1 || index === 5 ? BIKE_CODE_ALLOWED_LETTERS.includes(char) : BIKE_CODE_ALLOWED_DIGITS.includes(char)))
-    .slice(0, 6)
-    .join("");
+    .map((char) => BIKE_CODE_NORMALIZE_MAP[char] || char);
+  const pattern = ["letter", "letter", "digit", "digit", "digit", "letter"];
+  const result = [];
+
+  normalizedChars.forEach((char) => {
+    if (result.length >= pattern.length) return;
+    const expected = pattern[result.length];
+    const isLetter = BIKE_CODE_ALLOWED_LETTERS.includes(char);
+    const isDigit = BIKE_CODE_ALLOWED_DIGITS.includes(char);
+    if ((expected === "letter" && isLetter) || (expected === "digit" && isDigit)) {
+      result.push(char);
+    }
+  });
+
+  return result.join("");
 }
 
 function isValidBikeCode(rawValue) {
@@ -268,12 +279,15 @@ function updateBikeCodeHiddenInput(rootName) {
   const hiddenInput = builder.parentElement.querySelector('input[name="bike"]');
   const bikeCode = normalizeBikeCode(visibleInput ? visibleInput.value : "");
   const complete = bikeCode.length === 6;
+  const valid = complete && isValidBikeCode(bikeCode);
   if (visibleInput) {
     visibleInput.value = bikeCode;
+    const shouldShowError = Boolean(bikeCode) && ((visibleInput.dataset.touched === "true" && !valid) || (complete && !valid));
+    builder.classList.toggle("is-invalid", shouldShowError);
   }
   if (hiddenInput) {
     hiddenInput.value = complete ? bikeCode : "";
-    hiddenInput.setCustomValidity(complete && isValidBikeCode(bikeCode) ? "" : "Укажи номер байка в формате РЕ123У");
+    hiddenInput.setCustomValidity(valid ? "" : "Укажи номер байка в формате РЕ123У");
   }
   return complete ? bikeCode : "";
 }
@@ -302,6 +316,7 @@ function syncBikeCodeBuilders() {
         updateBikeCodeHiddenInput(rootName);
       });
       visibleInput.addEventListener("blur", () => {
+        visibleInput.dataset.touched = "true";
         updateBikeCodeHiddenInput(rootName);
       });
     }

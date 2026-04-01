@@ -64,6 +64,11 @@ textarea {
   font-size: 1.05rem;
 }
 
+.bike-code-builder.is-invalid [data-bike-code-input] {
+  border-color: #de5148;
+  box-shadow: 0 0 0 4px rgba(217, 60, 53, 0.08);
+}
+
 .hidden {
   display: none !important;
 }
