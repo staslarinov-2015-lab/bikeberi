@@ -865,13 +865,10 @@ function renderDiagnosticsTable() {
           <td data-label="#"><span class="row-index">${index + 1}</span></td>
           <td data-label="Дата">${escapeHtml(item.date)}</td>
           <td data-label="Байк"><strong>${escapeHtml(item.bike)}</strong></td>
-          <td data-label="Кто проверял">${escapeHtml(item.mechanic_name)}</td>
           <td data-label="Раздел"><span class="diagnostic-category-tag">${escapeHtml(item.category || "Общее")}</span></td>
           <td data-label="Поломка"><strong>${escapeHtml(item.fault || "Не указана")}</strong></td>
           <td data-label="Симптомы">${escapeHtml(item.symptoms)}</td>
           <td data-label="Заключение">${escapeHtml(item.conclusion)}</td>
-          <td data-label="Срочность"><span class="severity-pill ${getSeverityClass(item.severity)}">${escapeHtml(item.severity || "Низкая")}</span></td>
-          <td data-label="Рекомендация">${escapeHtml(item.recommendation)}</td>
           <td class="mechanic-only">
             ${
               canManage
@@ -964,6 +961,14 @@ function renderDiagnosticFaultGrid() {
       `
     )
     .join("");
+
+  if (!state.diagnostics.length) {
+    diagnosticsTable.innerHTML = `
+      <tr>
+        <td colspan="8" class="muted">Диагностических записей пока нет.</td>
+      </tr>
+    `;
+  }
 }
 
 function syncDiagnosticWizard() {
@@ -997,8 +1002,6 @@ function resetDiagnosticFlow() {
   delete diagnosticForm.dataset.editId;
   diagnosticForm.elements.date.value = new Date().toISOString().slice(0, 10);
   diagnosticForm.elements.mechanicName.value = state.user?.full_name || "";
-  diagnosticForm.elements.recommendation.value = "Наблюдать";
-  diagnosticForm.elements.severity.value = "Низкая";
   diagnosticForm.elements.category.value = "";
   diagnosticForm.elements.fault.value = "";
   renderDiagnosticFaultGrid();
@@ -1757,8 +1760,8 @@ diagnosticForm.addEventListener("submit", async (event) => {
       fault: String(formData.get("fault")).trim(),
       symptoms: String(formData.get("symptoms")).trim(),
       conclusion: String(formData.get("conclusion")).trim(),
-      severity: String(formData.get("severity")).trim(),
-      recommendation: String(formData.get("recommendation")).trim(),
+      severity: "Средняя",
+      recommendation: "Плановый ремонт",
       required_parts_text: String(formData.get("requiredParts")).trim(),
     }),
   });
@@ -1909,8 +1912,6 @@ document.addEventListener("click", async (event) => {
     diagnosticForm.elements.fault.value = item.fault || "";
     diagnosticForm.elements.symptoms.value = item.symptoms;
     diagnosticForm.elements.conclusion.value = item.conclusion;
-    diagnosticForm.elements.severity.value = item.severity || "Низкая";
-    diagnosticForm.elements.recommendation.value = item.recommendation;
     openDiagnosticOverlay();
   }
 
