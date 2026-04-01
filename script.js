@@ -4,6 +4,7 @@ const state = {
   search: "",
   statusFilter: "all",
   dashboardPeriod: "today",
+  dashboardExpanded: "repair",
   kpi: {
     totalBikes: 0,
     targetRate: 95,
@@ -992,44 +993,76 @@ function renderMetrics() {
   });
   const cards = [
     {
+      key: "repair",
       icon: "⌁",
       tint: "is-soft-blue",
       label: "Байков в ремонте",
       value: String(stats.repairsInPeriod),
       note: "за выбранный период",
+      details: state.workOrders
+        .filter((item) => Boolean(item.started_at) && isDateInDashboardPeriod(item.started_at))
+        .slice(0, 6)
+        .map((item) => `${item.bike_code} · ${item.estimated_minutes || 0} мин`),
     },
     {
+      key: "waiting",
       icon: "△",
       tint: "is-soft-red",
       label: "Ждут запчасти",
       value: String(stats.waitingParts),
       note: "нужна комплектация",
+      details: state.workOrders
+        .filter((item) => item.status === "ждет запчасти" && isDateInDashboardPeriod(item.intake_date))
+        .slice(0, 6)
+        .map((item) =>
+          item.missing_parts?.length
+            ? `${item.bike_code} · ${item.missing_parts.map((part) => `${part.name} x${part.missing}`).join(", ")}`
+            : `${item.bike_code} · ожидает комплектность`
+        ),
     },
     {
+      key: "ready",
       icon: "◌",
       tint: "is-soft-green",
       label: "Готово ремонтов",
       value: String(stats.readyAfterRepair),
       note: "закрыто механиком",
+      details: state.repairs
+        .filter((item) => item.status === "Готов" && isDateInDashboardPeriod(item.date))
+        .slice(0, 6)
+        .map((item) => `${item.bike} · ${item.issue}`),
     },
     {
+      key: "idle",
       icon: "⚲",
       tint: "is-soft-yellow",
       label: "Простаивают и готовы",
       value: String(stats.idleReadyBikes),
       note: "можно выдавать в аренду",
+      details: state.bikes
+        .filter((item) => item.status === "готов")
+        .slice(0, 6)
+        .map((item) => `${item.code} · ${formatBikeModel(item.model)}`),
     },
   ];
 
   metricsGrid.innerHTML = cards
     .map(
       (card) => `
-        <article class="crm-kpi-card">
+        <article class="crm-kpi-card ${state.dashboardExpanded === card.key ? "is-expanded" : ""}" data-dashboard-card="${card.key}">
           <div class="crm-kpi-icon ${card.tint}">${card.icon}</div>
-          <div>
+          <div class="crm-kpi-main">
             <span class="crm-kpi-label">${escapeHtml(card.label)}</span>
             <strong class="crm-kpi-value">${escapeHtml(card.value)}</strong>
             <span class="crm-kpi-note">${escapeHtml(card.note)}</span>
+          </div>
+          <div class="crm-kpi-toggle">⌄</div>
+          <div class="crm-kpi-details ${state.dashboardExpanded === card.key ? "is-open" : ""}">
+            ${
+              card.details.length
+                ? card.details.map((item) => `<div class="crm-kpi-detail-row">${escapeHtml(item)}</div>`).join("")
+                : '<div class="crm-kpi-detail-row muted">Нет записей за выбранный период.</div>'
+            }
           </div>
         </article>
       `
@@ -1742,6 +1775,21 @@ if (profileForm) {
 }
 
 document.addEventListener("click", async (event) => {
+  const dashboardPeriodTarget = event.target.closest("[data-dashboard-period]");
+  if (dashboardPeriodTarget) {
+    state.dashboardPeriod = dashboardPeriodTarget.dataset.dashboardPeriod;
+    renderMetrics();
+    return;
+  }
+
+  const dashboardCardTarget = event.target.closest("[data-dashboard-card]");
+  if (dashboardCardTarget) {
+    const nextKey = dashboardCardTarget.dataset.dashboardCard;
+    state.dashboardExpanded = state.dashboardExpanded === nextKey ? "" : nextKey;
+    renderMetrics();
+    return;
+  }
+
   const target = event.target.closest("[data-action]");
   if (!target) return;
 
@@ -1888,12 +1936,6 @@ document.addEventListener("click", async (event) => {
       body: JSON.stringify({ action: actionMap[action] }),
     });
     await bootstrap();
-  }
-
-  if (target.matches("[data-dashboard-period]")) {
-    state.dashboardPeriod = target.dataset.dashboardPeriod;
-    renderMetrics();
-    return;
   }
 
   if (action === "start-diagnostic-category") {
