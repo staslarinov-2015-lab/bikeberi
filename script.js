@@ -183,6 +183,7 @@ const bikesGrid = document.getElementById("bikes-grid");
 const workOrdersBoard = document.getElementById("work-orders-board");
 const repairForm = document.getElementById("repair-form");
 const inventoryForm = document.getElementById("inventory-form");
+const bikeForm = document.getElementById("bike-form");
 const diagnosticForm = document.getElementById("diagnostic-form");
 const ownerKpi = document.getElementById("owner-kpi");
 const ownerKpiNote = document.getElementById("owner-kpi-note");
@@ -208,10 +209,14 @@ const profileAvatar = document.getElementById("profile-avatar");
 const logoutButton = document.getElementById("logout-button");
 const repairOverlay = document.getElementById("repair-overlay");
 const inventoryOverlay = document.getElementById("inventory-overlay");
+const bikeOverlay = document.getElementById("bike-overlay");
 const openRepairModalButton = document.getElementById("open-repair-modal");
 const closeRepairModalButton = document.getElementById("close-repair-modal");
 const openInventoryModalButton = document.getElementById("open-inventory-modal");
 const closeInventoryModalButton = document.getElementById("close-inventory-modal");
+const openBikeModalButton = document.getElementById("open-bike-modal");
+const closeBikeModalButton = document.getElementById("close-bike-modal");
+const bikeModalTitle = document.getElementById("bike-modal-title");
 const diagnosticOverlay = document.getElementById("diagnostic-overlay");
 const openDiagnosticModalButton = document.getElementById("open-diagnostic-modal");
 const closeDiagnosticModalButton = document.getElementById("close-diagnostic-modal");
@@ -1009,6 +1014,7 @@ function renderInventory() {
 
 function renderBikes() {
   if (!bikesGrid) return;
+  const canManage = getRole() === "mechanic" || getRole() === "owner";
   bikesGrid.innerHTML = state.bikes
     .map(
       (bike) => `
@@ -1020,6 +1026,23 @@ function renderBikes() {
           <div class="inventory-stock">${escapeHtml(bike.model)}</div>
           <p class="muted">Последний сервис: ${escapeHtml(bike.last_service_at || "еще не было")}</p>
           <p class="muted">${escapeHtml(bike.notes || "Без заметок по байку")}</p>
+          ${
+            canManage
+              ? `<div class="inventory-actions inventory-actions-bike">
+                  <select class="bike-status-select" data-bike-status-id="${bike.id}">
+                    <option value="в аренде" ${bike.status === "в аренде" ? "selected" : ""}>В аренде</option>
+                    <option value="готов" ${bike.status === "готов" ? "selected" : ""}>Готов</option>
+                    <option value="на диагностике" ${bike.status === "на диагностике" ? "selected" : ""}>На диагностике</option>
+                    <option value="принят" ${bike.status === "принят" ? "selected" : ""}>Принят</option>
+                    <option value="ждет запчасти" ${bike.status === "ждет запчасти" ? "selected" : ""}>Ждет запчасти</option>
+                    <option value="в ремонте" ${bike.status === "в ремонте" ? "selected" : ""}>В ремонте</option>
+                    <option value="проверка" ${bike.status === "проверка" ? "selected" : ""}>Проверка</option>
+                  </select>
+                  <button class="primary-btn primary-btn-small" type="button" data-action="save-bike-status" data-id="${bike.id}">Сохранить статус</button>
+                  <button class="icon-btn" type="button" data-action="edit-bike" data-id="${bike.id}">Изменить</button>
+                </div>`
+              : ""
+          }
         </article>
       `
     )
@@ -1252,6 +1275,25 @@ closeInventoryModalButton?.addEventListener("click", () => {
   delete inventoryForm.dataset.editId;
 });
 
+openBikeModalButton?.addEventListener("click", () => {
+  bikeForm?.reset();
+  resetBikeCodeValue("bike");
+  if (bikeModalTitle) bikeModalTitle.textContent = "Новый байк";
+  delete bikeForm.dataset.editId;
+  if (bikeForm) {
+    bikeForm.elements.model.value = "Wenbox U2";
+    bikeForm.elements.status.value = "в аренде";
+  }
+  bikeOverlay?.classList.remove("hidden");
+});
+
+closeBikeModalButton?.addEventListener("click", () => {
+  bikeOverlay?.classList.add("hidden");
+  bikeForm?.reset();
+  resetBikeCodeValue("bike");
+  delete bikeForm.dataset.editId;
+});
+
 openDiagnosticModalButton?.addEventListener("click", () => {
   resetDiagnosticFlow();
   openDiagnosticOverlay();
@@ -1383,6 +1425,36 @@ inventoryForm.addEventListener("submit", async (event) => {
   delete inventoryForm.dataset.editId;
   inventoryOverlay.classList.add("hidden");
   state.activeSection = "inventory";
+  await bootstrap();
+});
+
+bikeForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const formData = new FormData(bikeForm);
+  const editingId = bikeForm.dataset.editId;
+  const bikeCode = updateBikeCodeHiddenInput("bike");
+
+  if (!isValidBikeCode(bikeCode)) {
+    bikeForm.reportValidity();
+    return;
+  }
+
+  await api(editingId ? `/api/bikes/${editingId}` : "/api/bikes", {
+    method: editingId ? "PUT" : "POST",
+    body: JSON.stringify({
+      code: bikeCode,
+      model: String(formData.get("model")).trim() || "Wenbox U2",
+      status: String(formData.get("status")).trim(),
+      notes: String(formData.get("notes")).trim(),
+    }),
+  });
+
+  bikeForm.reset();
+  resetBikeCodeValue("bike");
+  delete bikeForm.dataset.editId;
+  bikeOverlay?.classList.add("hidden");
+  state.activeSection = "bikes";
   await bootstrap();
 });
 
@@ -1575,6 +1647,34 @@ document.addEventListener("click", async (event) => {
     repairForm.elements.neededParts.value = state.repairDraftFromDiagnostic.neededParts || "";
     repairForm.elements.status.value = state.repairDraftFromDiagnostic.status || "В ремонте";
     repairOverlay.classList.remove("hidden");
+  }
+
+  if (action === "edit-bike") {
+    const bike = state.bikes.find((entry) => String(entry.id) === id);
+    if (!bike || !bikeForm) return;
+    bikeForm.dataset.editId = id;
+    if (bikeModalTitle) bikeModalTitle.textContent = "Редактирование байка";
+    setBikeCodeValue("bike", bike.code);
+    bikeForm.elements.model.value = bike.model || "Wenbox U2";
+    bikeForm.elements.status.value = bike.status || "в аренде";
+    bikeForm.elements.notes.value = bike.notes || "";
+    bikeOverlay?.classList.remove("hidden");
+  }
+
+  if (action === "save-bike-status") {
+    const bike = state.bikes.find((entry) => String(entry.id) === id);
+    const statusSelect = document.querySelector(`[data-bike-status-id="${id}"]`);
+    if (!bike || !statusSelect) return;
+    await api(`/api/bikes/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        code: bike.code,
+        model: bike.model || "Wenbox U2",
+        status: String(statusSelect.value).trim(),
+        notes: bike.notes || "",
+      }),
+    });
+    await bootstrap();
   }
 
   if (action.startsWith("work-order-")) {

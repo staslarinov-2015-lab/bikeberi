@@ -224,11 +224,11 @@
                 <div>
                   <div class="section-label">Парк</div>
                   <h3>Карточки байков</h3>
-                  <p class="muted">Справочный раздел: здесь только просмотр текущего состава парка без ручного добавления и удаления.</p>
+                  <p class="muted">Механик может добавлять байки, менять их статусы и поддерживать актуальное состояние парка.</p>
                 </div>
               </div>
-              <div class="toolbar-right">
-                <span class="readonly-badge">Только просмотр</span>
+              <div class="toolbar-right mechanic-only">
+                <button id="open-bike-modal" class="primary-btn" type="button">＋ Добавить байк</button>
               </div>
             </div>
             <div id="bikes-grid" class="inventory-grid"></div>
@@ -508,6 +508,82 @@
             <input name="min" type="number" min="0" required />
           </label>
           <button class="primary-btn wide" type="submit">Сохранить позицию</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="bike-overlay" class="overlay hidden">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <div class="section-label">Парк</div>
+            <h2 id="bike-modal-title">Новый байк</h2>
+          </div>
+          <button id="close-bike-modal" class="ghost-btn" type="button">Закрыть</button>
+        </div>
+
+        <form id="bike-form" class="form-grid">
+          <label>
+            <span>Номер байка</span>
+            <input name="bike" type="hidden" required />
+            <div class="bike-code-builder" data-bike-code-root="bike">
+              <select data-bike-part="l1" aria-label="Первая буква">
+                <option value="">Буква</option>
+                <option value="P">Р</option>
+                <option value="E">Е</option>
+                <option value="Y">У</option>
+              </select>
+              <select data-bike-part="l2" aria-label="Вторая буква">
+                <option value="">Буква</option>
+                <option value="P">Р</option>
+                <option value="E">Е</option>
+                <option value="Y">У</option>
+              </select>
+              <select data-bike-part="d1" aria-label="Первая цифра">
+                <option value="">0-9</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+                <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option>
+              </select>
+              <select data-bike-part="d2" aria-label="Вторая цифра">
+                <option value="">0-9</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+                <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option>
+              </select>
+              <select data-bike-part="d3" aria-label="Третья цифра">
+                <option value="">0-9</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+                <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option>
+              </select>
+              <select data-bike-part="l3" aria-label="Третья буква">
+                <option value="">Буква</option>
+                <option value="P">Р</option>
+                <option value="E">Е</option>
+                <option value="Y">У</option>
+              </select>
+            </div>
+            <span class="muted">Формат: РЕ123У</span>
+          </label>
+          <label>
+            <span>Модель</span>
+            <input name="model" type="text" placeholder="Wenbox U2" required />
+          </label>
+          <label>
+            <span>Статус</span>
+            <select name="status">
+              <option value="в аренде">В аренде</option>
+              <option value="готов">Готов</option>
+              <option value="на диагностике">На диагностике</option>
+              <option value="принят">Принят</option>
+              <option value="ждет запчасти">Ждет запчасти</option>
+              <option value="в ремонте">В ремонте</option>
+              <option value="проверка">Проверка</option>
+            </select>
+          </label>
+          <label class="wide">
+            <span>Заметки</span>
+            <textarea name="notes" rows="4" placeholder="Комментарий по состоянию байка, история, нюансы"></textarea>
+          </label>
+          <button class="primary-btn wide" type="submit">Сохранить байк</button>
         </form>
       </div>
     </div>

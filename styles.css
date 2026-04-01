@@ -1045,6 +1045,17 @@ tbody tr:hover {
   gap: 8px;
 }
 
+.inventory-actions-bike {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.bike-status-select {
+  min-width: 180px;
+  flex: 1 1 180px;
+}
+
 .icon-btn {
   border-radius: 12px;
   border: 1px solid var(--line);
@@ -1493,6 +1504,10 @@ tbody tr:hover {
     height: 68px;
     right: 16px;
     bottom: 108px;
+  }
+
+  #section-overview {
+    overflow-x: visible;
   }
 
   .screen-section {

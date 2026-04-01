@@ -64,6 +64,16 @@ WORK_ORDER_STATUSES = {
     "готов",
 }
 
+BIKE_STATUS_OPTIONS = {
+    "в аренде",
+    "готов",
+    "на диагностике",
+    "принят",
+    "ждет запчасти",
+    "в ремонте",
+    "проверка",
+}
+
 FAULT_CATALOG = {
     "Трещина пластика": {"minutes": 30, "parts": [("Крепеж пластика", 2)]},
     "Сломано крепление": {"minutes": 25, "parts": [("Крепеж пластика", 2)]},
@@ -678,6 +688,13 @@ def parse_positive_int(value, field_name):
     return parsed
 
 
+def validate_bike_status(raw_value: str) -> str:
+    status = str(raw_value or "").strip()
+    if status not in BIKE_STATUS_OPTIONS:
+        raise ValueError("Указан недопустимый статус байка")
+    return status
+
+
 def normalize_inventory_name(name: str) -> str:
     normalized = str(name).strip()
     aliases = {
@@ -1099,6 +1116,35 @@ class AppHandler(BaseHTTPRequestHandler):
             conn.close()
             return json_response(self, 201, {"ok": True})
 
+        if parsed.path == "/api/bikes":
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            payload = read_json(self)
+            try:
+                code = validate_bike_code(payload.get("code", ""))
+                status = validate_bike_status(payload.get("status", ""))
+            except ValueError as error:
+                return json_response(self, 400, {"error": str(error)})
+
+            model = str(payload.get("model", "")).strip() or "Wenbox U2"
+            notes = str(payload.get("notes", "")).strip()
+            conn = get_db()
+            exists = conn.execute("SELECT id FROM bikes WHERE code = ?", (code,)).fetchone()
+            if exists:
+                conn.close()
+                return json_response(self, 400, {"error": "Байк с таким номером уже существует"})
+            conn.execute(
+                """
+                INSERT INTO bikes (code, model, status, notes, last_service_at, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (code, model, status, notes, None, utc_now().isoformat(), utc_now().isoformat()),
+            )
+            conn.commit()
+            conn.close()
+            return json_response(self, 201, {"ok": True})
+
         if parsed.path == "/api/diagnostics":
             user = require_role(self, {"mechanic", "owner"})
             if not user:
@@ -1435,6 +1481,42 @@ class AppHandler(BaseHTTPRequestHandler):
             conn.execute(
                 "UPDATE inventory SET name = ?, stock = ?, min = ?, updated_at = ? WHERE id = ?",
                 (name, stock, minimum, utc_now().isoformat(), inventory_id),
+            )
+            conn.commit()
+            conn.close()
+            return json_response(self, 200, {"ok": True})
+
+        if parsed.path.startswith("/api/bikes/"):
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            bike_id = parsed.path.rsplit("/", 1)[-1]
+            payload = read_json(self)
+            try:
+                code = validate_bike_code(payload.get("code", ""))
+                status = validate_bike_status(payload.get("status", ""))
+            except ValueError as error:
+                return json_response(self, 400, {"error": str(error)})
+
+            model = str(payload.get("model", "")).strip() or "Wenbox U2"
+            notes = str(payload.get("notes", "")).strip()
+
+            conn = get_db()
+            duplicate = conn.execute(
+                "SELECT id FROM bikes WHERE code = ? AND id != ?",
+                (code, bike_id),
+            ).fetchone()
+            if duplicate:
+                conn.close()
+                return json_response(self, 400, {"error": "Байк с таким номером уже существует"})
+
+            conn.execute(
+                """
+                UPDATE bikes
+                SET code = ?, model = ?, status = ?, notes = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (code, model, status, notes, utc_now().isoformat(), bike_id),
             )
             conn.commit()
             conn.close()
