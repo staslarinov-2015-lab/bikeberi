@@ -1034,7 +1034,6 @@ function renderMetrics() {
       tint: "is-soft-blue",
       label: "Байков в ремонте",
       value: String(stats.repairsInPeriod),
-      note: "за выбранный период",
       details: state.workOrders
         .filter((item) => Boolean(item.started_at) && isDateInDashboardPeriod(item.started_at))
         .slice(0, 6)
@@ -1046,7 +1045,6 @@ function renderMetrics() {
       tint: "is-soft-red",
       label: "Ждут запчасти",
       value: String(stats.waitingParts),
-      note: "нужна комплектация",
       details: state.workOrders
         .filter((item) => item.status === "ждет запчасти" && isDateInDashboardPeriod(item.intake_date))
         .slice(0, 6)
@@ -1062,7 +1060,6 @@ function renderMetrics() {
       tint: "is-soft-green",
       label: "Готово ремонтов",
       value: String(stats.readyAfterRepair),
-      note: "закрыто механиком",
       details: state.repairs
         .filter((item) => item.status === "Готов" && isDateInDashboardPeriod(item.date))
         .slice(0, 6)
@@ -1074,7 +1071,6 @@ function renderMetrics() {
       tint: "is-soft-yellow",
       label: "Простаивают и готовы",
       value: String(stats.idleReadyBikes),
-      note: "можно выдавать в аренду",
       details: state.bikes
         .filter((item) => item.status === "готов")
         .slice(0, 6)
@@ -1090,7 +1086,6 @@ function renderMetrics() {
           <div class="crm-kpi-main">
             <span class="crm-kpi-label">${escapeHtml(card.label)}</span>
             <strong class="crm-kpi-value">${escapeHtml(card.value)}</strong>
-            <span class="crm-kpi-note">${escapeHtml(card.note)}</span>
           </div>
           <div class="crm-kpi-toggle">⌄</div>
           <div class="crm-kpi-details ${state.dashboardExpanded === card.key ? "is-open" : ""}">
@@ -1109,10 +1104,10 @@ function renderMetrics() {
 function renderTimeline() {
   const metrics = getMetrics();
   const rows = [
-    { label: "В ремонте сейчас", value: metrics.inRepair, note: "активные заявки" },
-    { label: "Ждут запчасти сейчас", value: metrics.waiting, note: "ремонты в ожидании" },
-    { label: "Готовы к аренде сейчас", value: metrics.readyForRent, note: "байки со статусом готов" },
-    { label: "На диагностике", value: metrics.technical, note: "первичный осмотр" },
+    { label: "В ремонте сейчас", value: metrics.inRepair },
+    { label: "Ждут запчасти сейчас", value: metrics.waiting },
+    { label: "Готовы к аренде сейчас", value: metrics.readyForRent },
+    { label: "На диагностике", value: metrics.technical },
   ];
   timeline.innerHTML = rows
     .map(
@@ -1120,7 +1115,6 @@ function renderTimeline() {
         <article class="crm-status-row">
           <div>
             <div class="crm-status-title">${escapeHtml(row.label)}</div>
-            <div class="crm-status-subtitle">${escapeHtml(row.note)}</div>
           </div>
           <div class="crm-status-metrics">
             <span class="crm-status-percent">${escapeHtml(String(row.value))}</span>
@@ -1171,7 +1165,6 @@ function renderAlerts() {
         <article class="crm-load-item">
           <div>
             <div class="crm-load-item-title">${escapeHtml(item.title)}</div>
-            <div class="crm-load-item-copy">${escapeHtml(item.copy)}</div>
           </div>
           <span class="crm-load-pill ${item.state === "danger" ? "is-danger" : "is-ok"}">
             ${item.state === "danger" ? "Внимание" : "Норма"}
