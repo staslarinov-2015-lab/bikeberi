@@ -974,10 +974,8 @@ def hydrate_work_orders(conn):
         order["history"] = history
         order["missing_parts"] = missing_parts
         order["parts_ready"] = bool(order["parts_ready"])
-        order["can_start"] = order["status"] in {"принят", "диагностика"} and not missing_parts
-        order["can_send_to_check"] = order["status"] == "в ремонте"
-        order["can_mark_ready"] = order["status"] == "проверка"
-        order["can_reserve"] = order["status"] == "ждет запчасти"
+        order["can_start"] = order["status"] in {"принят", "диагностика", "ждет запчасти"} and not missing_parts
+        order["can_mark_ready"] = order["status"] == "в ремонте"
         orders.append(order)
 
     return orders
@@ -1409,39 +1407,10 @@ class AppHandler(BaseHTTPRequestHandler):
                     f"Механик начал ремонт, таймер запущен на {int(order['estimated_minutes'] or 0)} мин",
                 )
 
-            elif action == "send_to_check":
+            elif action == "mark_ready":
                 if order["status"] != "в ремонте":
                     conn.close()
-                    return json_response(self, 400, {"error": "Сначала нужно выполнить ремонт"})
-                next_status = "проверка"
-                conn.execute("UPDATE work_orders SET status = ? WHERE id = ?", (next_status, work_order_id))
-                set_bike_status(conn, order["bike_id"], next_status)
-                add_work_order_history(conn, int(work_order_id), user["full_name"], "status", "Ремонт завершен, байк отправлен на проверку")
-
-            elif action == "return_to_repair":
-                if order["status"] != "проверка":
-                    conn.close()
-                    return json_response(self, 400, {"error": "Возврат доступен только из проверки"})
-                next_status = "в ремонте"
-                started_at = utc_now().isoformat()
-                eta = (utc_now() + timedelta(minutes=int(order["estimated_minutes"] or 0))).isoformat()
-                conn.execute(
-                    "UPDATE work_orders SET status = ?, started_at = ?, estimated_ready_at = ? WHERE id = ?",
-                    (next_status, started_at, eta, work_order_id),
-                )
-                set_bike_status(conn, order["bike_id"], next_status)
-                add_work_order_history(
-                    conn,
-                    int(work_order_id),
-                    user["full_name"],
-                    "status",
-                    "Байк возвращен из проверки в ремонт, таймер перезапущен",
-                )
-
-            elif action == "mark_ready":
-                if order["status"] != "проверка":
-                    conn.close()
-                    return json_response(self, 400, {"error": "Готовность можно поставить только после проверки"})
+                    return json_response(self, 400, {"error": "Сначала нужно начать ремонт"})
                 parts = conn.execute(
                     """
                     SELECT part_name, qty_required, qty_reserved

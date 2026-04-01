@@ -440,6 +440,29 @@ function formatRepairCountdown(deadlineRaw) {
   return diff >= 0 ? `${parts.join(":")} до завершения` : `Просрочено на ${parts.join(":")}`;
 }
 
+function getWorkOrderPartsStatus(order) {
+  if (!order.parts?.length) {
+    return {
+      summary: "Запчасти не требуются",
+      details: '<p class="success-text">Для этой работы дополнительные детали не нужны.</p>',
+    };
+  }
+
+  if (order.missing_parts?.length) {
+    return {
+      summary: "Нужно заказать недостающие детали",
+      details: `<p class="error-text">Не хватает: ${escapeHtml(
+        order.missing_parts.map((item) => `${item.name} x${item.missing}`).join(", ")
+      )}</p>`,
+    };
+  }
+
+  return {
+    summary: "Все нужные запчасти в наличии",
+    details: '<p class="success-text">Комплект собран, ремонт можно запускать.</p>',
+  };
+}
+
 async function ensureNotificationPermission() {
   if (!("Notification" in window)) return "unsupported";
   if (Notification.permission === "granted") return "granted";
@@ -1187,6 +1210,7 @@ function renderWorkOrders() {
   } else {
     activeRepairBoard.innerHTML = activeOrders
       .map((order) => {
+        const partsStatus = getWorkOrderPartsStatus(order);
         const etaText = order.estimated_ready_at
           ? new Date(order.estimated_ready_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
           : "появится после запуска";
@@ -1198,13 +1222,29 @@ function renderWorkOrders() {
             </div>
             <p class="muted">Диагностика: ${escapeHtml(order.intake_date)} · Норма времени: ${escapeHtml(order.estimated_minutes)} мин</p>
             <div class="stack-item">
+              <strong>Что сломано</strong>
+              <p class="muted">${escapeHtml(order.fault || order.issue || "-")}</p>
+            </div>
+            <div class="stack-item">
+              <strong>Какие запчасти нужны</strong>
+              <p class="muted">${escapeHtml(order.required_parts_text || "Запчасти не требуются")}</p>
+            </div>
+            <div class="stack-item">
+              <strong>Статус запчастей</strong>
+              <p class="muted">${escapeHtml(partsStatus.summary)}</p>
+              ${partsStatus.details}
+            </div>
+            <div class="stack-item">
               <strong>Таймер ремонта</strong>
               <p class="metric-value repair-timer" data-repair-deadline="${escapeHtml(order.estimated_ready_at || "")}">${escapeHtml(formatRepairCountdown(order.estimated_ready_at))}</p>
               <p class="muted">Плановое завершение: ${escapeHtml(etaText)}</p>
             </div>
+            <div class="stack-item">
+              <strong>Подсказка</strong>
+              <p class="muted">${escapeHtml(order.planned_work || "Открой диагностику и проверь типовую схему ремонта для этой поломки.")}</p>
+            </div>
             <div class="table-actions">
-              ${order.can_send_to_check ? `<button class="icon-btn" type="button" data-action="work-order-check" data-id="${order.id}">На проверку</button>` : ""}
-              ${order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">Готов</button>` : ""}
+              ${order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">Завершить ремонт</button>` : ""}
             </div>
           </article>
         `;
@@ -1220,28 +1260,10 @@ function renderWorkOrders() {
 
   workOrdersBoard.innerHTML = queueOrders
     .map((order) => {
+      const partsStatus = getWorkOrderPartsStatus(order);
       const etaText = order.estimated_ready_at
         ? new Date(order.estimated_ready_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
         : "появится после комплектации";
-      const parts = order.parts?.length
-        ? order.parts
-            .map((part) => {
-              const reserved = Number(part.qty_reserved || 0);
-              const required = Number(part.qty_required || 0);
-              return `<span class="diagnostic-category-tag">${escapeHtml(part.part_name)} ${reserved}/${required}</span>`;
-            })
-            .join(" ")
-        : '<span class="muted">Запчасти не требуются</span>';
-      const missing = order.missing_parts?.length
-        ? `<p class="error-text">Не хватает: ${escapeHtml(order.missing_parts.map((item) => `${item.name} x${item.missing}`).join(", "))}</p>`
-        : '<p class="success-text">Комплект собран, можно запускать ремонт</p>';
-      const history = order.history?.length
-        ? `<div class="stack-list">${order.history
-            .map(
-              (entry) => `<div class="stack-item"><strong>${escapeHtml(entry.actor_name)}</strong><p class="muted">${escapeHtml(entry.message)}</p></div>`
-            )
-            .join("")}</div>`
-        : "";
 
       return `
         <article class="content-card owner-card">
@@ -1249,26 +1271,32 @@ function renderWorkOrders() {
             <span><strong>${escapeHtml(order.bike_code)}</strong> · ${escapeHtml(order.issue)}</span>
             <span class="status-pill ${getBikeStatusClass(order.status)}">${escapeHtml(order.status)}</span>
           </div>
-          <p class="muted">Раздел: ${escapeHtml(order.category)} · Поломка: ${escapeHtml(order.fault)}</p>
-          <p class="muted">Диагностика: ${escapeHtml(order.intake_date)} · Нужно времени: ${escapeHtml(order.estimated_minutes)} мин · ETA: ${escapeHtml(etaText)}</p>
           <div class="stack-item">
-            <strong>Нужные запчасти</strong>
-            <p class="muted">${escapeHtml(order.required_parts_text || "-")}</p>
-            <div class="status-toolbar">${parts}</div>
-            ${missing}
+            <strong>Что сломано</strong>
+            <p class="muted">${escapeHtml(order.fault || order.issue || "-")}</p>
           </div>
           <div class="stack-item">
-            <strong>План работ</strong>
-            <p class="muted">${escapeHtml(order.planned_work || "-")}</p>
+            <strong>Какие запчасти нужны</strong>
+            <p class="muted">${escapeHtml(order.required_parts_text || "Запчасти не требуются")}</p>
+          </div>
+          <div class="stack-item">
+            <strong>Статус запчастей</strong>
+            <p class="muted">${escapeHtml(partsStatus.summary)}</p>
+            ${partsStatus.details}
+          </div>
+          <div class="stack-item">
+            <strong>Таймер на работу</strong>
+            <p class="muted">${escapeHtml(order.estimated_minutes)} мин · старт после нажатия на кнопку</p>
+            <p class="muted">Диагностика: ${escapeHtml(order.intake_date)} · Плановое завершение: ${escapeHtml(etaText)}</p>
+          </div>
+          <div class="stack-item">
+            <strong>Подсказка</strong>
+            <p class="muted">${escapeHtml(order.planned_work || "Открой диагностику и проверь типовую схему ремонта для этой поломки.")}</p>
           </div>
           <div class="table-actions">
-            ${order.can_reserve ? `<button class="icon-btn" type="button" data-action="work-order-reserve" data-id="${order.id}">Проверить склад</button>` : ""}
             ${order.can_start ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-start" data-id="${order.id}">Начать ремонт</button>` : ""}
-            ${order.can_send_to_check ? `<button class="icon-btn" type="button" data-action="work-order-check" data-id="${order.id}">На проверку</button>` : ""}
-            ${order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">Готов</button>` : ""}
-            ${order.status === "проверка" ? `<button class="danger-btn" type="button" data-action="work-order-return" data-id="${order.id}">Вернуть в ремонт</button>` : ""}
+            ${!order.can_start && order.status !== "готов" ? `<button class="ghost-btn" type="button" disabled>Ждем комплектность</button>` : ""}
           </div>
-          ${history}
         </article>
       `;
     })
@@ -1853,11 +1881,8 @@ document.addEventListener("click", async (event) => {
 
   if (action.startsWith("work-order-")) {
     const actionMap = {
-      "work-order-reserve": "reserve",
       "work-order-start": "start_repair",
-      "work-order-check": "send_to_check",
       "work-order-ready": "mark_ready",
-      "work-order-return": "return_to_repair",
     };
     if (action === "work-order-start") {
       await ensureNotificationPermission();
