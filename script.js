@@ -1246,9 +1246,16 @@ function renderWorkOrders() {
           : "появится после запуска";
         return `
           <article class="content-card owner-card">
-            <div class="inventory-meta">
-              <span><strong>${escapeHtml(order.bike_code)}</strong> · ${escapeHtml(order.issue)}</span>
+            <div class="bike-card-head">
+              <div>
+                <div class="bike-card-code">${escapeHtml(order.bike_code)}</div>
+                <div class="bike-card-model">Wenbox U2</div>
+              </div>
               <span class="status-pill ${getBikeStatusClass(order.status)}">${escapeHtml(order.status)}</span>
+            </div>
+            <div class="bike-card-history">
+              <span class="bike-card-label">Текущая поломка</span>
+              <strong>${escapeHtml(order.fault || order.issue || "-")}</strong>
             </div>
             <p class="muted">Диагностика: ${escapeHtml(order.intake_date)} · Норма времени: ${escapeHtml(order.estimated_minutes)} мин</p>
             <div class="stack-item">
