@@ -16,6 +16,7 @@ const state = {
   diagnosticFlow: {
     mode: "create",
     category: "",
+    zone: "",
     fault: "",
   },
 };
@@ -28,19 +29,19 @@ document.body.appendChild(repairAlerts);
 const DIAGNOSTIC_LIBRARY = {
   "Пластик": {
     summary: "Обвес, крышки, внешние элементы корпуса",
-    faults: [
-      "Трещина пластика",
-      "Глубокая царапина",
-      "Скол пластика",
-      "Сломано крепление",
-      "Разболтано крепление пластика",
-      "Отсутствует элемент корпуса",
-      "Корпус болтается",
-      "Повреждена крышка батареи",
-      "Поврежден боковой кожух",
-      "Поврежден передний пластик",
-      "Поврежден задний пластик",
-      "Деформация корпуса после удара",
+    zones: [
+      "Дека для ног",
+      "Корпус слева",
+      "Корпус справа",
+      "Рулевая колонка",
+      "Сиденье",
+      "Место под АКБ",
+    ],
+    damageTypes: [
+      "Трещина",
+      "Скол",
+      "Полностью сломано",
+      "Отсутствует деталь",
     ],
   },
   "Руль и управление": {
@@ -817,16 +818,39 @@ function renderDiagnosticFaultGrid() {
   const config = DIAGNOSTIC_LIBRARY[category];
   if (!diagnosticFaultGrid || !diagnosticFaultsTitle) return;
 
-  diagnosticFaultsTitle.textContent = category
-    ? `Выбери поломку: ${category}`
-    : "Выбери типовую поломку";
+  if (!category) {
+    diagnosticFaultsTitle.textContent = "Выбери типовую поломку";
+  } else if (category === "Пластик" && !state.diagnosticFlow.zone) {
+    diagnosticFaultsTitle.textContent = "Выбери место повреждения";
+  } else if (category === "Пластик") {
+    diagnosticFaultsTitle.textContent = `Выбери тип повреждения: ${state.diagnosticFlow.zone}`;
+  } else {
+    diagnosticFaultsTitle.textContent = `Выбери поломку: ${category}`;
+  }
 
   if (!config) {
     diagnosticFaultGrid.innerHTML = '<p class="muted">Сначала выбери раздел диагностики.</p>';
     return;
   }
 
-  diagnosticFaultGrid.innerHTML = config.faults
+  if (category === "Пластик" && !state.diagnosticFlow.zone) {
+    diagnosticFaultGrid.innerHTML = config.zones
+      .map(
+        (zone) => `
+          <button class="diagnostic-fault-card" type="button" data-action="select-diagnostic-zone" data-zone="${escapeHtml(zone)}">
+            <strong>${escapeHtml(zone)}</strong>
+          </button>
+        `
+      )
+      .join("");
+    return;
+  }
+
+  const faults = category === "Пластик"
+    ? config.damageTypes
+    : config.faults;
+
+  diagnosticFaultGrid.innerHTML = faults
     .map(
       (fault) => `
         <button class="diagnostic-fault-card" type="button" data-action="select-diagnostic-fault" data-fault="${escapeHtml(fault)}">
@@ -860,6 +884,7 @@ function resetDiagnosticFlow() {
   state.diagnosticFlow = {
     mode: "create",
     category: "",
+    zone: "",
     fault: "",
   };
   diagnosticForm.reset();
@@ -884,6 +909,7 @@ function openDiagnosticOverlay() {
 
 function chooseDiagnosticCategory(category) {
   state.diagnosticFlow.category = category;
+  state.diagnosticFlow.zone = "";
   state.diagnosticFlow.fault = "";
   diagnosticForm.elements.category.value = category;
   diagnosticForm.elements.fault.value = "";
@@ -891,12 +917,24 @@ function chooseDiagnosticCategory(category) {
   syncDiagnosticWizard();
 }
 
+function chooseDiagnosticZone(zone) {
+  state.diagnosticFlow.zone = zone;
+  state.diagnosticFlow.fault = "";
+  diagnosticForm.elements.fault.value = "";
+  renderDiagnosticFaultGrid();
+  syncDiagnosticWizard();
+}
+
 function chooseDiagnosticFault(fault) {
-  state.diagnosticFlow.fault = fault;
+  const resolvedFault =
+    state.diagnosticFlow.category === "Пластик" && state.diagnosticFlow.zone
+      ? `${state.diagnosticFlow.zone} · ${fault}`
+      : fault;
+  state.diagnosticFlow.fault = resolvedFault;
   diagnosticForm.elements.category.value = state.diagnosticFlow.category;
-  diagnosticForm.elements.fault.value = fault;
+  diagnosticForm.elements.fault.value = resolvedFault;
   if (!diagnosticForm.elements.symptoms.value.trim()) {
-    diagnosticForm.elements.symptoms.value = `${state.diagnosticFlow.category}: ${fault}`;
+    diagnosticForm.elements.symptoms.value = `${state.diagnosticFlow.category}: ${resolvedFault}`;
   }
   syncDiagnosticWizard();
 }
@@ -1479,6 +1517,7 @@ mobileNavOverlay?.addEventListener("click", () => {
 
 diagnosticBackToCategories?.addEventListener("click", () => {
   state.diagnosticFlow.category = "";
+  state.diagnosticFlow.zone = "";
   state.diagnosticFlow.fault = "";
   diagnosticForm.elements.category.value = "";
   diagnosticForm.elements.fault.value = "";
@@ -1487,6 +1526,9 @@ diagnosticBackToCategories?.addEventListener("click", () => {
 });
 
 diagnosticBackToFaults?.addEventListener("click", () => {
+  if (state.diagnosticFlow.category === "Пластик" && state.diagnosticFlow.zone) {
+    state.diagnosticFlow.zone = "";
+  }
   state.diagnosticFlow.fault = "";
   diagnosticForm.elements.fault.value = "";
   renderDiagnosticFaultGrid();
@@ -1766,8 +1808,13 @@ document.addEventListener("click", async (event) => {
   if (action === "edit-diagnostic") {
     const item = state.diagnostics.find((entry) => String(entry.id) === id);
     if (!item) return;
+    const plasticParts =
+      item.category === "Пластик" && String(item.fault || "").includes(" · ")
+        ? String(item.fault || "").split(" · ")
+        : [];
     state.diagnosticFlow.mode = "edit";
     state.diagnosticFlow.category = item.category || "";
+    state.diagnosticFlow.zone = plasticParts[0] || "";
     state.diagnosticFlow.fault = item.fault || "";
     diagnosticForm.dataset.editId = id;
     diagnosticForm.elements.date.value = item.date;
@@ -1864,6 +1911,10 @@ document.addEventListener("click", async (event) => {
     resetDiagnosticFlow();
     chooseDiagnosticCategory(target.dataset.category);
     openDiagnosticOverlay();
+  }
+
+  if (action === "select-diagnostic-zone") {
+    chooseDiagnosticZone(target.dataset.zone);
   }
 
   if (action === "select-diagnostic-fault") {
