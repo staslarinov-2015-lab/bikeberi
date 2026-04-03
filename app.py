@@ -628,7 +628,12 @@ def init_db():
     if settings_count == 0:
         cur.executemany(
             "INSERT INTO settings (key, value) VALUES (?, ?)",
-            [("total_bikes", "40"), ("target_rate", "95")],
+            [("total_bikes", "40"), ("target_rate", "95"), ("mechanic_focus", "оперативка")],
+        )
+    else:
+        cur.execute(
+            "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+            ("mechanic_focus", "оперативка"),
         )
 
     cleanup_key = "service_history_reset_v1"
@@ -1085,6 +1090,7 @@ def fetch_bootstrap_payload(user):
         "kpi": {
             "totalBikes": int(settings.get("total_bikes", "40")),
             "targetRate": int(settings.get("target_rate", "95")),
+            "mechanicFocus": str(settings.get("mechanic_focus", "оперативка")),
         },
         "bikes": bikes,
         "repairs": repairs,
@@ -1687,10 +1693,14 @@ class AppHandler(BaseHTTPRequestHandler):
                 return json_response(self, 400, {"error": "Количество байков должно быть больше нуля"})
             if not 1 <= target_rate <= 100:
                 return json_response(self, 400, {"error": "Цель KPI должна быть от 1 до 100"})
+            mechanic_focus = str(payload.get("mechanicFocus", "оперативка")).strip() or "оперативка"
+            if len(mechanic_focus) > 80:
+                return json_response(self, 400, {"error": "Фокус механика должен быть до 80 символов"})
 
             conn = get_db()
             conn.execute("UPDATE settings SET value = ? WHERE key = 'total_bikes'", (str(total_bikes),))
             conn.execute("UPDATE settings SET value = ? WHERE key = 'target_rate'", (str(target_rate),))
+            conn.execute("UPDATE settings SET value = ? WHERE key = 'mechanic_focus'", (mechanic_focus,))
             conn.commit()
             conn.close()
             return json_response(self, 200, {"ok": True})

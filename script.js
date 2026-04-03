@@ -8,6 +8,7 @@ const state = {
   kpi: {
     totalBikes: 0,
     targetRate: 95,
+    mechanicFocus: "оперативка",
   },
   repairs: [],
   inventory: [],
@@ -722,7 +723,7 @@ function renderSectionHeader() {
           title: "Дашборд",
           heroTitleText: "Рабочий день механика под контролем",
           heroCopyText: "Видно текущую загрузку, зависшие ремонты и детали, которые нужно заказать.",
-          badge: "Сегодня в фокусе: оперативка",
+          badge: `Сегодня в фокусе: ${state.kpi.mechanicFocus || "оперативка"}`,
         },
     bikes: {
       title: "Парк байков",
@@ -1423,6 +1424,9 @@ function render() {
   if (settingsForm) {
     settingsForm.elements.totalBikes.value = state.kpi.totalBikes || "";
     settingsForm.elements.targetRate.value = state.kpi.targetRate || "";
+    if (settingsForm.elements.mechanicFocus) {
+      settingsForm.elements.mechanicFocus.value = state.kpi.mechanicFocus || "оперативка";
+    }
   }
   renderRoleContent();
   renderSectionHeader();
@@ -1812,6 +1816,7 @@ if (settingsForm) {
       body: JSON.stringify({
         totalBikes: Number(formData.get("totalBikes")),
         targetRate: Number(formData.get("targetRate")),
+        mechanicFocus: String(formData.get("mechanicFocus") || "").trim(),
       }),
     });
     await bootstrap();
