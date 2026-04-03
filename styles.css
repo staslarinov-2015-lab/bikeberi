@@ -113,14 +113,18 @@ textarea {
   display: grid;
   place-items: center;
   background: #fff;
-  color: var(--accent);
-  font-size: 1.8rem;
-  font-weight: 800;
+  overflow: hidden;
+}
+
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 .brand-mark-auth {
-  background: var(--accent);
-  color: #fff;
+  background: transparent;
 }
 
 .sidebar-logo {

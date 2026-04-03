@@ -37,7 +37,7 @@ SECRET_KEY = os.environ.get("BIKEBERI_SECRET_KEY", "bikeberi-dev-secret")
 HOST = os.environ.get("BIKEBERI_HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", os.environ.get("BIKEBERI_PORT", "8000")))
 COOKIE_SECURE = os.environ.get("BIKEBERI_COOKIE_SECURE", "false").lower() == "true"
-APP_NAME = os.environ.get("BIKEBERI_APP_NAME", "BikeBeri service app")
+APP_NAME = os.environ.get("BIKEBERI_APP_NAME", "Байк Сервис")
 DB_PATH = Path(
     os.environ.get(
         "BIKEBERI_DB_PATH",
@@ -438,8 +438,8 @@ def init_db():
         cur.executemany(
             "INSERT INTO users (username, password_hash, role, full_name, phone, telegram, position, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
-                ("mechanic", hash_password("mechanic123"), "mechanic", "Механик BikeBeri", "", "", "Механик", "", now),
-                ("owner", hash_password("owner123"), "owner", "Собственник BikeBeri", "", "", "Собственник", "", now),
+                ("mechanic", hash_password("mechanic123"), "mechanic", "Механик Байк Сервис", "", "", "Механик", "", now),
+                ("owner", hash_password("owner123"), "owner", "Собственник Байк Сервис", "", "", "Собственник", "", now),
             ],
         )
 
@@ -487,8 +487,8 @@ def init_db():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
-                ("2026-03-31", "PE022Y", "Механик BikeBeri", "Мотор", "Не тянет мотор", "Слабая тяга мотора, рывки при старте", "Нужна углубленная проверка контроллера и цепи питания", "Критичная", "Срочный ремонт", now),
-                ("2026-03-30", "PE017Y", "Механик BikeBeri", "Руль и управление", "Люфт рулевой", "Чувствуется люфт в рулевой колонке", "Можно пустить в плановый ремонт в ближайшее окно", "Средняя", "Плановый ремонт", now),
+                ("2026-03-31", "PE022Y", "Механик Байк Сервис", "Мотор", "Не тянет мотор", "Слабая тяга мотора, рывки при старте", "Нужна углубленная проверка контроллера и цепи питания", "Критичная", "Срочный ремонт", now),
+                ("2026-03-30", "PE017Y", "Механик Байк Сервис", "Руль и управление", "Люфт рулевой", "Чувствуется люфт в рулевой колонке", "Можно пустить в плановый ремонт в ближайшее окно", "Средняя", "Плановый ремонт", now),
             ],
         )
 
