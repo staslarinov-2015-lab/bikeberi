@@ -443,6 +443,16 @@ def init_db():
             ],
         )
 
+    mech_user = cur.execute(
+        "SELECT id FROM users WHERE lower(username) = lower(?)",
+        ("Mech",),
+    ).fetchone()
+    if not mech_user:
+        cur.execute(
+            "INSERT INTO users (username, password_hash, role, full_name, phone, telegram, position, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("Mech", hash_password("DanMech"), "mechanic", "Вяткин Даниил Антонович", "", "", "Механик", "", now),
+        )
+
     # Upgrade legacy password hashes in place.
     for user in cur.execute("SELECT id, password_hash FROM users").fetchall():
         if not str(user["password_hash"]).startswith("pbkdf2_sha256$"):
