@@ -1103,6 +1103,8 @@ class AppHandler(BaseHTTPRequestHandler):
             return self.serve_file("styles.css", "text/css; charset=utf-8", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/script.js":
             return self.serve_file("script.js", "application/javascript; charset=utf-8", cache_control="public, max-age=31536000, immutable")
+        if parsed.path == "/logo_orange.png":
+            return self.serve_file("logo_orange.png", "image/png", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/api/bootstrap":
             user = require_auth(self)
             if not user:
@@ -1792,6 +1794,7 @@ class AppHandler(BaseHTTPRequestHandler):
             path.read_text(encoding="utf-8")
             .replace("./styles.css", f"./styles.css?v={get_asset_version('styles.css')}")
             .replace("./script.js", f"./script.js?v={get_asset_version('script.js')}")
+            .replace("./logo_orange.png", f"./logo_orange.png?v={get_asset_version('logo_orange.png')}")
             .encode("utf-8")
         )
         self.send_response(200)
