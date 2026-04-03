@@ -1109,13 +1109,20 @@ function renderMetrics() {
   metricsGrid.innerHTML = cards
     .map(
       (card) => `
-        <article class="crm-kpi-card ${state.dashboardExpanded === card.key ? "is-expanded" : ""}" data-dashboard-card="${card.key}">
-          <div class="crm-kpi-icon ${card.tint}">${card.icon}</div>
-          <div class="crm-kpi-main">
-            <span class="crm-kpi-label">${escapeHtml(card.label)}</span>
-            <strong class="crm-kpi-value">${escapeHtml(card.value)}</strong>
-          </div>
-          <div class="crm-kpi-toggle">⌄</div>
+        <article class="crm-kpi-card ${state.dashboardExpanded === card.key ? "is-expanded" : ""}">
+          <button
+            class="crm-kpi-trigger"
+            type="button"
+            data-dashboard-card="${card.key}"
+            aria-expanded="${state.dashboardExpanded === card.key ? "true" : "false"}"
+          >
+            <div class="crm-kpi-icon ${card.tint}">${card.icon}</div>
+            <div class="crm-kpi-main">
+              <span class="crm-kpi-label">${escapeHtml(card.label)}</span>
+              <strong class="crm-kpi-value">${escapeHtml(card.value)}</strong>
+            </div>
+            <div class="crm-kpi-toggle">⌄</div>
+          </button>
           <div class="crm-kpi-details ${state.dashboardExpanded === card.key ? "is-open" : ""}">
             ${
               card.details.length
