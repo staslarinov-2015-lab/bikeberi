@@ -959,20 +959,31 @@ textarea:focus {
 }
 
 .issue-checklist-status {
+  width: 100%;
+  border: 0;
   padding: 13px 14px;
   border-radius: 14px;
   font-weight: 900;
   text-align: center;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, opacity 0.18s ease, transform 0.18s ease;
 }
 
 .issue-checklist-status.is-ready {
-  background: var(--green-bg);
-  color: var(--green);
+  background: var(--green);
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(22, 156, 99, 0.18);
 }
 
 .issue-checklist-status.is-blocked {
-  background: var(--red-bg);
-  color: var(--red);
+  background: #e7edf6;
+  color: #8c9aaf;
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.issue-checklist-status:not(:disabled):hover {
+  transform: translateY(-1px);
 }
 
 .checklist-completed-at {

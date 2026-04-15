@@ -459,7 +459,8 @@ function renderIssueChecklist() {
   }
   if (issueChecklistStatus) {
     issueChecklistStatus.className = `issue-checklist-status ${isComplete ? "is-ready" : "is-blocked"}`;
-    issueChecklistStatus.textContent = isComplete ? "Готов к выдаче" : "Не готов к выдаче";
+    issueChecklistStatus.disabled = !isComplete;
+    issueChecklistStatus.textContent = state.issueChecklist.completedAt ? "Выдача подтверждена" : "Готов к выдаче";
   }
   if (issueChecklistCompletedAt) {
     issueChecklistCompletedAt.textContent = state.issueChecklist.completedAt
@@ -1801,9 +1802,19 @@ issueChecklistForm?.addEventListener("change", (event) => {
   state.issueChecklist.checked[checkbox.dataset.checklistItem] = checkbox.checked;
   const items = getIssueChecklistItems();
   const isComplete = items.every((item) => Boolean(state.issueChecklist.checked[item.id]));
-  state.issueChecklist.completedAt = isComplete
-    ? state.issueChecklist.completedAt || new Date().toLocaleString("ru-RU")
-    : "";
+  if (!isComplete) {
+    state.issueChecklist.completedAt = "";
+  }
+  saveIssueChecklistDraft();
+  renderIssueChecklist();
+});
+
+issueChecklistStatus?.addEventListener("click", () => {
+  const items = getIssueChecklistItems();
+  const isComplete = items.every((item) => Boolean(state.issueChecklist.checked[item.id]));
+  if (!isComplete) return;
+
+  state.issueChecklist.completedAt = new Date().toLocaleString("ru-RU");
   saveIssueChecklistDraft();
   renderIssueChecklist();
 });
