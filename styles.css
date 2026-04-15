@@ -197,6 +197,19 @@ textarea {
   transition: 0.18s ease;
 }
 
+.nav-link:focus-visible,
+.ghost-btn:focus-visible,
+.primary-btn:focus-visible,
+.danger-btn:focus-visible,
+.status-filter-chip:focus-visible,
+.icon-btn:focus-visible,
+.crm-filter-chip:focus-visible,
+.diagnostic-category-card:focus-visible,
+.diagnostic-fault-card:focus-visible {
+  outline: 2px solid #94b5ff;
+  outline-offset: 2px;
+}
+
 .nav-link {
   display: flex;
   align-items: center;
@@ -261,6 +274,13 @@ textarea {
   margin: 0;
   font-size: 1.7rem;
   font-weight: 800;
+}
+
+.hero-title {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  color: #5f6f88;
+  font-weight: 700;
 }
 
 .topbar-subtitle {
@@ -609,6 +629,10 @@ textarea {
   font-weight: 800;
 }
 
+.crm-load-item .muted {
+  margin: 6px 0 0;
+}
+
 .crm-load-pill {
   padding: 7px 11px;
   border-radius: 999px;
@@ -867,6 +891,145 @@ textarea:focus {
 .status-filter-select {
   margin-left: auto;
   max-width: 210px;
+}
+
+.issue-checklist-card {
+  max-width: 1180px;
+}
+
+.checklist-actions {
+  flex-wrap: wrap;
+}
+
+.issue-checklist-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.issue-checklist-summary {
+  position: sticky;
+  top: 18px;
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #f9fbff;
+}
+
+.issue-checklist-summary label {
+  display: grid;
+  gap: 8px;
+  font-weight: 800;
+}
+
+.checklist-progress-box {
+  display: grid;
+  gap: 10px;
+}
+
+.checklist-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.checklist-progress-head span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.checklist-progress-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e7edf6;
+}
+
+.checklist-progress-track span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.18s ease;
+}
+
+.issue-checklist-status {
+  padding: 13px 14px;
+  border-radius: 14px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.issue-checklist-status.is-ready {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.issue-checklist-status.is-blocked {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.checklist-completed-at {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.issue-checklist-groups {
+  display: grid;
+  gap: 14px;
+}
+
+.issue-checklist-group {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fff;
+}
+
+.issue-checklist-group legend {
+  padding: 0 8px;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.issue-checklist-items {
+  display: grid;
+  gap: 10px;
+}
+
+.issue-checklist-item {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.issue-checklist-item input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.issue-checklist-item span {
+  min-width: 0;
 }
 
 .diagnostic-entry-panel {
@@ -1533,8 +1696,13 @@ tbody tr:hover {
 @media (max-width: 900px) {
   .content-grid,
   .owner-grid,
-  .form-grid {
+  .form-grid,
+  .issue-checklist-layout {
     grid-template-columns: 1fr;
+  }
+
+  .issue-checklist-summary {
+    position: static;
   }
 
   .wide {
@@ -1617,6 +1785,10 @@ tbody tr:hover {
 
   .topbar-title-block h2 {
     font-size: 1.3rem;
+  }
+
+  .hero-title {
+    font-size: 0.86rem;
   }
 
   .topbar-subtitle {
@@ -1759,13 +1931,6 @@ tbody tr:hover {
     border-radius: 22px;
   }
 
-  .crm-fab {
-    width: 68px;
-    height: 68px;
-    right: 16px;
-    bottom: 108px;
-  }
-
   #section-overview {
     overflow-x: visible;
   }
@@ -1784,6 +1949,17 @@ tbody tr:hover {
 
   .workspace-toolbar {
     align-items: stretch;
+  }
+
+  .issue-checklist-summary,
+  .issue-checklist-group {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .issue-checklist-item {
+    padding: 11px;
+    border-radius: 12px;
   }
 
   .toolbar-right,
@@ -1933,5 +2109,48 @@ tbody tr:hover {
   .danger-btn,
   .icon-btn {
     min-height: 44px;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .sidebar,
+  .topbar,
+  .mobile-nav-overlay,
+  .checklist-actions,
+  .overlay,
+  .screen-section.hidden {
+    display: none !important;
+  }
+
+  .page-shell {
+    display: block;
+    min-height: auto;
+  }
+
+  .workspace,
+  .content-card,
+  .screen-section {
+    background: #fff;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .issue-checklist-card {
+    max-width: none;
+  }
+
+  .issue-checklist-layout {
+    grid-template-columns: 220px 1fr;
+  }
+
+  .issue-checklist-summary,
+  .issue-checklist-group,
+  .issue-checklist-item {
+    break-inside: avoid;
   }
 }

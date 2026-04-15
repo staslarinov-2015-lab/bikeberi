@@ -15,6 +15,11 @@ const state = {
   diagnostics: [],
   bikes: [],
   workOrders: [],
+  issueChecklist: {
+    bike: "",
+    checked: {},
+    completedAt: "",
+  },
   repairDraftFromDiagnostic: null,
   diagnosticFlow: {
     mode: "create",
@@ -153,6 +158,48 @@ const BIKE_CODE_NORMALIZE_MAP = {
   Y: "Y",
 };
 
+const ISSUE_CHECKLIST_STORAGE_KEY = "bikeberi.issueChecklist.v1";
+const ISSUE_CHECKLIST = [
+  {
+    title: "Техническое состояние",
+    items: [
+      "Нет люфтов (руль / колёса)",
+      "Тормоза работают чётко",
+      "Нет посторонних звуков",
+      "Амортизаторы исправны",
+      "Проведён тест-райд",
+    ],
+  },
+  {
+    title: "АКБ и электроника",
+    items: [
+      "АКБ ≥ 80%",
+      "Экран работает без ошибок",
+    ],
+  },
+  {
+    title: "Чистота и внешний вид",
+    items: [
+      "Байк полностью чистый",
+      "Экран чистый",
+      "Резина обработана чернителем",
+    ],
+  },
+  {
+    title: "Брендинг",
+    items: [
+      "Оклейка соответствует стандарту",
+      "Нет пузырей и складок",
+    ],
+  },
+  {
+    title: "Финальный контроль",
+    items: [
+      "Байк готов к выдаче",
+    ],
+  },
+];
+
 const loginOverlay = document.getElementById("login-overlay");
 const loginForm = document.getElementById("login-form");
 const loginError = document.getElementById("login-error");
@@ -174,6 +221,16 @@ const inventoryGrid = document.getElementById("inventory-grid");
 const bikesGrid = document.getElementById("bikes-grid");
 const workOrdersBoard = document.getElementById("work-orders-board");
 const activeRepairBoard = document.getElementById("active-repair-board");
+const issueChecklistForm = document.getElementById("issue-checklist-form");
+const issueChecklistGroups = document.getElementById("issue-checklist-groups");
+const issueChecklistBike = document.getElementById("issue-checklist-bike");
+const issueChecklistProgressText = document.getElementById("issue-checklist-progress-text");
+const issueChecklistProgressPercent = document.getElementById("issue-checklist-progress-percent");
+const issueChecklistProgressBar = document.getElementById("issue-checklist-progress-bar");
+const issueChecklistStatus = document.getElementById("issue-checklist-status");
+const issueChecklistCompletedAt = document.getElementById("issue-checklist-completed-at");
+const resetIssueChecklistButton = document.getElementById("reset-issue-checklist");
+const printIssueChecklistButton = document.getElementById("print-issue-checklist");
 const repairForm = document.getElementById("repair-form");
 const inventoryForm = document.getElementById("inventory-form");
 const bikeForm = document.getElementById("bike-form");
@@ -330,6 +387,106 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function getIssueChecklistItems() {
+  return ISSUE_CHECKLIST.flatMap((group, groupIndex) =>
+    group.items.map((label, itemIndex) => ({
+      id: `${groupIndex}-${itemIndex}`,
+      group: group.title,
+      label,
+    }))
+  );
+}
+
+function loadIssueChecklistDraft() {
+  try {
+    const rawDraft = window.localStorage.getItem(ISSUE_CHECKLIST_STORAGE_KEY);
+    if (!rawDraft) return;
+    const parsed = JSON.parse(rawDraft);
+    state.issueChecklist = {
+      bike: String(parsed.bike || ""),
+      checked: typeof parsed.checked === "object" && parsed.checked ? parsed.checked : {},
+      completedAt: String(parsed.completedAt || ""),
+    };
+  } catch (error) {
+    state.issueChecklist = {
+      bike: "",
+      checked: {},
+      completedAt: "",
+    };
+  }
+}
+
+function saveIssueChecklistDraft() {
+  try {
+    window.localStorage.setItem(ISSUE_CHECKLIST_STORAGE_KEY, JSON.stringify(state.issueChecklist));
+  } catch (error) {
+    // Local draft saving is best-effort; the checklist remains usable without storage.
+  }
+}
+
+function resetIssueChecklistDraft() {
+  state.issueChecklist = {
+    bike: "",
+    checked: {},
+    completedAt: "",
+  };
+  saveIssueChecklistDraft();
+  renderIssueChecklist();
+}
+
+function renderIssueChecklist() {
+  if (!issueChecklistGroups) return;
+
+  const items = getIssueChecklistItems();
+  const checkedCount = items.filter((item) => Boolean(state.issueChecklist.checked[item.id])).length;
+  const totalCount = items.length;
+  const percent = totalCount ? Math.round((checkedCount / totalCount) * 100) : 0;
+  const isComplete = totalCount > 0 && checkedCount === totalCount;
+
+  if (issueChecklistBike) {
+    issueChecklistBike.value = state.issueChecklist.bike || "";
+  }
+  if (issueChecklistProgressText) {
+    issueChecklistProgressText.textContent = `${checkedCount} из ${totalCount}`;
+  }
+  if (issueChecklistProgressPercent) {
+    issueChecklistProgressPercent.textContent = `${percent}%`;
+  }
+  if (issueChecklistProgressBar) {
+    issueChecklistProgressBar.style.width = `${percent}%`;
+  }
+  if (issueChecklistStatus) {
+    issueChecklistStatus.className = `issue-checklist-status ${isComplete ? "is-ready" : "is-blocked"}`;
+    issueChecklistStatus.textContent = isComplete ? "Готов к выдаче" : "Не готов к выдаче";
+  }
+  if (issueChecklistCompletedAt) {
+    issueChecklistCompletedAt.textContent = state.issueChecklist.completedAt
+      ? `Завершено: ${state.issueChecklist.completedAt}`
+      : "";
+  }
+
+  issueChecklistGroups.innerHTML = ISSUE_CHECKLIST.map(
+    (group, groupIndex) => `
+      <fieldset class="issue-checklist-group">
+        <legend>${escapeHtml(group.title)}</legend>
+        <div class="issue-checklist-items">
+          ${group.items
+            .map((label, itemIndex) => {
+              const id = `${groupIndex}-${itemIndex}`;
+              return `
+                <label class="issue-checklist-item">
+                  <input type="checkbox" data-checklist-item="${id}" ${state.issueChecklist.checked[id] ? "checked" : ""} />
+                  <span>${escapeHtml(label)}</span>
+                </label>
+              `;
+            })
+            .join("")}
+        </div>
+      </fieldset>
+    `
+  ).join("");
 }
 
 async function api(path, options = {}) {
@@ -749,6 +906,12 @@ function renderSectionHeader() {
       heroCopyText: "Здесь видна очередь ремонта, этапы заявок и история закрытых работ.",
       badge: "Сервисный цикл",
     },
+    "issue-checklist": {
+      title: "Чек-лист выдачи",
+      heroTitleText: "Финальная проверка перед передачей байка",
+      heroCopyText: "Механик проходит обязательные пункты по технике, АКБ, внешнему виду и брендингу перед выдачей.",
+      badge: "Контроль выдачи",
+    },
     inventory: {
       title: "Склад",
       heroTitleText: "Остатки и дефицит запчастей",
@@ -889,7 +1052,7 @@ function renderDiagnosticsTable() {
   if (!state.diagnostics.length) {
     diagnosticsTable.innerHTML = `
       <tr>
-        <td colspan="11" class="muted">Диагностических записей пока нет.</td>
+        <td colspan="8" class="muted">Диагностических записей пока нет.</td>
       </tr>
     `;
   }
@@ -962,14 +1125,6 @@ function renderDiagnosticFaultGrid() {
       `
     )
     .join("");
-
-  if (!state.diagnostics.length) {
-    diagnosticsTable.innerHTML = `
-      <tr>
-        <td colspan="8" class="muted">Диагностических записей пока нет.</td>
-      </tr>
-    `;
-  }
 }
 
 function syncDiagnosticWizard() {
@@ -1201,6 +1356,7 @@ function renderAlerts() {
         <article class="crm-load-item">
           <div>
             <div class="crm-load-item-title">${escapeHtml(item.title)}</div>
+            <p class="muted">${escapeHtml(item.copy)}</p>
           </div>
           <span class="crm-load-pill ${item.state === "danger" ? "is-danger" : "is-ok"}">
             ${item.state === "danger" ? "Внимание" : "Норма"}
@@ -1443,6 +1599,7 @@ function render() {
   renderInventory();
   renderBikes();
   renderWorkOrders();
+  renderIssueChecklist();
   renderOwnerPanel();
   renderProfile();
   renderBikeFormStatusOptions();
@@ -1629,6 +1786,34 @@ document.querySelectorAll(".nav-link").forEach((button) => {
     closeMobileMenu();
     render();
   });
+});
+
+issueChecklistBike?.addEventListener("input", (event) => {
+  state.issueChecklist.bike = normalizeBikeCode(event.target.value);
+  event.target.value = state.issueChecklist.bike;
+  saveIssueChecklistDraft();
+});
+
+issueChecklistForm?.addEventListener("change", (event) => {
+  const checkbox = event.target.closest("[data-checklist-item]");
+  if (!checkbox) return;
+
+  state.issueChecklist.checked[checkbox.dataset.checklistItem] = checkbox.checked;
+  const items = getIssueChecklistItems();
+  const isComplete = items.every((item) => Boolean(state.issueChecklist.checked[item.id]));
+  state.issueChecklist.completedAt = isComplete
+    ? state.issueChecklist.completedAt || new Date().toLocaleString("ru-RU")
+    : "";
+  saveIssueChecklistDraft();
+  renderIssueChecklist();
+});
+
+resetIssueChecklistButton?.addEventListener("click", () => {
+  resetIssueChecklistDraft();
+});
+
+printIssueChecklistButton?.addEventListener("click", () => {
+  window.print();
 });
 
 window.addEventListener("resize", () => {
@@ -2032,4 +2217,5 @@ document.addEventListener("click", async (event) => {
 
 syncBikeCodeBuilders();
 window.setInterval(refreshRepairTimers, 1000);
+loadIssueChecklistDraft();
 bootstrap();

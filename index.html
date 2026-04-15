@@ -70,6 +70,7 @@
             <button class="nav-link" type="button" data-section="bikes">Байки</button>
             <button class="nav-link" type="button" data-section="diagnostics">Диагностика</button>
             <button class="nav-link" type="button" data-section="repairs">Ремонты</button>
+            <button class="nav-link" type="button" data-section="issue-checklist">Чек-лист выдачи</button>
             <button class="nav-link" type="button" data-section="inventory">Склад</button>
             <button class="nav-link owner-only" type="button" data-section="owner">Настройки KPI</button>
           </nav>
@@ -89,6 +90,7 @@
             <span></span>
           </button>
           <div class="topbar-title-block">
+            <h1 id="hero-title" class="hero-title">Рабочий день механика под контролем</h1>
             <h2 id="page-title">Дашборд сервиса</h2>
             <p id="hero-copy" class="topbar-subtitle">
               Видно текущую загрузку, зависшие ремонты и детали, которые нужно заказать.
@@ -241,7 +243,7 @@
                 </label>
               </div>
               <div class="toolbar-right">
-                <button id="refresh-button" class="ghost-btn" type="button">⟳</button>
+                <button id="refresh-button" class="ghost-btn" type="button" aria-label="Обновить данные" title="Обновить данные">⟳</button>
                 <button id="open-repair-modal" class="primary-btn mechanic-only" type="button">＋ Добавить ремонт</button>
               </div>
             </div>
@@ -324,6 +326,48 @@
                 <tbody id="diagnostics-table"></tbody>
               </table>
             </div>
+          </section>
+        </section>
+
+        <section id="section-issue-checklist" class="screen-section hidden">
+          <section class="content-card issue-checklist-card">
+            <div class="workspace-toolbar">
+              <div class="toolbar-left">
+                <div>
+                  <div class="section-label">Перед выдачей</div>
+                  <h3>Чек-лист готовности байка</h3>
+                  <p class="muted">Байк не выдается, если хотя бы один пункт не выполнен.</p>
+                </div>
+              </div>
+              <div class="toolbar-right checklist-actions">
+                <button id="print-issue-checklist" class="ghost-btn" type="button">Печать</button>
+                <button id="reset-issue-checklist" class="danger-btn" type="button">Сбросить</button>
+              </div>
+            </div>
+
+            <form id="issue-checklist-form" class="issue-checklist-layout">
+              <aside class="issue-checklist-summary">
+                <label>
+                  <span>Байк</span>
+                  <input id="issue-checklist-bike" type="text" placeholder="РЕ123У" maxlength="6" autocomplete="off" />
+                </label>
+                <div class="checklist-progress-box">
+                  <div class="checklist-progress-head">
+                    <strong id="issue-checklist-progress-text">0 из 0</strong>
+                    <span id="issue-checklist-progress-percent">0%</span>
+                  </div>
+                  <div class="checklist-progress-track">
+                    <span id="issue-checklist-progress-bar"></span>
+                  </div>
+                </div>
+                <div id="issue-checklist-status" class="issue-checklist-status is-blocked">
+                  Не готов к выдаче
+                </div>
+                <p id="issue-checklist-completed-at" class="muted checklist-completed-at"></p>
+              </aside>
+
+              <div id="issue-checklist-groups" class="issue-checklist-groups"></div>
+            </form>
           </section>
         </section>
 
