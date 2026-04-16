@@ -38,6 +38,8 @@ HOST = os.environ.get("BIKEBERI_HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", os.environ.get("BIKEBERI_PORT", "8000")))
 COOKIE_SECURE = os.environ.get("BIKEBERI_COOKIE_SECURE", "false").lower() == "true"
 APP_NAME = os.environ.get("BIKEBERI_APP_NAME", "Байк Сервис")
+GUEST_MODE = os.environ.get("BIKEBERI_GUEST_MODE", "false").lower() == "true"
+GUEST_USERNAME = os.environ.get("BIKEBERI_GUEST_USERNAME", "guest")
 DB_PATH = Path(
     os.environ.get(
         "BIKEBERI_DB_PATH",
@@ -710,6 +712,22 @@ def unsign_token(signed_token: str):
 
 
 def get_current_user(handler):
+    if GUEST_MODE:
+        conn = get_db()
+        now = utc_now().isoformat()
+        user_row = conn.execute("SELECT * FROM users WHERE username = ?", (GUEST_USERNAME,)).fetchone()
+        if not user_row:
+            # create guest mechanic user on first request
+            conn.execute(
+                "INSERT INTO users (username, password_hash, role, full_name, phone, telegram, position, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (GUEST_USERNAME, hash_password(secrets.token_urlsafe(24)), "mechanic", "Гость (механик)", "", "", "Механик", "Гостевой режим", now),
+            )
+            conn.commit()
+            user_row = conn.execute("SELECT * FROM users WHERE username = ?", (GUEST_USERNAME,)).fetchone()
+        user = serialize_user(user_row)
+        conn.close()
+        return user
+
     raw_cookie = handler.headers.get("Cookie")
     if not raw_cookie:
         return None
@@ -1534,6 +1552,8 @@ class AppHandler(BaseHTTPRequestHandler):
             user = require_auth(self)
             if not user:
                 return
+            if GUEST_MODE and user.get("username") == GUEST_USERNAME:
+                return json_response(self, 400, {"error": "Смена пароля недоступна в гостевом режиме"})
             payload = read_json(self)
             current_password = str(payload.get("currentPassword", ""))
             new_password = str(payload.get("newPassword", ""))
