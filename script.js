@@ -1613,16 +1613,10 @@ function renderBikes() {
   const rows = getFilteredBikes();
   bikesTable.innerHTML = rows
     .map((bike, index) => {
-      const latestRepair = bike.latest_repair_issue
-        ? `${bike.latest_repair_date || "—"} · ${bike.latest_repair_issue}`
-        : "—";
       return `
         <tr>
-          <td data-label="#"><span class="row-index">${index + 1}</span></td>
           <td data-label="Номер"><strong>${escapeHtml(bike.code)}</strong></td>
-          <td data-label="Модель">${escapeHtml(formatBikeModel(bike.model))}</td>
           <td data-label="Статус"><span class="status-pill ${getBikeStatusClass(bike.status)}">${escapeHtml(bike.status)}</span></td>
-          <td data-label="Последний ремонт">${escapeHtml(latestRepair)}</td>
           <td class="mechanic-only" data-label="Действия">
             ${
               canManage
@@ -1639,7 +1633,7 @@ function renderBikes() {
     .join("");
 
   if (!rows.length) {
-    bikesTable.innerHTML = `<tr><td colspan="6" class="muted">Байки не найдены.</td></tr>`;
+    bikesTable.innerHTML = `<tr><td colspan="3" class="muted">Байки не найдены.</td></tr>`;
   }
 }
 
