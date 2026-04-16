@@ -2092,3 +2092,59 @@ textarea:focus-visible {
 .bike-filter-toolbar {
   margin-bottom: 14px;
 }
+
+.bike-toolbar {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.bike-toolbar .toolbar-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.bike-toolbar .search-wrap,
+.bike-toolbar .search-wrap-wide {
+  max-width: none;
+}
+
+.bike-add-btn {
+  white-space: nowrap;
+}
+
+.bike-filter-toolbar .status-filter-chip {
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .bike-toolbar {
+    gap: 8px;
+  }
+
+  .bike-toolbar .toolbar-right {
+    flex: 0 0 auto;
+  }
+
+  .bike-toolbar .search-wrap {
+    min-width: 0;
+  }
+
+  .bike-add-btn {
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 0.92rem;
+    border-radius: 12px;
+  }
+
+  .bike-filter-toolbar {
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .bike-filter-toolbar .status-filter-chip {
+    padding: 6px 10px;
+    font-size: 0.84rem;
+    border-radius: 999px;
+  }
+}
