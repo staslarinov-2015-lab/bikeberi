@@ -1885,7 +1885,7 @@ textarea:focus-visible {
   }
 
   .screen-section {
-    padding: 14px 12px 96px;
+    padding: 14px 12px calc(96px + env(safe-area-inset-bottom, 0px));
   }
 
   .content-card,
@@ -1983,6 +1983,28 @@ textarea:focus-visible {
   .mobile-tab-label {
     font-size: 0.72rem;
     letter-spacing: 0.02em;
+  }
+
+  /* Модалки под фиксированным таббаром: можно докрутить до конца + safe area (кроме экрана входа) */
+  .overlay:not(#login-overlay) {
+    align-content: start;
+    justify-items: center;
+    place-items: unset;
+    padding-top: max(12px, env(safe-area-inset-top, 0px));
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    box-sizing: border-box;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .overlay:not(#login-overlay) .modal-card {
+    max-height: min(92vh, calc(100dvh - 48px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
+    margin-bottom: 8px;
+  }
+
+  #login-overlay {
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   }
 
   /* Make tables readable on mobile via existing card-layout rules */

@@ -1326,6 +1326,32 @@ function resetDiagnosticFlow() {
   syncDiagnosticWizard();
 }
 
+/** Закрыть все модальные окна при смене раздела (иначе на мобиле остаётся поверх нижнего меню). */
+function closeAllModals() {
+  workOrderOverlay?.classList.add("hidden");
+  diagnosticOverlay?.classList.add("hidden");
+  resetDiagnosticFlow();
+  repairOverlay?.classList.add("hidden");
+  if (repairForm) {
+    repairForm.reset();
+    resetBikeCodeValue("repair");
+    delete repairForm.dataset.editId;
+  }
+  state.repairDraftFromDiagnostic = null;
+  inventoryOverlay?.classList.add("hidden");
+  if (inventoryForm) {
+    inventoryForm.reset();
+    delete inventoryForm.dataset.editId;
+  }
+  bikeOverlay?.classList.add("hidden");
+  if (bikeForm) {
+    bikeForm.reset();
+    resetBikeCodeValue("bike");
+    delete bikeForm.dataset.editId;
+  }
+  accountOverlay?.classList.add("hidden");
+}
+
 function openDiagnosticOverlay() {
   diagnosticOverlay.classList.remove("hidden");
   renderDiagnosticCategoryGrid();
@@ -2193,6 +2219,7 @@ refreshButton?.addEventListener("click", async () => {
 
 document.querySelectorAll(".nav-link").forEach((button) => {
   button.addEventListener("click", () => {
+    closeAllModals();
     state.activeSection = button.dataset.section;
     closeMobileMenu();
     render();
@@ -2201,6 +2228,7 @@ document.querySelectorAll(".nav-link").forEach((button) => {
 
 document.querySelectorAll(".mobile-tab").forEach((button) => {
   button.addEventListener("click", () => {
+    closeAllModals();
     state.activeSection = button.dataset.section;
     closeMobileMenu();
     render();
