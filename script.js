@@ -886,12 +886,12 @@ function renderSectionHeader() {
   const sectionMeta = {
     overview: ownerMode
       ? {
-          title: "Сводка",
-          subtitle: "Парк, ремонты, дефицит.",
+          title: "Дашборд",
+          subtitle: "Ключевая картина сервиса на сейчас.",
         }
       : {
-          title: "Сводка",
-          subtitle: state.kpi.mechanicFocus ? `Фокус: ${state.kpi.mechanicFocus}` : "",
+          title: "Дашборд",
+          subtitle: "Быстрые приоритеты механика на текущую смену.",
         },
     bikes: {
       title: "Парк",
@@ -1276,12 +1276,13 @@ function renderMetrics() {
 
 function renderTimeline() {
   if (!timeline) return;
-  const metrics = getMetrics();
+  const stats = getDashboardStats();
+  const readyNow = state.workOrders.filter((item) => item.status === "готов").length;
   const rows = [
-    { label: "В ремонте сейчас", value: metrics.inRepair },
-    { label: "Ждут запчасти сейчас", value: metrics.waiting },
-    { label: "Готовы к аренде сейчас", value: metrics.readyForRent },
-    { label: "На диагностике", value: metrics.technical },
+    { label: "Срочно: ждут запчасти", value: stats.waitingPartsNow },
+    { label: "В работе прямо сейчас", value: stats.inRepairNow },
+    { label: "Нужно проверить (ТО/диаг.)", value: stats.inspectionNow },
+    { label: "Готово к выдаче", value: readyNow },
   ];
   timeline.innerHTML = rows
     .map(
