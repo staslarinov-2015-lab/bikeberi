@@ -399,7 +399,7 @@ const bikeSearchInput = document.getElementById("bike-search");
 const bikeFilterChips = document.getElementById("bike-filter-chips");
 const bikesTable = document.getElementById("bikes-table");
 const BIKE_ROW_ICON_HTML =
-  '<img class="bike-row-icon" src="/bike-scooter.svg" width="40" height="40" alt="" decoding="async" loading="lazy" />';
+  '<img class="bike-row-icon" src="/bike-scooter.svg" width="48" height="27" alt="" decoding="async" loading="lazy" />';
 const bikeRepairHistory = document.getElementById("bike-repair-history");
 const workOrdersBoard = document.getElementById("work-orders-board");
 const activeRepairBoard = document.getElementById("active-repair-board");

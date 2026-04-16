@@ -940,11 +940,11 @@ table {
 }
 
 .bike-row-icon {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 27px;
   flex-shrink: 0;
   object-fit: contain;
-  filter: drop-shadow(0 2px 5px rgba(34, 50, 74, 0.12));
+  filter: drop-shadow(0 1px 3px rgba(34, 50, 74, 0.1));
 }
 
 th,
