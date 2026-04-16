@@ -1840,8 +1840,9 @@ function renderBikes() {
   const rows = getFilteredBikes();
   bikesTable.innerHTML = rows
     .map((bike, index) => {
+      const rowClick = canManage ? ` class="bike-row-clickable" data-action="edit-bike" data-id="${bike.id}"` : "";
       return `
-        <tr>
+        <tr${rowClick}>
           <td data-label="Номер"><strong>${escapeHtml(bike.code)}</strong></td>
           <td data-label="Статус"><span class="status-pill ${getBikeStatusClass(bike.status)}">${escapeHtml(bike.status)}</span></td>
           <td class="mechanic-only" data-label="Действия">
@@ -2148,6 +2149,13 @@ openInventoryModalButton?.addEventListener("click", () => {
 });
 
 closeInventoryModalButton?.addEventListener("click", () => {
+  inventoryOverlay.classList.add("hidden");
+  inventoryForm.reset();
+  delete inventoryForm.dataset.editId;
+});
+
+inventoryOverlay?.addEventListener("click", (event) => {
+  if (event.target.closest(".modal-card")) return;
   inventoryOverlay.classList.add("hidden");
   inventoryForm.reset();
   delete inventoryForm.dataset.editId;

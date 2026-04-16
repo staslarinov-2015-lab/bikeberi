@@ -873,6 +873,14 @@ table {
   white-space: nowrap;
 }
 
+#section-bikes tbody tr.bike-row-clickable {
+  cursor: pointer;
+}
+
+#section-bikes tbody tr.bike-row-clickable:hover {
+  background: rgba(0, 122, 255, 0.04);
+}
+
 th,
 td {
   padding: 16px 14px;
@@ -2119,6 +2127,15 @@ textarea:focus-visible {
     background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
     border: 1px solid #e5ecf6;
     box-shadow: 0 4px 14px rgba(36, 51, 82, 0.06);
+  }
+
+  #section-bikes tbody tr.bike-row-clickable {
+    cursor: pointer;
+    -webkit-tap-highlight-color: rgba(0, 122, 255, 0.12);
+  }
+
+  #section-bikes tbody tr.bike-row-clickable:active {
+    transform: scale(0.995);
   }
 
   #section-bikes tbody td {
