@@ -1152,6 +1152,49 @@ class AppHandler(BaseHTTPRequestHandler):
 
         return text_response(self, 404, "Not found")
 
+    def do_HEAD(self):
+        parsed = urlparse(self.path)
+        if parsed.path == "/":
+            return self.serve_index(send_body=False)
+        if parsed.path == "/styles.css":
+            return self.serve_file(
+                "styles.css",
+                "text/css; charset=utf-8",
+                cache_control="public, max-age=31536000, immutable",
+                send_body=False,
+            )
+        if parsed.path == "/script.js":
+            return self.serve_file(
+                "script.js",
+                "application/javascript; charset=utf-8",
+                cache_control="public, max-age=31536000, immutable",
+                send_body=False,
+            )
+        if parsed.path == "/logo_orange.png":
+            return self.serve_file(
+                "logo_orange.png",
+                "image/png",
+                cache_control="public, max-age=31536000, immutable",
+                send_body=False,
+            )
+        if parsed.path == "/api/bootstrap":
+            user = require_auth(self)
+            if not user:
+                return
+            payload = json.dumps(fetch_bootstrap_payload(user), ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Cache-Control", "no-store")
+            send_security_headers(self)
+            self.end_headers()
+            return
+
+        self.send_response(404)
+        self.send_header("Content-Length", "0")
+        send_security_headers(self)
+        self.end_headers()
+
     def do_POST(self):
         parsed = urlparse(self.path)
 
@@ -1831,7 +1874,7 @@ class AppHandler(BaseHTTPRequestHandler):
 
         return text_response(self, 404, "Not found")
 
-    def serve_index(self):
+    def serve_index(self, send_body: bool = True):
         path = BASE_DIR / "index.html"
         if not path.exists():
             return text_response(self, 404, "Not found")
@@ -1848,9 +1891,10 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         send_security_headers(self)
         self.end_headers()
-        self.wfile.write(data)
+        if send_body:
+            self.wfile.write(data)
 
-    def serve_file(self, filename, content_type, cache_control="no-store"):
+    def serve_file(self, filename, content_type, cache_control="no-store", send_body: bool = True):
         path = BASE_DIR / filename
         if not path.exists():
             return text_response(self, 404, "Not found")
@@ -1861,7 +1905,8 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", cache_control)
         send_security_headers(self)
         self.end_headers()
-        self.wfile.write(data)
+        if send_body:
+            self.wfile.write(data)
 
     def log_message(self, format, *args):
         return
