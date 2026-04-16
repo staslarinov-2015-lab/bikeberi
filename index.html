@@ -83,6 +83,10 @@
             <h1 id="page-title" class="page-heading">Сводка</h1>
             <p id="page-subtitle" class="page-subtitle"></p>
           </div>
+          <div class="topbar-right" aria-label="Контекст">
+            <span class="topbar-pill topbar-pill-accent">байк флот</span>
+            <span class="topbar-pill">AI Engine</span>
+          </div>
         </header>
 
         <section id="section-overview" class="screen-section">
@@ -106,6 +110,16 @@
             <section class="panel">
               <h3 class="panel-title">Сейчас</h3>
               <div id="alerts-list" class="alert-stack"></div>
+            </section>
+
+            <section class="panel">
+              <h3 class="panel-title">Статусы байков</h3>
+              <div id="bike-statuses" class="status-bars"></div>
+            </section>
+
+            <section class="panel">
+              <h3 class="panel-title">Лента событий</h3>
+              <div id="events-feed" class="events-feed"></div>
             </section>
           </div>
         </section>
@@ -170,12 +184,34 @@
         <section id="section-bikes" class="screen-section hidden">
           <section class="content-card">
             <div class="workspace-toolbar">
-              <h3 class="panel-title toolbar-title">Байки</h3>
-              <div class="toolbar-right mechanic-only">
-                <button id="open-bike-modal" class="primary-btn" type="button">Добавить</button>
+              <div class="toolbar-left">
+                <label class="search-wrap search-wrap-wide">
+                  <span class="visually-hidden">Поиск</span>
+                  <input id="bike-search" type="search" placeholder="Поиск по номеру / VIN / модели…" />
+                </label>
+              </div>
+              <div class="toolbar-right">
+                <button id="open-bike-modal" class="primary-btn mechanic-only" type="button">Добавить байк</button>
               </div>
             </div>
-            <div id="bikes-grid" class="inventory-grid"></div>
+
+            <div id="bike-filter-chips" class="status-toolbar bike-filter-toolbar"></div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Номер</th>
+                    <th>Модель</th>
+                    <th>Статус</th>
+                    <th>Последний ремонт</th>
+                    <th class="mechanic-only">Действия</th>
+                  </tr>
+                </thead>
+                <tbody id="bikes-table"></tbody>
+              </table>
+            </div>
           </section>
         </section>
 
@@ -318,8 +354,8 @@
         <section id="section-owner" class="screen-section hidden owner-only">
           <div class="owner-grid">
             <article class="content-card owner-card">
-              <h3 class="panel-title">Доступность парка</h3>
-              <div id="owner-kpi" class="big-number">0%</div>
+              <h3 class="panel-title">Ремонт сейчас</h3>
+              <div id="owner-kpi" class="big-number">0</div>
               <p id="owner-kpi-note" class="muted"></p>
             </article>
 
@@ -334,7 +370,7 @@
             </article>
 
             <article class="content-card owner-card owner-card-wide">
-              <h3 class="panel-title">Цели</h3>
+              <h3 class="panel-title">Настройки</h3>
               <form id="settings-form" class="form-grid">
                 <label>
                   <span>Всего байков в парке</span>
@@ -355,6 +391,29 @@
         </section>
       </main>
     </div>
+
+    <nav class="mobile-tabbar" aria-label="Навигация (мобильная)">
+      <button class="mobile-tab is-active" type="button" data-section="overview" aria-label="Сводка">
+        <span class="mobile-tab-icon">▦</span>
+        <span class="mobile-tab-label">Сводка</span>
+      </button>
+      <button class="mobile-tab" type="button" data-section="repairs" aria-label="Очередь">
+        <span class="mobile-tab-icon">⟲</span>
+        <span class="mobile-tab-label">Очередь</span>
+      </button>
+      <button class="mobile-tab" type="button" data-section="diagnostics" aria-label="Диагностика">
+        <span class="mobile-tab-icon">🩺</span>
+        <span class="mobile-tab-label">Диагн.</span>
+      </button>
+      <button class="mobile-tab" type="button" data-section="inventory" aria-label="Склад">
+        <span class="mobile-tab-icon">▣</span>
+        <span class="mobile-tab-label">Склад</span>
+      </button>
+      <button class="mobile-tab" type="button" data-section="bikes" aria-label="Парк">
+        <span class="mobile-tab-icon">⚲</span>
+        <span class="mobile-tab-label">Парк</span>
+      </button>
+    </nav>
 
     <div id="repair-overlay" class="overlay hidden">
       <div class="modal-card">

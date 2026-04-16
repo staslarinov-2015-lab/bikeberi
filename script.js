@@ -5,6 +5,8 @@ const state = {
   statusFilter: "all",
   dashboardPeriod: "today",
   dashboardExpanded: "repair",
+  bikeSearch: "",
+  bikeStatusFilter: "all",
   kpi: {
     totalBikes: 0,
     targetRate: 95,
@@ -212,11 +214,15 @@ const statusFilter = document.getElementById("status-filter");
 const metricsGrid = document.getElementById("metrics-grid");
 const timeline = document.getElementById("timeline");
 const alertsList = document.getElementById("alerts-list");
+const bikeStatuses = document.getElementById("bike-statuses");
+const eventsFeed = document.getElementById("events-feed");
 const repairsTable = document.getElementById("repairs-table");
 const diagnosticsTable = document.getElementById("diagnostics-table");
 const diagnosticCategoryGrid = document.getElementById("diagnostic-category-grid");
 const inventoryGrid = document.getElementById("inventory-grid");
-const bikesGrid = document.getElementById("bikes-grid");
+const bikeSearchInput = document.getElementById("bike-search");
+const bikeFilterChips = document.getElementById("bike-filter-chips");
+const bikesTable = document.getElementById("bikes-table");
 const workOrdersBoard = document.getElementById("work-orders-board");
 const activeRepairBoard = document.getElementById("active-repair-board");
 const issueChecklistForm = document.getElementById("issue-checklist-form");
@@ -846,22 +852,30 @@ function isDateInDashboardPeriod(rawValue) {
 }
 
 function getDashboardStats() {
-  const repairsInPeriod = state.workOrders.filter(
-    (item) => Boolean(item.started_at) && isDateInDashboardPeriod(item.started_at)
+  const diagnosedInPeriod = (state.diagnostics || []).filter(
+    (item) => isDateInDashboardPeriod(item.date)
   ).length;
-  const waitingParts = state.workOrders.filter(
-    (item) => item.status === "ждет запчасти" && isDateInDashboardPeriod(item.intake_date)
-  ).length;
-  const readyAfterRepair = state.repairs.filter(
-    (item) => item.status === "Готов" && isDateInDashboardPeriod(item.date)
-  ).length;
-  const idleReadyBikes = state.bikes.filter((item) => item.status === "готов").length;
+
+  const ordersInPeriod = (state.workOrders || []).filter((item) =>
+    isDateInDashboardPeriod(item.intake_date || item.started_at || item.created_at)
+  );
+
+  const inRepairNow = (state.workOrders || []).filter((item) => item.status === "в ремонте").length;
+  const waitingPartsNow = (state.workOrders || []).filter((item) => item.status === "ждет запчасти").length;
+  const inspectionNow = (state.workOrders || []).filter((item) => item.status === "проверка" || item.status === "диагностика").length;
+
+  const intakeInPeriod = ordersInPeriod.length;
+  const waitingPartsInPeriod = ordersInPeriod.filter((item) => item.status === "ждет запчасти").length;
+  const startedInPeriod = ordersInPeriod.filter((item) => Boolean(item.started_at)).length;
 
   return {
-    repairsInPeriod,
-    waitingParts,
-    readyAfterRepair,
-    idleReadyBikes,
+    diagnosedInPeriod,
+    intakeInPeriod,
+    startedInPeriod,
+    inRepairNow,
+    inspectionNow,
+    waitingPartsNow,
+    waitingPartsInPeriod,
   };
 }
 
@@ -976,6 +990,12 @@ function renderBikeFormStatusOptions() {
 
 function renderSections() {
   document.querySelectorAll(".nav-link").forEach((button) => {
+    const allowed = !button.classList.contains("owner-only") || getRole() === "owner";
+    button.classList.toggle("hidden", !allowed);
+    button.classList.toggle("is-active", button.dataset.section === state.activeSection);
+  });
+
+  document.querySelectorAll(".mobile-tab").forEach((button) => {
     const allowed = !button.classList.contains("owner-only") || getRole() === "owner";
     button.classList.toggle("hidden", !allowed);
     button.classList.toggle("is-active", button.dataset.section === state.activeSection);
@@ -1182,28 +1202,51 @@ function chooseDiagnosticFault(fault) {
 function renderMetrics() {
   if (!metricsGrid) return;
   const stats = getDashboardStats();
-  const ownerMode = getRole() === "owner";
   document.querySelectorAll("[data-dashboard-period]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.dashboardPeriod === state.dashboardPeriod);
   });
   const cards = [
     {
+      key: "diagnosed",
+      icon: "🩺",
+      tint: "stat-neutral",
+      label: "Диагностировано",
+      value: String(stats.diagnosedInPeriod),
+      details: (state.diagnostics || [])
+        .filter((item) => isDateInDashboardPeriod(item.date))
+        .slice(0, 6)
+        .map((item) => `${item.bike} · ${item.category || ""} ${item.fault || ""}`.trim()),
+    },
+    {
+      key: "inspection",
+      icon: "🧪",
+      tint: "stat-ok",
+      label: "ТО / проверка",
+      value: String(stats.inspectionNow),
+      details: (state.workOrders || [])
+        .filter((item) => item.status === "проверка" || item.status === "диагностика")
+        .slice(0, 6)
+        .map((item) => `${item.bike_code} · ${item.fault || item.issue || ""}`.trim()),
+    },
+    {
       key: "repair",
+      icon: "🔧",
       tint: "stat-accent",
-      label: "В ремонте",
-      value: String(stats.repairsInPeriod),
-      details: state.workOrders
-        .filter((item) => Boolean(item.started_at) && isDateInDashboardPeriod(item.started_at))
+      label: "В ремонте сейчас",
+      value: String(stats.inRepairNow),
+      details: (state.workOrders || [])
+        .filter((item) => item.status === "в ремонте")
         .slice(0, 6)
         .map((item) => `${item.bike_code} · ${item.estimated_minutes || 0} мин`),
     },
     {
       key: "waiting",
+      icon: "⏳",
       tint: "stat-warn",
       label: "Ждут запчасти",
-      value: String(stats.waitingParts),
-      details: state.workOrders
-        .filter((item) => item.status === "ждет запчасти" && isDateInDashboardPeriod(item.intake_date))
+      value: String(stats.waitingPartsNow),
+      details: (state.workOrders || [])
+        .filter((item) => item.status === "ждет запчасти")
         .slice(0, 6)
         .map((item) =>
           item.missing_parts?.length
@@ -1211,40 +1254,19 @@ function renderMetrics() {
             : `${item.bike_code} · ожидает комплектность`
         ),
     },
-    {
-      key: "ready",
-      tint: "stat-ok",
-      label: "Готово работ",
-      value: String(stats.readyAfterRepair),
-      details: state.repairs
-        .filter((item) => item.status === "Готов" && isDateInDashboardPeriod(item.date))
-        .slice(0, 6)
-        .map((item) => `${item.bike} · ${item.issue}`),
-    },
-    ...(ownerMode
-      ? [{
-      key: "idle",
-      tint: "stat-neutral",
-      label: "Готовы, не в аренде",
-      value: String(stats.idleReadyBikes),
-      details: state.bikes
-        .filter((item) => item.status === "готов")
-        .slice(0, 6)
-        .map((item) => `${item.code} · ${formatBikeModel(item.model)}`),
-      }]
-      : []),
   ];
 
   metricsGrid.innerHTML = cards
     .map(
       (card) => `
-        <article class="stat-card ${state.dashboardExpanded === card.key ? "is-expanded" : ""}">
+        <article class="stat-card ${card.tint} ${state.dashboardExpanded === card.key ? "is-expanded" : ""}">
           <button
             class="stat-card-trigger"
             type="button"
             data-dashboard-card="${card.key}"
             aria-expanded="${state.dashboardExpanded === card.key ? "true" : "false"}"
           >
+            <span class="stat-card-icon" aria-hidden="true">${escapeHtml(card.icon || "")}</span>
             <span class="stat-card-label">${escapeHtml(card.label)}</span>
             <span class="stat-card-value">${escapeHtml(card.value)}</span>
             <span class="stat-card-chevron" aria-hidden="true"></span>
@@ -1280,6 +1302,142 @@ function renderTimeline() {
         </div>
       `
     )
+    .join("");
+}
+
+function getBikeStatusRows() {
+  const bikes = state.bikes || [];
+  const total = bikes.length || 1;
+  const counts = bikes.reduce((acc, bike) => {
+    const key = String(bike.status || "нет данных").trim() || "нет данных";
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+  const order = [
+    "в аренде",
+    "готов",
+    "на диагностике",
+    "в ремонте",
+    "проверка",
+    "ждет запчасти",
+    "принят",
+  ];
+
+  const known = order
+    .filter((key) => counts[key])
+    .map((key) => ({ key, count: counts[key], percent: Math.round((counts[key] / total) * 100) }));
+
+  const unknown = Object.keys(counts)
+    .filter((key) => !order.includes(key))
+    .map((key) => ({ key, count: counts[key], percent: Math.round((counts[key] / total) * 100) }))
+    .sort((a, b) => b.count - a.count);
+
+  return [...known, ...unknown];
+}
+
+function renderBikeStatuses() {
+  if (!bikeStatuses) return;
+  const rows = getBikeStatusRows();
+  if (!rows.length) {
+    bikeStatuses.innerHTML = '<div class="muted">Нет данных по парку.</div>';
+    return;
+  }
+
+  bikeStatuses.innerHTML = rows
+    .slice(0, 8)
+    .map((row) => {
+      const label = row.key === "ждет запчасти" ? "ждут запчасти" : row.key;
+      return `
+        <div class="status-bar">
+          <div class="status-bar-head">
+            <span class="status-bar-label">${escapeHtml(label)}</span>
+            <span class="status-bar-value">${escapeHtml(String(row.count))} · ${escapeHtml(String(row.percent))}%</span>
+          </div>
+          <div class="status-bar-track">
+            <span class="status-bar-fill" style="width:${Math.min(100, Math.max(0, row.percent))}%"></span>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function toTs(value) {
+  if (!value) return 0;
+  const raw = String(value).trim();
+  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(raw)) return new Date(`${raw}T00:00:00`).getTime();
+  const ts = new Date(raw).getTime();
+  return Number.isNaN(ts) ? 0 : ts;
+}
+
+function getEvents() {
+  const items = [];
+
+  (state.diagnostics || []).forEach((d) => {
+    items.push({
+      ts: toTs(d.date),
+      title: d.bike,
+      type: "diagnostic",
+      text: `Диагностика · ${[d.category, d.fault].filter(Boolean).join(" · ") || "—"}`,
+    });
+  });
+
+  (state.workOrders || []).forEach((o) => {
+    items.push({
+      ts: toTs(o.intake_date || o.started_at || o.created_at),
+      title: o.bike_code,
+      type: "workorder",
+      text: `Заявка · ${o.status || "—"} · ${o.fault || o.issue || "—"}`,
+    });
+  });
+
+  (state.repairs || []).forEach((r) => {
+    items.push({
+      ts: toTs(r.date),
+      title: r.bike,
+      type: "repair",
+      text: `Ремонт · ${r.status || "—"} · ${r.issue || "—"}`,
+    });
+  });
+
+  const low = (state.inventory || []).filter((i) => Number(i.stock) <= Number(i.min));
+  low.forEach((i) => {
+    items.push({
+      ts: Date.now(),
+      title: i.name,
+      type: "stock",
+      text: `Склад · дефицит (${i.stock}/${i.min})`,
+    });
+  });
+
+  return items
+    .filter((e) => e.ts)
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, 12);
+}
+
+function renderEventsFeed() {
+  if (!eventsFeed) return;
+  const events = getEvents();
+  if (!events.length) {
+    eventsFeed.innerHTML = '<div class="muted">Пока нет событий.</div>';
+    return;
+  }
+
+  eventsFeed.innerHTML = events
+    .map((e) => {
+      const time = new Date(e.ts).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+      return `
+        <div class="event-row">
+          <div class="event-main">
+            <div class="event-title">${escapeHtml(e.title || "—")}</div>
+            <div class="event-text muted">${escapeHtml(e.text || "")}</div>
+          </div>
+          <div class="event-time">${escapeHtml(time)}</div>
+        </div>
+      `;
+    })
     .join("");
 }
 
@@ -1400,50 +1558,89 @@ function renderInventory() {
     .join("");
 }
 
+function getBikeStatusChipList() {
+  const bikes = state.bikes || [];
+  const counts = bikes.reduce((acc, bike) => {
+    const status = String(bike.status || "нет данных").trim() || "нет данных";
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {});
+  const keys = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+  return [
+    { key: "all", label: `Все (${bikes.length})` },
+    ...keys.map((key) => ({ key, label: `${key} (${counts[key]})` })),
+  ];
+}
+
+function renderBikeFilterChips() {
+  if (!bikeFilterChips) return;
+  bikeFilterChips.innerHTML = getBikeStatusChipList()
+    .map(
+      (chip) =>
+        `<button class="status-filter-chip ${state.bikeStatusFilter === chip.key ? "is-active" : ""}" type="button" data-bike-status-filter="${escapeHtml(chip.key)}">${escapeHtml(chip.label)}</button>`
+    )
+    .join("");
+}
+
+function getFilteredBikes() {
+  const query = String(state.bikeSearch || "").trim().toLowerCase();
+  return (state.bikes || [])
+    .filter((bike) => {
+      if (state.bikeStatusFilter !== "all" && String(bike.status) !== state.bikeStatusFilter) return false;
+      if (!query) return true;
+      const hay = [
+        bike.code,
+        bike.model,
+        bike.status,
+        bike.notes,
+        bike.latest_repair_issue,
+        bike.latest_repair_date,
+        bike.vin,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(query);
+    });
+}
+
 function renderBikes() {
-  if (!bikesGrid) return;
+  if (!bikesTable) return;
   const canManage = getRole() === "mechanic" || getRole() === "owner";
-  const statusOptions = getBikeStatusOptions();
-  bikesGrid.innerHTML = state.bikes
-    .map((bike) => {
+  renderBikeFilterChips();
+  if (bikeSearchInput) bikeSearchInput.value = state.bikeSearch || "";
+
+  const rows = getFilteredBikes();
+  bikesTable.innerHTML = rows
+    .map((bike, index) => {
       const latestRepair = bike.latest_repair_issue
-        ? `${bike.latest_repair_date || "Без даты"} · ${bike.latest_repair_issue}`
-        : "Ремонтов еще не было";
+        ? `${bike.latest_repair_date || "—"} · ${bike.latest_repair_issue}`
+        : "—";
       return `
-        <article class="inventory-card bike-card">
-          <div class="bike-card-head">
-            <div>
-              <div class="bike-card-code">${escapeHtml(bike.code)}</div>
-              <div class="bike-card-model">${escapeHtml(formatBikeModel(bike.model))}</div>
-            </div>
-            <span class="status-pill ${getBikeStatusClass(bike.status)}">${escapeHtml(bike.status)}</span>
-          </div>
-          <div class="bike-card-history">
-            <span class="bike-card-label">Последний ремонт</span>
-            <strong>${escapeHtml(latestRepair)}</strong>
-          </div>
-          <p class="muted bike-card-notes">${escapeHtml(bike.notes || "Без заметок по байку")}</p>
-          ${
-            canManage
-              ? `<div class="inventory-actions inventory-actions-bike">
-                  <select class="bike-status-select" data-bike-status-id="${bike.id}">
-                    ${statusOptions
-                      .map(
-                        ([value, label]) =>
-                          `<option value="${value}" ${bike.status === value ? "selected" : ""}>${label}</option>`
-                      )
-                      .join("")}
-                  </select>
-                  <button class="primary-btn primary-btn-small" type="button" data-action="save-bike-status" data-id="${bike.id}">Сохранить статус</button>
-                  <button class="icon-btn" type="button" data-action="edit-bike" data-id="${bike.id}">Изменить</button>
-                  <button class="danger-btn" type="button" data-action="delete-bike" data-id="${bike.id}">Удалить</button>
-                </div>`
-              : ""
-          }
-        </article>
+        <tr>
+          <td data-label="#"><span class="row-index">${index + 1}</span></td>
+          <td data-label="Номер"><strong>${escapeHtml(bike.code)}</strong></td>
+          <td data-label="Модель">${escapeHtml(formatBikeModel(bike.model))}</td>
+          <td data-label="Статус"><span class="status-pill ${getBikeStatusClass(bike.status)}">${escapeHtml(bike.status)}</span></td>
+          <td data-label="Последний ремонт">${escapeHtml(latestRepair)}</td>
+          <td class="mechanic-only" data-label="Действия">
+            ${
+              canManage
+                ? `<div class="table-actions">
+                    <button class="icon-btn" type="button" data-action="edit-bike" data-id="${bike.id}">Ред.</button>
+                    <button class="danger-btn" type="button" data-action="delete-bike" data-id="${bike.id}">Удалить</button>
+                  </div>`
+                : ""
+            }
+          </td>
+        </tr>
       `;
     })
     .join("");
+
+  if (!rows.length) {
+    bikesTable.innerHTML = `<tr><td colspan="6" class="muted">Байки не найдены.</td></tr>`;
+  }
 }
 
 function renderWorkOrders() {
@@ -1456,6 +1653,9 @@ function renderWorkOrders() {
   } else {
     activeRepairBoard.innerHTML = activeOrders
       .map((order) => {
+        const parts = order.missing_parts?.length
+          ? `Не хватает: ${order.missing_parts.map((p) => `${p.name} x${p.missing}`).join(", ")}`
+          : (order.required_parts_text || "Запчасти не требуются");
         return `
           <article class="content-card owner-card repair-compact-card repair-compact-card-active" data-action="open-work-order" data-id="${order.id}">
             <div class="bike-card-head repair-compact-head">
@@ -1468,6 +1668,8 @@ function renderWorkOrders() {
             <div class="repair-compact-main">
               <p class="metric-value repair-timer" data-repair-deadline="${escapeHtml(order.estimated_ready_at || "")}">${escapeHtml(formatRepairCountdown(order.estimated_ready_at))}</p>
               <p class="muted">Осталось времени на ремонт</p>
+              <p class="muted">${escapeHtml(order.fault || order.issue || "")}</p>
+              <p class="muted">${escapeHtml(parts)}</p>
             </div>
             <div class="table-actions">
               ${order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">Завершить ремонт</button>` : ""}
@@ -1486,18 +1688,23 @@ function renderWorkOrders() {
 
   workOrdersBoard.innerHTML = queueOrders
     .map((order) => {
+      const partsSummary = order.missing_parts?.length
+        ? `Не хватает: ${order.missing_parts.map((p) => `${p.name} x${p.missing}`).join(", ")}`
+        : (order.required_parts_text || "Запчасти не требуются");
       return `
         <article class="content-card owner-card repair-compact-card" data-action="open-work-order" data-id="${order.id}">
           <div class="repair-compact-row">
             <div>
               <div class="bike-card-code repair-queue-code">${escapeHtml(order.bike_code)}</div>
               <div class="muted repair-queue-meta">Диагностика: ${escapeHtml(order.intake_date)}</div>
+              <div class="muted repair-queue-meta">${escapeHtml(order.fault || order.issue || "")}</div>
             </div>
             <span class="status-pill ${getBikeStatusClass(order.status)}">${escapeHtml(order.status)}</span>
           </div>
           <div class="repair-compact-main">
             <p class="metric-value">${escapeHtml(String(order.estimated_minutes || 0))} мин</p>
             <p class="muted">Расчетное время на ремонт</p>
+            <p class="muted">${escapeHtml(partsSummary)}</p>
           </div>
           <div class="table-actions">
             ${order.can_start ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-start" data-id="${order.id}">Начать ремонт</button>` : ""}
@@ -1512,26 +1719,23 @@ function renderWorkOrders() {
 }
 
 function renderOwnerPanel() {
-  const metrics = getMetrics();
-  ownerKpi.textContent = `${metrics.readyRate}%`;
-  ownerKpiNote.textContent =
-    metrics.readyRate >= state.kpi.targetRate
-      ? `${metrics.workingBikes} из ${state.kpi.totalBikes} в линии.`
-      : `${metrics.workingBikes} из ${state.kpi.totalBikes}; цель ${state.kpi.targetRate}%.`;
+  // Owner view is also service-focused (no financial KPIs).
+  const stats = getDashboardStats();
+  ownerKpi.textContent = `${stats.inRepairNow}`;
+  ownerKpiNote.textContent = "Байков в ремонте сейчас";
 
-  const procurementItems = metrics.lowStock.length
-    ? metrics.lowStock.map(
-        (item) =>
-          `<div class="stack-item"><strong>${escapeHtml(item.name)}</strong><p class="muted">${item.stock} / мин. ${item.min}</p></div>`
-      )
-    : ['<div class="stack-item muted">Дефицитов нет.</div>'];
+  const procurementItems = (state.inventory || [])
+    .filter((item) => Number(item.stock) <= Number(item.min))
+    .map((item) => `<div class="stack-item"><strong>${escapeHtml(item.name)}</strong><p class="muted">Остаток ${escapeHtml(item.stock)} · минимум ${escapeHtml(item.min)}</p></div>`);
 
-  ownerProcurement.innerHTML = procurementItems.join("");
+  ownerProcurement.innerHTML = procurementItems.length
+    ? procurementItems.join("")
+    : '<div class="stack-item muted">Дефицитов нет.</div>';
 
   ownerProcess.innerHTML = [
-    `<div class="stack-item"><strong>В работе</strong><p class="muted">${metrics.inRepair}</p></div>`,
-    `<div class="stack-item"><strong>Ждут запчасти</strong><p class="muted">${metrics.waiting}</p></div>`,
-    `<div class="stack-item"><strong>Закрыто</strong><p class="muted">${metrics.readyRepairs}</p></div>`,
+    `<div class="stack-item"><strong>Диагностировано (период)</strong><p class="muted">${stats.diagnosedInPeriod}</p></div>`,
+    `<div class="stack-item"><strong>ТО / проверка</strong><p class="muted">${stats.inspectionNow}</p></div>`,
+    `<div class="stack-item"><strong>Ждут запчасти</strong><p class="muted">${stats.waitingPartsNow}</p></div>`,
   ].join("");
 }
 
@@ -1553,6 +1757,8 @@ function render() {
   renderMetrics();
   renderTimeline();
   renderAlerts();
+  renderBikeStatuses();
+  renderEventsFeed();
   renderRepairsTable();
   renderDiagnosticsTable();
   renderDiagnosticCategoryGrid();
@@ -1750,6 +1956,14 @@ document.querySelectorAll(".nav-link").forEach((button) => {
   });
 });
 
+document.querySelectorAll(".mobile-tab").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.activeSection = button.dataset.section;
+    closeMobileMenu();
+    render();
+  });
+});
+
 issueChecklistBike?.addEventListener("input", (event) => {
   state.issueChecklist.bike = normalizeBikeCode(event.target.value);
   event.target.value = state.issueChecklist.bike;
@@ -1805,6 +2019,11 @@ globalSearch.addEventListener("input", (event) => {
   renderRepairsTable();
 });
 
+bikeSearchInput?.addEventListener("input", (event) => {
+  state.bikeSearch = event.target.value;
+  renderBikes();
+});
+
 statusFilter.addEventListener("change", (event) => {
   state.statusFilter = event.target.value;
   renderStatusChips();
@@ -1819,6 +2038,8 @@ document.querySelectorAll("[data-status-filter]").forEach((button) => {
     renderRepairsTable();
   });
 });
+
+// bike status chips are handled in the main click handler below
 
 repairForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -2004,6 +2225,13 @@ if (profileForm) {
 }
 
 document.addEventListener("click", async (event) => {
+  const bikeChip = event.target.closest("[data-bike-status-filter]");
+  if (bikeChip) {
+    state.bikeStatusFilter = bikeChip.dataset.bikeStatusFilter;
+    renderBikes();
+    return;
+  }
+
   const dashboardPeriodTarget = event.target.closest("[data-dashboard-period]");
   if (dashboardPeriodTarget) {
     state.dashboardPeriod = dashboardPeriodTarget.dataset.dashboardPeriod;
