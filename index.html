@@ -11,34 +11,28 @@
       <div class="auth-card">
         <div class="auth-header">
           <div class="brand-mark brand-mark-auth">
-            <img src="./logo_orange.png" alt="Байк Сервис" />
+            <img src="./logo_orange.png" alt="" />
           </div>
           <div>
-            <p class="auth-kicker">Байк Сервис</p>
-            <h1>Вход в сервис</h1>
+            <h1 class="auth-title">Байк Сервис</h1>
+            <p class="auth-lead">Вход</p>
           </div>
         </div>
 
         <div class="auth-content">
-          <p class="auth-subtitle">
-            Авторизуйся в рабочем кабинете механика или владельца, чтобы перейти к ремонту, диагностике и складу.
-          </p>
-
           <form id="login-form" class="form-grid auth-form">
             <label class="wide">
               <span>Логин</span>
-              <input name="username" type="text" placeholder="Введите логин" required />
+              <input name="username" type="text" autocomplete="username" required />
             </label>
             <label class="wide">
               <span>Пароль</span>
-              <input name="password" type="password" placeholder="Введите пароль" required />
+              <input name="password" type="password" autocomplete="current-password" required />
             </label>
-            <button class="primary-btn wide" type="submit">Войти в систему</button>
+            <button class="primary-btn wide" type="submit">Войти</button>
           </form>
 
-          <div class="auth-note">
-            Доступ в систему выдается администратором сервиса. Если у тебя нет логина или пароля, обратись к владельцу.
-          </div>
+          <p class="auth-note">Доступ выдаёт администратор.</p>
 
           <p id="login-error" class="error-text hidden"></p>
         </div>
@@ -50,35 +44,31 @@
       <aside class="sidebar">
         <div class="sidebar-brand">
           <div class="brand-mark">
-            <img src="./logo_orange.png" alt="Байк Сервис" />
+            <img src="./logo_orange.png" alt="" />
           </div>
-          <div>
+          <div class="sidebar-brand-text">
             <div class="sidebar-logo">Байк Сервис</div>
-            <div class="sidebar-logo-sub">service control</div>
           </div>
         </div>
 
         <div class="sidebar-user">
-          <div id="sidebar-role-title" class="sidebar-role-title">Механик</div>
-          <button id="current-user" class="sidebar-user-pill sidebar-user-button" type="button">Не выполнен вход</button>
+          <span id="sidebar-role-title" class="sidebar-role-title">Механик</span>
+          <button id="current-user" class="sidebar-user-button" type="button">Вход</button>
         </div>
 
-        <div class="sidebar-group">
-          <div class="sidebar-group-title">Сервис</div>
-          <nav class="sidebar-nav" aria-label="Разделы">
-            <button class="nav-link is-active" type="button" data-section="overview">Дашборд</button>
-            <button class="nav-link" type="button" data-section="bikes">Байки</button>
-            <button class="nav-link" type="button" data-section="diagnostics">Диагностика</button>
-            <button class="nav-link" type="button" data-section="repairs">Ремонты</button>
-            <button class="nav-link" type="button" data-section="issue-checklist">Чек-лист выдачи</button>
-            <button class="nav-link" type="button" data-section="inventory">Склад</button>
-            <button class="nav-link owner-only" type="button" data-section="owner">Настройки KPI</button>
-          </nav>
-        </div>
+        <nav class="sidebar-nav" aria-label="Разделы">
+          <button class="nav-link is-active" type="button" data-section="overview">Сводка</button>
+          <button class="nav-link" type="button" data-section="repairs">Очередь</button>
+          <button class="nav-link" type="button" data-section="bikes">Парк</button>
+          <button class="nav-link" type="button" data-section="diagnostics">Диагностика</button>
+          <button class="nav-link" type="button" data-section="inventory">Склад</button>
+          <button class="nav-link" type="button" data-section="issue-checklist">Выдача</button>
+          <button class="nav-link owner-only" type="button" data-section="owner">Показатели</button>
+        </nav>
 
         <div class="sidebar-footer">
-          <button id="account-button" class="ghost-btn ghost-btn-dark" type="button">Аккаунт</button>
-          <button id="logout-button" class="ghost-btn ghost-btn-dark" type="button">Выйти</button>
+          <button id="account-button" class="sidebar-footer-btn" type="button">Пароль</button>
+          <button id="logout-button" class="sidebar-footer-btn" type="button">Выйти</button>
         </div>
       </aside>
 
@@ -90,52 +80,32 @@
             <span></span>
           </button>
           <div class="topbar-title-block">
-            <h1 id="hero-title" class="hero-title">Рабочий день механика под контролем</h1>
-            <h2 id="page-title">Дашборд сервиса</h2>
-            <p id="hero-copy" class="topbar-subtitle">
-              Видно текущую загрузку, зависшие ремонты и детали, которые нужно заказать.
-            </p>
-          </div>
-
-          <div class="topbar-right">
-            <span id="hero-badge" class="topbar-badge">байк флот</span>
-            <span class="topbar-divider"></span>
-            <span class="topbar-engine">AI Engine</span>
+            <h1 id="page-title" class="page-heading">Сводка</h1>
+            <p id="page-subtitle" class="page-subtitle"></p>
           </div>
         </header>
 
         <section id="section-overview" class="screen-section">
-          <div class="crm-overview">
-            <section class="content-card crm-overview-panel">
-              <div class="crm-panel-head">
-                <span class="crm-panel-line"></span>
-                <h3>Сервисный дашборд</h3>
+          <div class="overview-layout">
+            <section class="panel">
+              <h3 class="panel-title">Период</h3>
+              <div class="segmented" role="group" aria-label="Период">
+                <button class="segmented-btn is-active" type="button" data-dashboard-period="today">Сегодня</button>
+                <button class="segmented-btn" type="button" data-dashboard-period="yesterday">Вчера</button>
+                <button class="segmented-btn" type="button" data-dashboard-period="week">7 дней</button>
+                <button class="segmented-btn" type="button" data-dashboard-period="month">30 дней</button>
               </div>
-
-              <div class="crm-chip-row">
-                <button class="crm-filter-chip is-active" type="button" data-dashboard-period="today">Сегодня</button>
-                <button class="crm-filter-chip" type="button" data-dashboard-period="yesterday">Вчера</button>
-                <button class="crm-filter-chip" type="button" data-dashboard-period="week">7 дней</button>
-                <button class="crm-filter-chip" type="button" data-dashboard-period="month">Месяц</button>
-              </div>
-
-              <div id="metrics-grid" class="crm-kpi-grid"></div>
+              <div id="metrics-grid" class="stat-grid"></div>
             </section>
 
-            <section class="content-card crm-overview-panel">
-              <div class="crm-panel-head">
-                <span class="crm-panel-line"></span>
-                <h3>Состояние парка сейчас</h3>
-              </div>
-              <div id="timeline" class="crm-status-list"></div>
+            <section class="panel">
+              <h3 class="panel-title">Парк</h3>
+              <div id="timeline" class="simple-rows"></div>
             </section>
 
-            <section class="content-card crm-overview-panel">
-              <div class="crm-panel-head">
-                <span class="crm-panel-line"></span>
-                <h3>Что требует внимания</h3>
-              </div>
-              <div id="alerts-list" class="crm-load-panel"></div>
+            <section class="panel">
+              <h3 class="panel-title">Сейчас</h3>
+              <div id="alerts-list" class="alert-stack"></div>
             </section>
           </div>
         </section>
@@ -143,8 +113,7 @@
         <section id="section-profile" class="screen-section hidden">
           <div class="owner-grid">
             <article class="content-card owner-card">
-              <div class="section-label">Профиль механика</div>
-              <h3>Личные данные</h3>
+              <h3 class="panel-title">Профиль</h3>
               <div class="profile-summary">
                 <div class="profile-avatar" id="profile-avatar">М</div>
                 <div>
@@ -169,8 +138,7 @@
             </article>
 
             <article class="content-card owner-card owner-card-wide">
-              <div class="section-label">Редактирование</div>
-              <h3>Обновить карточку профиля</h3>
+              <h3 class="panel-title">Изменить</h3>
               <form id="profile-form" class="form-grid">
                 <label>
                   <span>ФИО</span>
@@ -202,15 +170,9 @@
         <section id="section-bikes" class="screen-section hidden">
           <section class="content-card">
             <div class="workspace-toolbar">
-              <div class="toolbar-left">
-                <div>
-                  <div class="section-label">Парк</div>
-                  <h3>Карточки байков</h3>
-                  <p class="muted">Механик может добавлять байки, менять их статусы и поддерживать актуальное состояние парка.</p>
-                </div>
-              </div>
+              <h3 class="panel-title toolbar-title">Байки</h3>
               <div class="toolbar-right mechanic-only">
-                <button id="open-bike-modal" class="primary-btn" type="button">＋ Добавить байк</button>
+                <button id="open-bike-modal" class="primary-btn" type="button">Добавить</button>
               </div>
             </div>
             <div id="bikes-grid" class="inventory-grid"></div>
@@ -219,32 +181,20 @@
 
         <section id="section-repairs" class="screen-section hidden">
           <section class="content-card">
-            <div class="content-card-head content-card-head-space">
-              <div>
-                <div class="section-label">Активный ремонт</div>
-                <h3>Текущая работа механика</h3>
-              </div>
-            </div>
+            <h3 class="panel-title block-title">В работе</h3>
             <div id="active-repair-board" class="stack-list"></div>
 
-            <div class="content-card-head content-card-head-space">
-              <div>
-                <div class="section-label">Очередь ремонта</div>
-                <h3>Что нужно взять в работу дальше</h3>
-              </div>
-            </div>
+            <h3 class="panel-title block-title">Ожидают</h3>
             <div id="work-orders-board" class="stack-list"></div>
 
-            <div class="workspace-toolbar">
-              <div class="toolbar-left">
-                <label class="search-wrap search-wrap-wide">
-                  <span class="visually-hidden">Поиск</span>
-                  <input id="global-search" type="search" placeholder="Поиск по байку, проблеме, номеру..." />
-                </label>
-              </div>
+            <div class="workspace-toolbar toolbar-tight">
+              <label class="search-wrap search-wrap-wide">
+                <span class="visually-hidden">Поиск</span>
+                <input id="global-search" type="search" placeholder="Поиск в истории…" />
+              </label>
               <div class="toolbar-right">
-                <button id="refresh-button" class="ghost-btn" type="button" aria-label="Обновить данные" title="Обновить данные">⟳</button>
-                <button id="open-repair-modal" class="primary-btn mechanic-only" type="button">＋ Добавить ремонт</button>
+                <button id="refresh-button" class="ghost-btn icon-refresh" type="button" aria-label="Обновить" title="Обновить"></button>
+                <button id="open-repair-modal" class="primary-btn mechanic-only" type="button">Запись</button>
               </div>
             </div>
 
@@ -261,12 +211,7 @@
               </select>
             </div>
 
-            <div class="content-card-head content-card-head-space">
-              <div>
-                <div class="section-label">История ремонтов</div>
-                <h3>Завершенные работы по байкам</h3>
-              </div>
-            </div>
+            <h3 class="panel-title block-title">История</h3>
 
             <div class="table-wrap">
               <table>
@@ -292,20 +237,13 @@
         <section id="section-diagnostics" class="screen-section hidden">
           <section class="content-card">
             <div class="workspace-toolbar">
-              <div class="toolbar-left">
-                <div>
-                  <div class="section-label">Диагностика</div>
-                  <h3>Осмотры и первичная проверка байков</h3>
-                  <p class="muted">Механик выбирает крупный узел, проваливается в типовую поломку и фиксирует результат осмотра.</p>
-                </div>
-              </div>
+              <h3 class="panel-title toolbar-title">Журнал</h3>
               <div class="toolbar-right mechanic-only">
-                <button id="open-diagnostic-modal" class="primary-btn" type="button">＋ Добавить диагностику</button>
+                <button id="open-diagnostic-modal" class="primary-btn" type="button">Новая запись</button>
               </div>
             </div>
 
             <div class="diagnostic-entry-panel mechanic-only">
-              <div class="section-label">Быстрый запуск диагностики</div>
               <div id="diagnostic-category-grid" class="diagnostic-category-grid"></div>
             </div>
 
@@ -332,16 +270,10 @@
         <section id="section-issue-checklist" class="screen-section hidden">
           <section class="content-card issue-checklist-card">
             <div class="workspace-toolbar">
-              <div class="toolbar-left">
-                <div>
-                  <div class="section-label">Перед выдачей</div>
-                  <h3>Чек-лист готовности байка</h3>
-                  <p class="muted">Байк не выдается, если хотя бы один пункт не выполнен.</p>
-                </div>
-              </div>
+              <h3 class="panel-title toolbar-title">Чек-лист</h3>
               <div class="toolbar-right checklist-actions">
                 <button id="print-issue-checklist" class="ghost-btn" type="button">Печать</button>
-                <button id="reset-issue-checklist" class="danger-btn" type="button">Сбросить</button>
+                <button id="reset-issue-checklist" class="danger-btn" type="button">Сброс</button>
               </div>
             </div>
 
@@ -374,14 +306,9 @@
         <section id="section-inventory" class="screen-section hidden">
           <section class="content-card">
             <div class="workspace-toolbar">
-              <div class="toolbar-left">
-                <div>
-                  <div class="section-label">Склад</div>
-                  <h3>Остатки и дефицит запчастей</h3>
-                </div>
-              </div>
+              <h3 class="panel-title toolbar-title">Запчасти</h3>
               <div class="toolbar-right">
-                <button id="open-inventory-modal" class="primary-btn" type="button">＋ Добавить позицию</button>
+                <button id="open-inventory-modal" class="primary-btn" type="button">Позиция</button>
               </div>
             </div>
             <div id="inventory-grid" class="inventory-grid"></div>
@@ -391,27 +318,23 @@
         <section id="section-owner" class="screen-section hidden owner-only">
           <div class="owner-grid">
             <article class="content-card owner-card">
-              <div class="section-label">Готовность парка</div>
-              <h3>KPI сервиса</h3>
+              <h3 class="panel-title">Доступность парка</h3>
               <div id="owner-kpi" class="big-number">0%</div>
               <p id="owner-kpi-note" class="muted"></p>
             </article>
 
             <article class="content-card owner-card">
-              <div class="section-label">Закупка</div>
-              <h3>Что нужно заказать</h3>
+              <h3 class="panel-title">Закупка</h3>
               <div id="owner-procurement" class="stack-list"></div>
             </article>
 
             <article class="content-card owner-card">
-              <div class="section-label">Контроль</div>
-              <h3>Дисциплина сервиса</h3>
+              <h3 class="panel-title">Нагрузка</h3>
               <div id="owner-process" class="stack-list"></div>
             </article>
 
             <article class="content-card owner-card owner-card-wide">
-              <div class="section-label">Настройки KPI</div>
-              <h3>Управление целями</h3>
+              <h3 class="panel-title">Цели</h3>
               <form id="settings-form" class="form-grid">
                 <label>
                   <span>Всего байков в парке</span>
@@ -425,7 +348,7 @@
                   <span>Фокус механика</span>
                   <input name="mechanicFocus" type="text" placeholder="Например: срочные ремонты и контроль склада" maxlength="80" />
                 </label>
-                <button class="primary-btn wide" type="submit">Сохранить KPI</button>
+                <button class="primary-btn wide" type="submit">Сохранить</button>
               </form>
             </article>
           </div>

@@ -1,2 +1,5 @@
 __pycache__/
 app.db
+
+# локальный бинарник Railway CLI
+bin/

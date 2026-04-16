@@ -206,9 +206,7 @@ const loginError = document.getElementById("login-error");
 const mobileNavOverlay = document.getElementById("mobile-nav-overlay");
 const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
 const pageTitle = document.getElementById("page-title");
-const heroTitle = document.getElementById("hero-title");
-const heroCopy = document.getElementById("hero-copy");
-const heroBadge = document.getElementById("hero-badge");
+const pageSubtitle = document.getElementById("page-subtitle");
 const globalSearch = document.getElementById("global-search");
 const statusFilter = document.getElementById("status-filter");
 const metricsGrid = document.getElementById("metrics-grid");
@@ -872,70 +870,47 @@ function renderSectionHeader() {
   const sectionMeta = {
     overview: ownerMode
       ? {
-          title: "Дашборд",
-          heroTitleText: "Собственник видит бизнес-картину, а не только список поломок",
-          heroCopyText: "На одном экране видно, сколько байков реально готовы к аренде, где застревают ремонты и какие позиции тянут закупку.",
-          badge: "KPI и доступность парка",
+          title: "Сводка",
+          subtitle: "Парк, ремонты, дефицит.",
         }
       : {
-          title: "Дашборд",
-          heroTitleText: "Рабочий день механика под контролем",
-          heroCopyText: "Видно текущую загрузку, зависшие ремонты и детали, которые нужно заказать.",
-          badge: `Сегодня в фокусе: ${state.kpi.mechanicFocus || "оперативка"}`,
+          title: "Сводка",
+          subtitle: state.kpi.mechanicFocus ? `Фокус: ${state.kpi.mechanicFocus}` : "",
         },
     bikes: {
-      title: "Парк байков",
-      heroTitleText: "Управление составом парка",
-      heroCopyText: "Здесь можно добавлять новые байки, менять их статусы и поддерживать актуальную карточку каждого байка.",
-      badge: "Парк и статусы",
+      title: "Парк",
+      subtitle: "Номера и статусы байков.",
     },
     profile: {
-      title: "Профиль механика",
-      heroTitleText: "Личная карточка сотрудника",
-      heroCopyText: "Здесь можно обновить имя, контакты, должность и рабочие заметки.",
-      badge: "Аккаунт",
+      title: "Профиль",
+      subtitle: "",
     },
     diagnostics: {
       title: "Диагностика",
-      heroTitleText: "Первичный осмотр и фиксация поломок",
-      heroCopyText: "Механик выбирает узел байка, указывает неисправность и формирует основание для ремонта.",
-      badge: "Осмотр",
+      subtitle: "Журнал осмотров.",
     },
     repairs: {
-      title: "Ремонты",
-      heroTitleText: "Активные заявки и завершенные работы",
-      heroCopyText: "Здесь видна очередь ремонта, этапы заявок и история закрытых работ.",
-      badge: "Сервисный цикл",
+      title: "Очередь",
+      subtitle: "Текущие заявки и история.",
     },
     "issue-checklist": {
-      title: "Чек-лист выдачи",
-      heroTitleText: "Финальная проверка перед передачей байка",
-      heroCopyText: "Механик проходит обязательные пункты по технике, АКБ, внешнему виду и брендингу перед выдачей.",
-      badge: "Контроль выдачи",
+      title: "Выдача",
+      subtitle: "Перед передачей клиенту.",
     },
     inventory: {
       title: "Склад",
-      heroTitleText: "Остатки и дефицит запчастей",
-      heroCopyText: "Раздел помогает держать в норме доступные детали и вовремя замечать нехватку.",
-      badge: "Запчасти",
+      subtitle: "Остатки и минимумы.",
     },
     owner: {
-      title: "Настройки KPI",
-      heroTitleText: "Управление целями сервиса",
-      heroCopyText: "Собственник задает ключевые ориентиры по готовности парка и контролирует исполнение.",
-      badge: "Контроль",
+      title: "Показатели",
+      subtitle: "Цели и закупка.",
     },
   };
   const meta = sectionMeta[state.activeSection] || sectionMeta.overview;
   pageTitle.textContent = meta.title;
-  if (heroTitle) {
-    heroTitle.textContent = meta.heroTitleText;
-  }
-  if (heroCopy) {
-    heroCopy.textContent = meta.heroCopyText;
-  }
-  if (heroBadge) {
-    heroBadge.textContent = meta.badge;
+  if (pageSubtitle) {
+    pageSubtitle.textContent = meta.subtitle || "";
+    pageSubtitle.classList.toggle("hidden", !meta.subtitle);
   }
 }
 
@@ -1205,6 +1180,7 @@ function chooseDiagnosticFault(fault) {
 }
 
 function renderMetrics() {
+  if (!metricsGrid) return;
   const stats = getDashboardStats();
   const ownerMode = getRole() === "owner";
   document.querySelectorAll("[data-dashboard-period]").forEach((button) => {
@@ -1213,9 +1189,8 @@ function renderMetrics() {
   const cards = [
     {
       key: "repair",
-      icon: "🔧",
-      tint: "is-soft-yellow",
-      label: "Байков в ремонте",
+      tint: "stat-accent",
+      label: "В ремонте",
       value: String(stats.repairsInPeriod),
       details: state.workOrders
         .filter((item) => Boolean(item.started_at) && isDateInDashboardPeriod(item.started_at))
@@ -1224,8 +1199,7 @@ function renderMetrics() {
     },
     {
       key: "waiting",
-      icon: "△",
-      tint: "is-soft-red",
+      tint: "stat-warn",
       label: "Ждут запчасти",
       value: String(stats.waitingParts),
       details: state.workOrders
@@ -1239,9 +1213,8 @@ function renderMetrics() {
     },
     {
       key: "ready",
-      icon: "✓",
-      tint: "is-soft-green",
-      label: "Готово ремонтов",
+      tint: "stat-ok",
+      label: "Готово работ",
       value: String(stats.readyAfterRepair),
       details: state.repairs
         .filter((item) => item.status === "Готов" && isDateInDashboardPeriod(item.date))
@@ -1251,9 +1224,8 @@ function renderMetrics() {
     ...(ownerMode
       ? [{
       key: "idle",
-      icon: "⚲",
-      tint: "is-soft-yellow",
-      label: "Простаивают и готовы",
+      tint: "stat-neutral",
+      label: "Готовы, не в аренде",
       value: String(stats.idleReadyBikes),
       details: state.bikes
         .filter((item) => item.status === "готов")
@@ -1266,25 +1238,22 @@ function renderMetrics() {
   metricsGrid.innerHTML = cards
     .map(
       (card) => `
-        <article class="crm-kpi-card ${state.dashboardExpanded === card.key ? "is-expanded" : ""}">
+        <article class="stat-card ${state.dashboardExpanded === card.key ? "is-expanded" : ""}">
           <button
-            class="crm-kpi-trigger"
+            class="stat-card-trigger"
             type="button"
             data-dashboard-card="${card.key}"
             aria-expanded="${state.dashboardExpanded === card.key ? "true" : "false"}"
           >
-            <div class="crm-kpi-icon ${card.tint}">${card.icon}</div>
-            <div class="crm-kpi-main">
-              <span class="crm-kpi-label">${escapeHtml(card.label)}</span>
-              <strong class="crm-kpi-value">${escapeHtml(card.value)}</strong>
-            </div>
-            <div class="crm-kpi-toggle">⌄</div>
+            <span class="stat-card-label">${escapeHtml(card.label)}</span>
+            <span class="stat-card-value">${escapeHtml(card.value)}</span>
+            <span class="stat-card-chevron" aria-hidden="true"></span>
           </button>
-          <div class="crm-kpi-details ${state.dashboardExpanded === card.key ? "is-open" : ""}">
+          <div class="stat-card-details ${state.dashboardExpanded === card.key ? "is-open" : ""}">
             ${
               card.details.length
-                ? card.details.map((item) => `<div class="crm-kpi-detail-row">${escapeHtml(item)}</div>`).join("")
-                : '<div class="crm-kpi-detail-row muted">Нет записей за выбранный период.</div>'
+                ? card.details.map((item) => `<div class="stat-detail-line">${escapeHtml(item)}</div>`).join("")
+                : '<div class="stat-detail-line muted">Нет данных за период.</div>'
             }
           </div>
         </article>
@@ -1294,6 +1263,7 @@ function renderMetrics() {
 }
 
 function renderTimeline() {
+  if (!timeline) return;
   const metrics = getMetrics();
   const rows = [
     { label: "В ремонте сейчас", value: metrics.inRepair },
@@ -1304,20 +1274,17 @@ function renderTimeline() {
   timeline.innerHTML = rows
     .map(
       (row) => `
-        <article class="crm-status-row">
-          <div>
-            <div class="crm-status-title">${escapeHtml(row.label)}</div>
-          </div>
-          <div class="crm-status-metrics">
-            <span class="crm-status-percent">${escapeHtml(String(row.value))}</span>
-          </div>
-        </article>
+        <div class="simple-row">
+          <span class="simple-row-label">${escapeHtml(row.label)}</span>
+          <span class="simple-row-value">${escapeHtml(String(row.value))}</span>
+        </div>
       `
     )
     .join("");
 }
 
 function renderAlerts() {
+  if (!alertsList) return;
   const urgentWaiting = state.workOrders
     .filter((item) => item.status === "ждет запчасти")
     .slice(0, 4)
@@ -1342,33 +1309,27 @@ function renderAlerts() {
 
   if (!loadItems.length) {
     loadItems.push({
-      title: "Спокойная смена",
-      copy: "Сейчас нет активных ремонтов и заявок, которые ждут запчасти.",
+      title: "—",
+      copy: "Нет срочных задач.",
       state: "ok",
-      hours: "Норма",
+      hours: "",
     });
   }
 
-  alertsList.innerHTML = `
-    <div class="crm-load-list">
-      ${loadItems
+  alertsList.innerHTML = loadItems
     .map(
       (item) => `
-        <article class="crm-load-item">
-          <div>
-            <div class="crm-load-item-title">${escapeHtml(item.title)}</div>
-            <p class="muted">${escapeHtml(item.copy)}</p>
+        <div class="alert-row">
+          <div class="alert-row-main">
+            <span class="alert-row-code">${escapeHtml(item.title)}</span>
+            <span class="alert-row-meta muted">${escapeHtml(item.copy)}</span>
           </div>
-          <span class="crm-load-pill ${item.state === "danger" ? "is-danger" : "is-ok"}">
-            ${item.state === "danger" ? "Внимание" : "Норма"}
-          </span>
-          <span class="crm-load-hours">${escapeHtml(item.hours)}</span>
-        </article>
+          <span class="alert-row-pill ${item.state === "danger" ? "is-warn" : "is-ok"}">${item.state === "danger" ? "!" : "·"}</span>
+          <span class="alert-row-time">${escapeHtml(item.hours)}</span>
+        </div>
       `
     )
-    .join("")}
-    </div>
-  `;
+    .join("");
 }
 
 function renderRepairsTable() {
@@ -1491,7 +1452,7 @@ function renderWorkOrders() {
   const queueOrders = state.workOrders.filter((order) => order.status !== "в ремонте");
 
   if (!activeOrders.length) {
-    activeRepairBoard.innerHTML = '<div class="stack-item"><strong>Активных ремонтов нет</strong><p class="muted">Когда механик нажимает "Начать ремонт", здесь запускается таймер по расчетному времени.</p></div>';
+    activeRepairBoard.innerHTML = '<div class="stack-item muted">Нет активного ремонта.</div>';
   } else {
     activeRepairBoard.innerHTML = activeOrders
       .map((order) => {
@@ -1518,7 +1479,7 @@ function renderWorkOrders() {
   }
 
   if (!queueOrders.length) {
-    workOrdersBoard.innerHTML = '<div class="stack-item"><strong>Очередь пуста</strong><p class="muted">Новые заявки создаются автоматически после диагностики.</p></div>';
+    workOrdersBoard.innerHTML = '<div class="stack-item muted">Очередь пуста.</div>';
     refreshRepairTimers();
     return;
   }
@@ -1555,22 +1516,22 @@ function renderOwnerPanel() {
   ownerKpi.textContent = `${metrics.readyRate}%`;
   ownerKpiNote.textContent =
     metrics.readyRate >= state.kpi.targetRate
-      ? `Цель достигнута: ${metrics.workingBikes} исправных байков из ${state.kpi.totalBikes}.`
-      : `Нужно поднять доступность парка: ${metrics.workingBikes} исправных из ${state.kpi.totalBikes}.`;
+      ? `${metrics.workingBikes} из ${state.kpi.totalBikes} в линии.`
+      : `${metrics.workingBikes} из ${state.kpi.totalBikes}; цель ${state.kpi.targetRate}%.`;
 
   const procurementItems = metrics.lowStock.length
     ? metrics.lowStock.map(
         (item) =>
-          `<div class="stack-item"><strong>${escapeHtml(item.name)}</strong><p class="muted">Остаток ${item.stock}, минимум ${item.min}</p></div>`
+          `<div class="stack-item"><strong>${escapeHtml(item.name)}</strong><p class="muted">${item.stock} / мин. ${item.min}</p></div>`
       )
-    : ['<div class="stack-item"><strong>Закупка не требуется</strong><p class="muted">Критичных дефицитов на складе нет.</p></div>'];
+    : ['<div class="stack-item muted">Дефицитов нет.</div>'];
 
   ownerProcurement.innerHTML = procurementItems.join("");
 
   ownerProcess.innerHTML = [
-    `<div class="stack-item"><strong>Ремонтов в работе: ${metrics.inRepair}</strong><p class="muted">Это активная техническая загрузка команды.</p></div>`,
-    `<div class="stack-item"><strong>Ждут запчасти: ${metrics.waiting}</strong><p class="muted">Эти байки не вернутся в аренду без закупки.</p></div>`,
-    `<div class="stack-item"><strong>Закрытых работ: ${metrics.readyRepairs}</strong><p class="muted">Сколько ремонтов уже доведено до статуса "Готов".</p></div>`,
+    `<div class="stack-item"><strong>В работе</strong><p class="muted">${metrics.inRepair}</p></div>`,
+    `<div class="stack-item"><strong>Ждут запчасти</strong><p class="muted">${metrics.waiting}</p></div>`,
+    `<div class="stack-item"><strong>Закрыто</strong><p class="muted">${metrics.readyRepairs}</p></div>`,
   ].join("");
 }
 

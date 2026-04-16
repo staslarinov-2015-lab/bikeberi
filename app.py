@@ -44,6 +44,7 @@ DB_PATH = Path(
         str(Path(os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", str(BASE_DIR))) / "app.db"),
     )
 )
+SEED_SQL_PATH = BASE_DIR / "seed_dump.sql"
 
 BIKE_STATUSES = {
     "в аренде",
@@ -281,6 +282,19 @@ def get_db():
     return conn
 
 
+def ensure_db_file():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if DB_PATH.exists():
+        return
+    if SEED_SQL_PATH.exists():
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            conn.executescript(SEED_SQL_PATH.read_text(encoding="utf-8"))
+            conn.commit()
+        finally:
+            conn.close()
+
+
 def ensure_column(cur, table: str, column: str, definition: str):
     columns = {row[1] for row in cur.execute(f"PRAGMA table_info({table})").fetchall()}
     if column not in columns:
@@ -288,6 +302,7 @@ def ensure_column(cur, table: str, column: str, definition: str):
 
 
 def init_db():
+    ensure_db_file()
     conn = get_db()
     cur = conn.cursor()
     cur.executescript(
@@ -1425,7 +1440,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 )
 
             elif action == "start_repair":
-                if order["status"] not in {"принят", "диагностика"}:
+                if order["status"] not in {"принят", "диагностика", "ждет запчасти"}:
                     conn.close()
                     return json_response(self, 400, {"error": "Эту заявку сейчас нельзя запустить в ремонт"})
                 if not reservation["all_reserved"]:
