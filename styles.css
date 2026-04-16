@@ -941,7 +941,7 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 132px;
+  min-height: 96px;
 }
 
 .inventory-minimal-head {
@@ -986,6 +986,17 @@ tbody tr:hover {
 
 .inventory-card.is-out {
   border-color: rgba(185, 28, 28, 0.45);
+}
+
+.inventory-card.is-clickable {
+  cursor: pointer;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+}
+
+.inventory-card.is-clickable:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 10px 20px rgba(36, 51, 82, 0.08);
+  transform: translateY(-1px);
 }
 
 .diagnostics-grid {
