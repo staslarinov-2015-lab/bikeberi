@@ -7,6 +7,7 @@ const state = {
   dashboardExpanded: "repair",
   bikeSearch: "",
   bikeStatusFilter: "all",
+  queueFilter: "all",
   inventorySearch: "",
   kpi: {
     totalBikes: 0,
@@ -149,6 +150,179 @@ const DIAGNOSTIC_LIBRARY = {
     ],
   },
 };
+
+/** Подсказки по запчастям для автоподстановки в диагностике (ключ — полное имя поломки или хвост после « · »). */
+const DIAGNOSTIC_FAULT_PARTS_HINT = {
+  Трещина: "Клей/крепёж для пластика:1",
+  Скол: "Локальная покраска/пластик:1",
+  "Полностью сломано": "Пластик узла:1",
+  "Отсутствует деталь": "Пластик узла:1",
+  "Люфт рулевой": "Подшипник рулевой колонки:1",
+  "Руль стоит криво": "Крепёж руля/хомут:1",
+  "Тугой поворот руля": "Подшипники рулевой/смазка:1",
+  "Не работает ручка газа": "Ручка газа/датчик:1",
+  "Заедает ручка газа": "Ручка газа/трос/смазка:1",
+  "Поврежден рычаг тормоза": "Рычаг тормоза:1",
+  "Не работает кнопка включения": "Кнопка питания:1",
+  "Люфт ручек": "Ручки/фиксаторы:1",
+  "Повреждена ручка": "Ручка:1",
+  "Скрип тормоза": "Колодки:1",
+  "Стерты колодки": "Колодки:1",
+  "Кривой тормозной диск": "Диск тормозной:1",
+  "Не тормозит передний тормоз": "Колодки перед:1, колодки передние:1",
+  "Не тормозит задний тормоз": "Колодки зад:1",
+  "Закис суппорт": "Суппорт/направляющие:1",
+  "Диск трет": "Диск тормозной:1",
+  "Не возвращается ручка тормоза": "Пружина/трос тормоза:1",
+  Прокол: "Камера:1, покрышка:1",
+  "Спускает колесо": "Камера:1, ниппель:1",
+  "Изношена покрышка": "Покрышка:1",
+  "Боковой порез": "Покрышка:1",
+  "Деформация диска": "Обод/диск:1",
+  "Люфт колеса": "Подшипник ступицы:1",
+  "Биение колеса": "Спицы/обод:1",
+  "Поврежден ниппель": "Ниппель:1",
+  "Проблема с подшипником": "Подшипник ступицы:1",
+  "Не тянет мотор": "Проверка контроллера/мотора:1",
+  "Рывки при разгоне": "Контроллер/датчики:1",
+  "Посторонний шум мотора": "Мотор/крепёж:1",
+  "Мотор не включается": "Контроллер/проводка:1",
+  "Перегрев мотора": "Охлаждение/нагрузка:1",
+  "Ошибка по мотору": "Диагностика контроллера:1",
+  "Повышенная вибрация": "Крепёж мотора/колёс:1",
+  "Батарея не заряжается": "Зарядка/порт/БМС:1",
+  "Быстро теряет заряд": "Аккумулятор/BMS:1",
+  "Батарея не фиксируется": "Крепёж АКБ:1",
+  "Батарея не определяется": "Разъём АКБ/BMS:1",
+  "Ошибка BMS": "BMS/балансировка:1",
+  "Перегрев батареи": "BMS/контакты:1",
+  "Зарядный порт поврежден": "Порт зарядки:1",
+  "Не работает зарядное устройство": "Зарядное устройство:1",
+  "Окисление контактов батареи": "Контакты/разъёмы:1",
+  "Просадка напряжения": "АКБ/ячейки:1",
+  "Не включается байк": "Питание/предохранитель:1",
+  "Ошибка контроллера": "Контроллер:1",
+  "Пропадает питание": "Проводка/разъёмы:1",
+  "Повреждена проводка": "Проводка/изоляция:1",
+  "Окисление разъемов": "Разъёмы/контакты:1",
+  Замыкание: "Проводка/изоляция:1",
+  "Нестабильная работа": "Контроллер/проводка:1",
+  "Ошибка датчиков": "Датчики/разъёмы:1",
+  "Не работает панель управления": "Дисплей/проводка:1",
+  "Не работает передняя фара": "Фара перед:1",
+  "Не работает задний фонарь": "Фонарь зад:1",
+  "Не работает стоп-сигнал": "Стоп-сигнал:1",
+  "Не работает сигнал": "Сигнал:1",
+  "Мигает свет": "Реле/контакт:1",
+  "Плохой контакт по освещению": "Разъёмы/проводка:1",
+};
+
+function lookupFaultPartsHint(faultResolved) {
+  if (!faultResolved) return "";
+  if (DIAGNOSTIC_FAULT_PARTS_HINT[faultResolved]) return DIAGNOSTIC_FAULT_PARTS_HINT[faultResolved];
+  const tail = faultResolved.split(" · ").pop()?.trim();
+  if (tail && DIAGNOSTIC_FAULT_PARTS_HINT[tail]) return DIAGNOSTIC_FAULT_PARTS_HINT[tail];
+  return "";
+}
+
+function getOrderComplexityTone(order) {
+  const faultRaw = String(order.fault || "").trim();
+  const issueRaw = String(order.issue || "").trim();
+  const faultText = faultRaw.toLowerCase();
+  const issueText = issueRaw.toLowerCase();
+  const haystack = `${faultText} ${issueText}`;
+  const hasUnknownFault =
+    !faultRaw ||
+    /неизвестн|не\s*известн|непонятн|не\s*понятн|не\s*ясн|уточнить\s+после|нужна\s+углубленн|без\s+осмотр|не\s*определ/i.test(
+      haystack
+    );
+  const waitingParts = Boolean(order.missing_parts?.length) || order.status === "ждет запчасти";
+  if (hasUnknownFault) return "is-red";
+  if (waitingParts) return "is-yellow";
+  return "is-green";
+}
+
+/** «Движение» по ETA / плану времени для ремонта «в работе». */
+function getRepairStaleness(order) {
+  if (order.status !== "в ремонте" || !order.started_at) return null;
+  const now = Date.now();
+  const eta = order.estimated_ready_at ? new Date(order.estimated_ready_at).getTime() : null;
+  if (eta && now > eta) return "overdue";
+  const started = new Date(order.started_at).getTime();
+  const mins = Number(order.estimated_minutes || 0);
+  const plannedMs = mins > 0 ? mins * 60 * 1000 : 36 * 60 * 60 * 1000;
+  if (now > started + plannedMs * 1.5) return "long";
+  return null;
+}
+
+function priorityTier(order) {
+  const waiting = order.status === "ждет запчасти" || (order.missing_parts?.length > 0);
+  if (waiting) return 0;
+  if (order.status === "в ремонте") {
+    const st = getRepairStaleness(order);
+    if (st === "overdue") return 1;
+    if (st === "long") return 2;
+    if (getOrderComplexityTone(order) === "is-red") return 3;
+    return 4;
+  }
+  if (getOrderComplexityTone(order) === "is-red") return 5;
+  return 6;
+}
+
+function priorityIntakeTs(order) {
+  const d = order.intake_date || order.created_at;
+  return d ? new Date(d).getTime() : 0;
+}
+
+function getRepairPriorityLabel(order) {
+  if (order.status === "ждет запчасти" || order.missing_parts?.length) return "Ждёт запчасти";
+  if (order.status === "в ремонте") {
+    const st = getRepairStaleness(order);
+    if (st === "overdue") return "Просрочка по ETA";
+    if (st === "long") return "Долго в работе";
+  }
+  if (getOrderComplexityTone(order) === "is-red") return "Сложный кейс";
+  return order.status || "В очереди";
+}
+
+function getPriorityNextOrders() {
+  const open = (state.workOrders || []).filter((o) => o.status !== "готов");
+  return open
+    .map((order) => ({ order, tier: priorityTier(order), intake: priorityIntakeTs(order) }))
+    .sort((a, b) => a.tier - b.tier || a.intake - b.intake)
+    .slice(0, 3)
+    .map((x) => x.order);
+}
+
+function matchesQueueFilter(order) {
+  const f = state.queueFilter || "all";
+  if (f === "all") return true;
+  if (f === "in_repair") return order.status === "в ремонте";
+  if (f === "waiting_parts") return order.status === "ждет запчасти" || (order.missing_parts?.length > 0);
+  if (f === "complex") return getOrderComplexityTone(order) === "is-red";
+  return true;
+}
+
+function applyDiagnosticFaultSuggestions(category, faultResolved) {
+  if (!diagnosticForm) return;
+  const cfg = DIAGNOSTIC_LIBRARY[category];
+  const summary = cfg?.summary || "";
+  diagnosticForm.elements.symptoms.value = [
+    `Узел: ${category}.`,
+    `Выявлено: ${faultResolved}.`,
+    summary ? `Контекст: ${summary}.` : "",
+    "Внешний осмотр, проверка безопасности перед работами.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  diagnosticForm.elements.conclusion.value = [
+    "План работ: осмотр узла → при необходимости снятие → замена/ремонт → контрольная проверка (тормоза/руль/ходовая по ситуации).",
+    `Предварительно: ${faultResolved} в зоне «${category}».`,
+    "Рекомендуется: снять/заменить/подтянуть после проверки комплектности запчастей и согласования срока.",
+    "Серьёзность: уточнить при разборе.",
+  ].join(" ");
+  diagnosticForm.elements.requiredParts.value = lookupFaultPartsHint(faultResolved);
+}
 
 const BIKE_CODE_ALLOWED_LETTERS = ["P", "E", "Y"];
 const BIKE_CODE_ALLOWED_DIGITS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
@@ -301,6 +475,8 @@ const diagnosticStepDetails = document.getElementById("diagnostic-step-details")
 const diagnosticStepViewCategories = document.getElementById("diagnostic-step-view-categories");
 const diagnosticStepViewFaults = document.getElementById("diagnostic-step-view-faults");
 const refreshButton = document.getElementById("refresh-button");
+const priorityNextEl = document.getElementById("priority-next");
+const queueFilterChipsEl = document.getElementById("queue-filter-chips");
 const bikeCodeBuilders = Array.from(document.querySelectorAll("[data-bike-code-root]"));
 
 function normalizeBikeCode(rawValue) {
@@ -1183,7 +1359,9 @@ function chooseDiagnosticFault(fault) {
   state.diagnosticFlow.fault = resolvedFault;
   diagnosticForm.elements.category.value = state.diagnosticFlow.category;
   diagnosticForm.elements.fault.value = resolvedFault;
-  if (!diagnosticForm.elements.symptoms.value.trim()) {
+  if (state.diagnosticFlow.mode !== "edit") {
+    applyDiagnosticFaultSuggestions(state.diagnosticFlow.category, resolvedFault);
+  } else if (!diagnosticForm.elements.symptoms.value.trim()) {
     diagnosticForm.elements.symptoms.value = `${state.diagnosticFlow.category}: ${resolvedFault}`;
   }
   syncDiagnosticWizard();
@@ -1647,28 +1825,64 @@ function renderBikes() {
   }
 }
 
+function renderQueueFilterToolbar() {
+  if (!queueFilterChipsEl) return;
+  const chips = [
+    { key: "all", label: "Все" },
+    { key: "in_repair", label: "В ремонте" },
+    { key: "waiting_parts", label: "Ждут запчасти" },
+    { key: "complex", label: "Сложные" },
+  ];
+  queueFilterChipsEl.innerHTML = chips
+    .map(
+      (c) =>
+        `<button type="button" class="status-filter-chip queue-filter-chip ${state.queueFilter === c.key ? "is-active" : ""}" data-queue-filter="${escapeHtml(c.key)}">${escapeHtml(c.label)}</button>`
+    )
+    .join("");
+}
+
+function renderStaleBadgesHtml(order) {
+  if (order.status !== "в ремонте") return "";
+  const st = getRepairStaleness(order);
+  if (st === "overdue") return '<span class="queue-stale-badge is-overdue">Просрочено</span>';
+  if (st === "long") return '<span class="queue-stale-badge is-long">Долго</span>';
+  return "";
+}
+
+function staleActiveCardClass(order) {
+  if (order.status !== "в ремонте") return "";
+  return getRepairStaleness(order) ? " has-stale-warning" : "";
+}
+
+function renderPriorityNext() {
+  if (!priorityNextEl) return;
+  const rows = getPriorityNextOrders();
+  if (!rows.length) {
+    priorityNextEl.innerHTML = '<p class="muted priority-empty">Нет открытых заявок.</p>';
+    return;
+  }
+  priorityNextEl.innerHTML = rows
+    .map(
+      (order) => `
+        <article class="priority-row" data-action="open-work-order" data-id="${order.id}">
+          <div class="priority-row-main">
+            <div class="priority-row-bike">${escapeHtml(order.bike_code)}</div>
+            <p class="priority-row-fault muted">${escapeHtml(order.fault || order.issue || "Поломка не указана")}</p>
+            <p class="priority-row-reason">${escapeHtml(getRepairPriorityLabel(order))}</p>
+          </div>
+          <span class="priority-row-arrow" aria-hidden="true">→</span>
+        </article>
+      `
+    )
+    .join("");
+}
+
 function renderWorkOrders() {
   if (!workOrdersBoard || !activeRepairBoard) return;
-  const activeOrders = state.workOrders.filter((order) => order.status === "в ремонте");
-  const queueOrders = state.workOrders.filter((order) => order.status !== "в ремонте");
-
-  const getOrderCardTone = (order) => {
-    const faultRaw = String(order.fault || "").trim();
-    const issueRaw = String(order.issue || "").trim();
-    const faultText = faultRaw.toLowerCase();
-    const issueText = issueRaw.toLowerCase();
-    const haystack = `${faultText} ${issueText}`;
-    // Красный: пустая поломка или явные формулировки «неясно / нужно уточнить», без ложных срабатываний на слове «диагностика» в обычном тексте.
-    const hasUnknownFault =
-      !faultRaw ||
-      /неизвестн|не\s*известн|непонятн|не\s*понятн|не\s*ясн|уточнить\s+после|нужна\s+углубленн|без\s+осмотр|не\s*определ/i.test(
-        haystack
-      );
-    const waitingParts = Boolean(order.missing_parts?.length) || order.status === "ждет запчасти";
-    if (hasUnknownFault) return "is-red";
-    if (waitingParts) return "is-yellow";
-    return "is-green";
-  };
+  renderQueueFilterToolbar();
+  const filtered = (state.workOrders || []).filter(matchesQueueFilter);
+  const activeOrders = filtered.filter((order) => order.status === "в ремонте");
+  const queueOrders = filtered.filter((order) => order.status !== "в ремонте");
 
   const getPartsLine = (order) => {
     if (order.missing_parts?.length) {
@@ -1682,12 +1896,13 @@ function renderWorkOrders() {
   } else {
     activeRepairBoard.innerHTML = activeOrders
       .map((order) => {
-        const toneClass = getOrderCardTone(order);
+        const toneClass = getOrderComplexityTone(order);
         const parts = getPartsLine(order);
         return `
-          <article class="content-card owner-card repair-compact-card queue-mini-card ${toneClass}" data-action="open-work-order" data-id="${order.id}">
+          <article class="content-card owner-card repair-compact-card queue-mini-card ${toneClass}${staleActiveCardClass(order)}" data-action="open-work-order" data-id="${order.id}">
             <div class="queue-mini-head">
               <strong class="queue-mini-bike">${escapeHtml(order.bike_code)}</strong>
+              <div class="queue-mini-badges">${renderStaleBadgesHtml(order)}</div>
             </div>
             <p class="queue-mini-line queue-fault">${escapeHtml(order.fault || order.issue || "Поломка не указана")}</p>
             <p class="queue-mini-line queue-parts">${escapeHtml(parts)}</p>
@@ -1708,7 +1923,7 @@ function renderWorkOrders() {
 
   workOrdersBoard.innerHTML = queueOrders
     .map((order) => {
-      const toneClass = getOrderCardTone(order);
+      const toneClass = getOrderComplexityTone(order);
       const partsSummary = getPartsLine(order);
       return `
         <article class="content-card owner-card repair-compact-card queue-mini-card ${toneClass}" data-action="open-work-order" data-id="${order.id}">
@@ -1776,6 +1991,7 @@ function render() {
   syncDiagnosticWizard();
   renderInventory();
   renderBikes();
+  renderPriorityNext();
   renderWorkOrders();
   renderIssueChecklist();
   renderOwnerPanel();
@@ -2245,6 +2461,13 @@ if (profileForm) {
 }
 
 document.addEventListener("click", async (event) => {
+  const queueChip = event.target.closest("[data-queue-filter]");
+  if (queueChip) {
+    state.queueFilter = queueChip.dataset.queueFilter || "all";
+    renderWorkOrders();
+    return;
+  }
+
   const bikeChip = event.target.closest("[data-bike-status-filter]");
   if (bikeChip) {
     state.bikeStatusFilter = bikeChip.dataset.bikeStatusFilter;

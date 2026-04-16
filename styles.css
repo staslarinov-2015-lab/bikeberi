@@ -349,6 +349,75 @@ body.mobile-menu-open {
   color: var(--muted);
 }
 
+.panel-priority {
+  border-color: rgba(255, 149, 66, 0.42);
+  box-shadow: 0 0 0 1px rgba(255, 149, 66, 0.1);
+}
+
+.priority-lead {
+  margin: -6px 0 14px;
+  font-size: 0.88rem;
+}
+
+.priority-next {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.priority-empty {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.priority-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 0.12s ease;
+}
+
+.priority-row:hover {
+  border-color: var(--border-strong);
+}
+
+.priority-row-main {
+  min-width: 0;
+}
+
+.priority-row-bike {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.priority-row-fault {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.priority-row-reason {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #ffb347;
+}
+
+.priority-row-arrow {
+  flex: 0 0 auto;
+  font-size: 1.1rem;
+  opacity: 0.55;
+}
+
 .block-title {
   margin-top: 24px;
 }
@@ -1173,9 +1242,45 @@ tbody tr:hover {
 
 .queue-mini-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
+}
+
+.queue-mini-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.queue-stale-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.queue-stale-badge.is-overdue {
+  background: rgba(255, 80, 80, 0.22);
+  color: #ffb4b4;
+  border: 1px solid rgba(255, 120, 120, 0.45);
+}
+
+.queue-stale-badge.is-long {
+  background: rgba(255, 193, 90, 0.18);
+  color: #ffd86b;
+  border: 1px solid rgba(255, 193, 90, 0.4);
+}
+
+.queue-mini-card.has-stale-warning {
+  box-shadow: 0 0 0 1px rgba(255, 149, 66, 0.35);
 }
 
 .queue-mini-bike {
@@ -1209,6 +1314,30 @@ tbody tr:hover {
 .queue-mini-card.is-red {
   border-color: rgba(255, 107, 107, 0.5);
   background: linear-gradient(180deg, rgba(62, 27, 35, 0.92) 0%, rgba(45, 21, 28, 0.94) 100%);
+}
+
+.queue-filter-toolbar {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.queue-filter-toolbar .status-filter-chip {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .queue-filter-toolbar .status-filter-chip {
+    padding: 6px 10px;
+    font-size: 0.84rem;
+  }
 }
 
 .repair-compact-head,
