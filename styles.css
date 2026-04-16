@@ -1805,6 +1805,16 @@ textarea:focus-visible {
     line-height: 1;
   }
 
+  .mobile-tab-icon-badge {
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.14);
+  }
+
   .mobile-tab-label {
     font-size: 0.72rem;
     letter-spacing: 0.02em;
