@@ -1,30 +1,30 @@
 :root {
-  --bg: #0b0d12;
-  --surface: #131722;
-  --surface-elevated: #1a2030;
-  --border: #252c3c;
-  --border-strong: #36415a;
-  --text: #eef3ff;
-  --muted: #8e9ab0;
-  --accent: #0a84ff;
-  --accent-hover: #379cff;
-  --accent-faint: rgba(10, 132, 255, 0.2);
-  --sidebar-bg: #090b10;
-  --sidebar-text: #8c97ac;
+  --bg: #f3f6fb;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --border: #e3e9f2;
+  --border-strong: #d7e0ec;
+  --text: #22324a;
+  --muted: #7e8ba0;
+  --accent: #007aff;
+  --accent-hover: #0062cc;
+  --accent-faint: rgba(0, 122, 255, 0.14);
+  --sidebar-bg: #191919;
+  --sidebar-text: #b5bfcd;
   --sidebar-active: #ffffff;
   --sidebar-line: rgba(255, 255, 255, 0.08);
-  --green: #32d583;
-  --green-bg: rgba(50, 213, 131, 0.18);
-  --blue: #5ea7ff;
-  --blue-bg: rgba(94, 167, 255, 0.18);
-  --red: #ff6b6b;
-  --red-bg: rgba(255, 107, 107, 0.18);
-  --yellow: #ffc15a;
-  --yellow-bg: rgba(255, 193, 90, 0.2);
+  --green: #169c63;
+  --green-bg: #cef5df;
+  --blue: #2d66df;
+  --blue-bg: #dce8ff;
+  --red: #d93c35;
+  --red-bg: #ffdede;
+  --yellow: #b86a00;
+  --yellow-bg: #ffeabf;
   --radius: 14px;
   --radius-lg: 22px;
-  --shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
-  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --shadow: 0 18px 40px rgba(34, 50, 74, 0.08);
+  --shadow-soft: 0 8px 24px rgba(86, 104, 131, 0.08);
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   font-family: var(--font);
   font-size: 15px;
@@ -1809,7 +1809,7 @@ textarea:focus-visible {
   .mobile-tab {
     border: 0;
     background: transparent;
-    color: rgba(255, 255, 255, 0.72);
+    color: rgba(255, 255, 255, 0.9);
     padding: 8px 6px;
     border-radius: 14px;
     display: grid;
@@ -1826,6 +1826,7 @@ textarea:focus-visible {
   .mobile-tab-icon {
     font-size: 1.05rem;
     line-height: 1;
+    color: inherit;
   }
 
   .mobile-tab-icon-badge {
@@ -2193,141 +2194,3 @@ textarea:focus-visible {
   }
 }
 
-/* ——— Apple dark global polish ——— */
-body {
-  background:
-    radial-gradient(1200px 600px at 80% -10%, rgba(10, 132, 255, 0.16), transparent 55%),
-    radial-gradient(1000px 500px at -10% 20%, rgba(58, 78, 122, 0.2), transparent 55%),
-    var(--bg);
-}
-
-.workspace {
-  background: transparent;
-}
-
-.topbar {
-  background: rgba(10, 12, 18, 0.84);
-  border-bottom: 1px solid var(--border);
-}
-
-.topbar-pill {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.08);
-  color: #b7c1d4;
-}
-
-.topbar-pill-accent {
-  background: var(--accent-faint);
-  border-color: rgba(10, 132, 255, 0.32);
-  color: #d8e9ff;
-}
-
-.panel,
-.content-card,
-.modal-card,
-.stack-item,
-.stat-card,
-.alert-row,
-.bike-card,
-.repair-compact-card,
-.inventory-card,
-.diagnostic-mini-card {
-  background: linear-gradient(180deg, rgba(27, 33, 47, 0.96) 0%, rgba(19, 23, 34, 0.96) 100%);
-  border-color: var(--border);
-}
-
-.stat-card-trigger:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.stat-card-icon,
-.diagnostic-selection-card,
-.bike-card-history,
-.work-order-hero {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: var(--border);
-}
-
-.segmented-btn,
-.status-filter-chip,
-.ghost-btn,
-.icon-btn {
-  background: rgba(255, 255, 255, 0.04);
-  color: #d4dced;
-  border-color: var(--border-strong);
-}
-
-.segmented-btn:hover,
-.ghost-btn:hover,
-.icon-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: #4a5874;
-}
-
-.segmented-btn.is-active,
-.status-filter-chip.is-active,
-.primary-btn {
-  background: linear-gradient(180deg, #2391ff 0%, #0a84ff 100%);
-  color: #fff;
-  border-color: transparent;
-}
-
-.danger-btn {
-  background: rgba(255, 107, 107, 0.1);
-  border-color: rgba(255, 107, 107, 0.4);
-  color: #ff8f8f;
-}
-
-.danger-btn:hover {
-  background: rgba(255, 107, 107, 0.18);
-}
-
-input,
-select,
-textarea {
-  background: rgba(255, 255, 255, 0.03);
-  border-color: var(--border-strong);
-  color: var(--text);
-}
-
-input::placeholder,
-textarea::placeholder {
-  color: #7f8ca3;
-}
-
-input:focus,
-select:focus,
-textarea:focus {
-  border-color: #5ea7ff;
-  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.2);
-}
-
-.table-wrap {
-  border-color: var(--border);
-  background: rgba(255, 255, 255, 0.02);
-}
-
-thead {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-th {
-  color: #9ba8c0;
-}
-
-td {
-  border-top-color: rgba(255, 255, 255, 0.05);
-}
-
-tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.mobile-tabbar {
-  background: rgba(10, 12, 18, 0.92);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.mobile-tab.is-active {
-  background: rgba(10, 132, 255, 0.2);
-}
