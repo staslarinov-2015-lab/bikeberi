@@ -7,6 +7,8 @@ const state = {
   dashboardExpanded: "repair",
   bikeSearch: "",
   bikeStatusFilter: "all",
+  inventorySearch: "",
+  inventoryEditOpenId: null,
   kpi: {
     totalBikes: 0,
     targetRate: 95,
@@ -220,6 +222,7 @@ const repairsTable = document.getElementById("repairs-table");
 const diagnosticsTable = document.getElementById("diagnostics-table");
 const diagnosticCategoryGrid = document.getElementById("diagnostic-category-grid");
 const inventoryGrid = document.getElementById("inventory-grid");
+const inventorySearchInput = document.getElementById("inventory-search");
 const bikeSearchInput = document.getElementById("bike-search");
 const bikeFilterChips = document.getElementById("bike-filter-chips");
 const bikesTable = document.getElementById("bikes-table");
@@ -1537,23 +1540,37 @@ function renderRepairsTable() {
 
 function renderInventory() {
   const canManage = getRole() === "mechanic" || getRole() === "owner";
-  inventoryGrid.innerHTML = state.inventory
+  if (inventorySearchInput) {
+    inventorySearchInput.value = state.inventorySearch || "";
+  }
+  const query = String(state.inventorySearch || "").trim().toLowerCase();
+  const rows = state.inventory.filter((item) =>
+    !query ? true : String(item.name || "").toLowerCase().includes(query)
+  );
+
+  inventoryGrid.innerHTML = rows
     .map((item) => {
-      const isLow = Number(item.stock) <= Number(item.min);
+      const stock = Number(item.stock || 0);
+      const isOut = stock <= 0;
+      const isLow = stock >= 1 && stock <= 4;
+      const chipClass = isOut ? "stock-chip-danger" : isLow ? "stock-chip-warn" : "stock-chip-ok";
       return `
-        <article class="inventory-card ${isLow ? "is-low" : ""}">
-          <div class="inventory-meta">
-            <span>${escapeHtml(item.name)}</span>
-            <span>${isLow ? "Дефицит" : "Норма"}</span>
+        <article class="inventory-card inventory-card-minimal ${isOut ? "is-out" : isLow ? "is-low" : ""}">
+          <div class="inventory-minimal-head">
+            <strong>${escapeHtml(item.name)}</strong>
+            <span class="stock-chip ${chipClass}">${escapeHtml(String(Math.max(stock, 0)))}</span>
           </div>
-          <div class="inventory-stock">${escapeHtml(item.stock)}</div>
-          <p class="muted">Минимум: ${escapeHtml(item.min)} · Зарезервировано: ${escapeHtml(item.reserved || 0)}</p>
-          <p class="muted">Доступно сейчас: ${escapeHtml(item.available || 0)} · Нужно заказать: ${escapeHtml(item.need_to_order ? "Да" : "Нет")}</p>
+          <p class="muted">Минимум: ${escapeHtml(item.min)}</p>
+          ${isOut ? '<p class="error-text">Требуется закупка</p>' : ""}
           ${
             canManage
               ? `<div class="inventory-actions">
                   <button class="icon-btn" type="button" data-action="edit-inventory" data-id="${item.id}">Изменить</button>
-                  <button class="danger-btn" type="button" data-action="delete-inventory" data-id="${item.id}">Удалить</button>
+                  ${
+                    String(state.inventoryEditOpenId || "") === String(item.id)
+                      ? `<button class="danger-btn" type="button" data-action="delete-inventory" data-id="${item.id}">Удалить</button>`
+                      : ""
+                  }
                 </div>`
               : ""
           }
@@ -1561,6 +1578,10 @@ function renderInventory() {
       `;
     })
     .join("");
+
+  if (!rows.length) {
+    inventoryGrid.innerHTML = '<article class="inventory-card"><p class="muted">Запчасти не найдены.</p></article>';
+  }
 }
 
 function getBikeStatusChipList() {
@@ -1882,6 +1903,10 @@ closeRepairModalButton?.addEventListener("click", () => {
 });
 
 openInventoryModalButton?.addEventListener("click", () => {
+  inventoryForm.reset();
+  delete inventoryForm.dataset.editId;
+  state.inventoryEditOpenId = null;
+  renderInventory();
   inventoryOverlay.classList.remove("hidden");
 });
 
@@ -1889,6 +1914,7 @@ closeInventoryModalButton?.addEventListener("click", () => {
   inventoryOverlay.classList.add("hidden");
   inventoryForm.reset();
   delete inventoryForm.dataset.editId;
+  state.inventoryEditOpenId = null;
 });
 
 openBikeModalButton?.addEventListener("click", () => {
@@ -2031,6 +2057,11 @@ bikeSearchInput?.addEventListener("input", (event) => {
   renderBikes();
 });
 
+inventorySearchInput?.addEventListener("input", (event) => {
+  state.inventorySearch = event.target.value;
+  renderInventory();
+});
+
 statusFilter.addEventListener("change", (event) => {
   state.statusFilter = event.target.value;
   renderStatusChips();
@@ -2099,6 +2130,7 @@ inventoryForm.addEventListener("submit", async (event) => {
 
   inventoryForm.reset();
   delete inventoryForm.dataset.editId;
+  state.inventoryEditOpenId = null;
   inventoryOverlay.classList.add("hidden");
   state.activeSection = "inventory";
   await bootstrap();
@@ -2284,6 +2316,8 @@ document.addEventListener("click", async (event) => {
   if (action === "edit-inventory") {
     const item = state.inventory.find((entry) => String(entry.id) === id);
     if (!item) return;
+    state.inventoryEditOpenId = id;
+    renderInventory();
     inventoryForm.dataset.editId = id;
     inventoryForm.elements.name.value = item.name;
     inventoryForm.elements.stock.value = item.stock;
@@ -2294,6 +2328,7 @@ document.addEventListener("click", async (event) => {
   if (action === "delete-inventory") {
     if (!window.confirm("Удалить эту складскую позицию?")) return;
     await api(`/api/inventory/${id}`, { method: "DELETE", headers: {} });
+    state.inventoryEditOpenId = null;
     await bootstrap();
   }
 

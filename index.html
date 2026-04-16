@@ -339,9 +339,14 @@
         <section id="section-inventory" class="screen-section hidden">
           <section class="content-card">
             <div class="workspace-toolbar">
-              <h3 class="panel-title toolbar-title">Запчасти</h3>
+              <div class="toolbar-left">
+                <label class="search-wrap search-wrap-wide">
+                  <span class="visually-hidden">Поиск запчастей</span>
+                  <input id="inventory-search" type="search" placeholder="Поиск по названию запчасти…" />
+                </label>
+              </div>
               <div class="toolbar-right">
-                <button id="open-inventory-modal" class="primary-btn" type="button">Позиция</button>
+                <button id="open-inventory-modal" class="primary-btn" type="button">Добавить запчасть</button>
               </div>
             </div>
             <div id="inventory-grid" class="inventory-grid"></div>
