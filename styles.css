@@ -1792,6 +1792,83 @@ textarea:focus-visible {
   table {
     min-width: 0;
   }
+
+  /* Bikes on iPhone: compact horizontal "widget" cards */
+  #section-bikes tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "code status"
+      "actions actions";
+    gap: 10px 12px;
+    align-items: center;
+    border-radius: 18px;
+    padding: 12px 14px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+    border: 1px solid #e5ecf6;
+    box-shadow: 0 4px 14px rgba(36, 51, 82, 0.06);
+  }
+
+  #section-bikes tbody td {
+    padding: 0;
+    border: 0;
+  }
+
+  #section-bikes tbody td::before {
+    display: none;
+  }
+
+  #section-bikes tbody td[data-label="Номер"] {
+    grid-area: code;
+  }
+
+  #section-bikes tbody td[data-label="Номер"] strong {
+    font-size: 1.25rem;
+    letter-spacing: 0.02em;
+    color: #1f2f4a;
+    font-weight: 900;
+  }
+
+  #section-bikes tbody td[data-label="Статус"] {
+    grid-area: status;
+    justify-self: end;
+  }
+
+  #section-bikes tbody td[data-label="Действия"] {
+    grid-area: actions;
+  }
+
+  #section-bikes .table-actions {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    display: flex;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  #section-bikes .table-actions .icon-btn,
+  #section-bikes .table-actions .danger-btn {
+    min-height: 36px;
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-size: 0.86rem;
+    font-weight: 800;
+    border-width: 1px;
+    white-space: nowrap;
+    background: #fff;
+  }
+
+  #section-bikes .table-actions .icon-btn {
+    border-color: #c9daf8;
+    color: #0a7cff;
+  }
+
+  #section-bikes .table-actions .danger-btn {
+    border-color: #ffd2d0;
+    color: #d93c35;
+  }
 }
 
 @media print {
