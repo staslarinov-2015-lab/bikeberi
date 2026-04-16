@@ -1063,7 +1063,7 @@ function renderSectionHeader() {
     overview: { title: "Дашборд" },
     bikes: { title: "Парк" },
     profile: { title: "Профиль" },
-    diagnostics: { title: "Диаг" },
+    diagnostics: { title: "Диагностика" },
     repairs: { title: "Очередь" },
     "issue-checklist": { title: "Выдача" },
     inventory: { title: "Склад" },
@@ -1263,7 +1263,7 @@ function syncDiagnosticWizard() {
   diagnosticSelectedFault.textContent = fault || "Не выбрана";
 
   const editing = state.diagnosticFlow.mode === "edit";
-  diagnosticModalTitle.textContent = editing ? "Редактирование" : "Новая запись";
+  diagnosticModalTitle.textContent = editing ? "Редактирование диагностической записи" : "Новая диагностическая запись";
 
   diagnosticStepCategories.classList.toggle("is-active", !category);
   diagnosticStepFaults.classList.toggle("is-active", Boolean(category) && !fault);
@@ -1370,7 +1370,7 @@ function renderMetrics() {
       key: "diagnosed",
       icon: "🩺",
       tint: "stat-neutral",
-      label: "Диаг за период",
+      label: "Диагностика за период",
       value: String(stats.diagnosedInPeriod),
       details: (state.diagnostics || [])
         .filter((item) => isDateInDashboardPeriod(item.date))
@@ -1545,7 +1545,7 @@ function getEvents() {
       ts: toTs(d.date),
       title: d.bike,
       type: "diagnostic",
-      text: `Диаг · ${[d.category, d.fault].filter(Boolean).join(" · ") || "—"}`,
+      text: `Диагностика · ${[d.category, d.fault].filter(Boolean).join(" · ") || "—"}`,
     });
   });
 
@@ -2015,7 +2015,7 @@ function renderOwnerPanel() {
     : '<div class="stack-item muted">Дефицитов нет.</div>';
 
   ownerProcess.innerHTML = [
-    `<div class="stack-item"><strong>Диаг (период)</strong><p class="muted">${stats.diagnosedInPeriod}</p></div>`,
+    `<div class="stack-item"><strong>Диагностика (период)</strong><p class="muted">${stats.diagnosedInPeriod}</p></div>`,
     `<div class="stack-item"><strong>ТО / проверка</strong><p class="muted">${stats.inspectionNow}</p></div>`,
     `<div class="stack-item"><strong>Ждут запчасти</strong><p class="muted">${stats.waitingPartsNow}</p></div>`,
   ].join("");
@@ -2618,7 +2618,7 @@ document.addEventListener("click", async (event) => {
   }
 
   if (action === "delete-diagnostic") {
-    if (!window.confirm("Удалить запись?")) return;
+    if (!window.confirm("Удалить эту диагностическую запись?")) return;
     await api(`/api/diagnostics/${id}`, { method: "DELETE", headers: {} });
     await bootstrap();
   }

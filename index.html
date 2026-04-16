@@ -64,7 +64,7 @@
           <button class="nav-link is-active" type="button" data-section="overview">Дашборд</button>
           <button class="nav-link" type="button" data-section="repairs">Очередь</button>
           <button class="nav-link" type="button" data-section="bikes">Парк</button>
-          <button class="nav-link" type="button" data-section="diagnostics">Диаг</button>
+          <button class="nav-link" type="button" data-section="diagnostics">Диагностика</button>
           <button class="nav-link" type="button" data-section="inventory">Склад</button>
           <button class="nav-link" type="button" data-section="issue-checklist">Выдача</button>
           <button class="nav-link owner-only" type="button" data-section="owner">Показатели</button>
@@ -239,9 +239,9 @@
         <section id="section-diagnostics" class="screen-section hidden">
           <section class="content-card">
             <div class="workspace-toolbar">
-              <h3 class="panel-title toolbar-title">Диаг</h3>
+              <h3 class="panel-title toolbar-title">Диагностика</h3>
               <div class="toolbar-right mechanic-only">
-                <button id="open-diagnostic-modal" class="primary-btn" type="button">Добавить</button>
+                <button id="open-diagnostic-modal" class="primary-btn" type="button">Добавить диагностику</button>
               </div>
             </div>
             <div id="diagnostics-grid" class="diagnostics-grid"></div>
@@ -459,7 +459,7 @@
           </article>
 
           <article class="stack-item">
-            <strong>Дата</strong>
+            <strong>Дата диагностики</strong>
             <p id="work-order-detail-date" class="muted">-</p>
           </article>
 
@@ -556,7 +556,7 @@
       <div class="modal-card">
         <div class="modal-head">
           <div>
-            <h2 id="diagnostic-modal-title">Новая запись</h2>
+            <h2 id="diagnostic-modal-title">Новая диагностическая запись</h2>
           </div>
           <button id="close-diagnostic-modal" class="ghost-btn" type="button">Закрыть</button>
         </div>
@@ -637,7 +637,7 @@
             <span>Нужные запчасти</span>
             <input name="requiredParts" type="text" placeholder="Например: Колодки:1, Камера:1" />
           </label>
-          <button class="primary-btn wide" type="submit">Сохранить</button>
+          <button class="primary-btn wide" type="submit">Сохранить диагностику</button>
         </form>
       </div>
     </div>
