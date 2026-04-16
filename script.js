@@ -219,7 +219,7 @@ const alertsList = document.getElementById("alerts-list");
 const bikeStatuses = document.getElementById("bike-statuses");
 const eventsFeed = document.getElementById("events-feed");
 const repairsTable = document.getElementById("repairs-table");
-const diagnosticsTable = document.getElementById("diagnostics-table");
+const diagnosticsGrid = document.getElementById("diagnostics-grid");
 const diagnosticCategoryGrid = document.getElementById("diagnostic-category-grid");
 const inventoryGrid = document.getElementById("inventory-grid");
 const inventorySearchInput = document.getElementById("inventory-search");
@@ -1020,40 +1020,28 @@ function renderStatusChips() {
 }
 
 function renderDiagnosticsTable() {
+  if (!diagnosticsGrid) return;
   const canManage = getRole() === "mechanic" || getRole() === "owner";
-  diagnosticsTable.innerHTML = state.diagnostics
+  diagnosticsGrid.innerHTML = state.diagnostics
     .map(
-      (item, index) => `
-        <tr>
-          <td data-label="#"><span class="row-index">${index + 1}</span></td>
-          <td data-label="Дата">${escapeHtml(item.date)}</td>
-          <td data-label="Байк"><strong>${escapeHtml(item.bike)}</strong></td>
-          <td data-label="Раздел"><span class="diagnostic-category-tag">${escapeHtml(item.category || "Общее")}</span></td>
-          <td data-label="Поломка"><strong>${escapeHtml(item.fault || "Не указана")}</strong></td>
-          <td data-label="Симптомы">${escapeHtml(item.symptoms)}</td>
-          <td data-label="Заключение">${escapeHtml(item.conclusion)}</td>
-          <td class="mechanic-only">
+      (item) => `
+        <article class="diagnostic-mini-card">
+          <div class="diagnostic-mini-head">
+            <strong class="diagnostic-mini-bike">${escapeHtml(item.bike)}</strong>
             ${
               canManage
-                ? `<div class="table-actions">
-                    <button class="primary-btn primary-btn-small" type="button" data-action="create-repair-from-diagnostic" data-id="${item.id}">В ремонт</button>
-                    <button class="icon-btn" type="button" data-action="edit-diagnostic" data-id="${item.id}">Изм.</button>
-                    <button class="danger-btn" type="button" data-action="delete-diagnostic" data-id="${item.id}">Удалить</button>
-                  </div>`
+                ? `<button class="icon-btn" type="button" data-action="edit-diagnostic" data-id="${item.id}">Ред.</button>`
                 : ""
             }
-          </td>
-        </tr>
+          </div>
+          <p class="muted diagnostic-mini-fault">${escapeHtml(item.fault || "Поломка не указана")}</p>
+        </article>
       `
     )
     .join("");
 
   if (!state.diagnostics.length) {
-    diagnosticsTable.innerHTML = `
-      <tr>
-        <td colspan="8" class="muted">Диагностических записей пока нет.</td>
-      </tr>
-    `;
+    diagnosticsGrid.innerHTML = '<article class="inventory-card"><p class="muted">Диагностированных байков пока нет.</p></article>';
   }
 }
 

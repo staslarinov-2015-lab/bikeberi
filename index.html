@@ -270,33 +270,12 @@
         <section id="section-diagnostics" class="screen-section hidden">
           <section class="content-card">
             <div class="workspace-toolbar">
-              <h3 class="panel-title toolbar-title">Журнал</h3>
+              <h3 class="panel-title toolbar-title">Диагностика</h3>
               <div class="toolbar-right mechanic-only">
-                <button id="open-diagnostic-modal" class="primary-btn" type="button">Новая запись</button>
+                <button id="open-diagnostic-modal" class="primary-btn" type="button">Добавить диагностику</button>
               </div>
             </div>
-
-            <div class="diagnostic-entry-panel mechanic-only">
-              <div id="diagnostic-category-grid" class="diagnostic-category-grid"></div>
-            </div>
-
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Дата</th>
-                    <th>Байк</th>
-                    <th>Раздел</th>
-                    <th>Поломка</th>
-                    <th>Симптомы</th>
-                    <th>Заключение</th>
-                    <th class="mechanic-only">Действия</th>
-                  </tr>
-                </thead>
-                <tbody id="diagnostics-table"></tbody>
-              </table>
-            </div>
+            <div id="diagnostics-grid" class="diagnostics-grid"></div>
           </section>
         </section>
 

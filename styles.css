@@ -988,6 +988,36 @@ tbody tr:hover {
   border-color: rgba(185, 28, 28, 0.45);
 }
 
+.diagnostics-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.diagnostic-mini-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  background: var(--surface);
+}
+
+.diagnostic-mini-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.diagnostic-mini-bike {
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.diagnostic-mini-fault {
+  margin: 10px 0 0;
+}
+
 .inventory-meta {
   display: flex;
   justify-content: space-between;
