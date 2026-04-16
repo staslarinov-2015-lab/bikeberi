@@ -2056,8 +2056,12 @@ textarea:focus-visible {
   }
 
   .mobile-tab-label {
-    font-size: 0.72rem;
-    letter-spacing: 0.02em;
+    font-size: 0.65rem;
+    line-height: 1.15;
+    letter-spacing: 0.01em;
+    text-align: center;
+    max-width: 100%;
+    hyphens: auto;
   }
 
   /* Модалки под фиксированным таббаром: можно докрутить до конца + safe area (кроме экрана входа) */
