@@ -398,6 +398,8 @@ const inventorySearchInput = document.getElementById("inventory-search");
 const bikeSearchInput = document.getElementById("bike-search");
 const bikeFilterChips = document.getElementById("bike-filter-chips");
 const bikesTable = document.getElementById("bikes-table");
+const BIKE_ROW_ICON_HTML =
+  '<img class="bike-row-icon" src="/bike-scooter.svg" width="40" height="40" alt="" decoding="async" loading="lazy" />';
 const bikeRepairHistory = document.getElementById("bike-repair-history");
 const workOrdersBoard = document.getElementById("work-orders-board");
 const activeRepairBoard = document.getElementById("active-repair-board");
@@ -1858,7 +1860,9 @@ function renderBikes() {
       const rowClick = canManage ? ` class="bike-row-clickable" data-action="edit-bike" data-id="${bike.id}"` : "";
       return `
         <tr${rowClick}>
-          <td data-label="Номер"><strong>${escapeHtml(bike.code)}</strong></td>
+          <td data-label="Номер">
+            <span class="bike-row-leading">${BIKE_ROW_ICON_HTML}<strong>${escapeHtml(bike.code)}</strong></span>
+          </td>
           <td data-label="Статус"><span class="status-pill ${getBikeStatusClass(bike.status)}">${escapeHtml(bike.status)}</span></td>
           <td class="mechanic-only" data-label="Действия">
             ${

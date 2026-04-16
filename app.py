@@ -1147,6 +1147,8 @@ class AppHandler(BaseHTTPRequestHandler):
             return self.serve_file("script.js", "application/javascript; charset=utf-8", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/logo_orange.png":
             return self.serve_file("logo_orange.png", "image/png", cache_control="public, max-age=31536000, immutable")
+        if parsed.path == "/bike-scooter.svg":
+            return self.serve_file("bike-scooter.svg", "image/svg+xml; charset=utf-8", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/favicon.ico":
             return self.serve_file("logo_orange.png", "image/png", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/site.webmanifest":
@@ -1185,6 +1187,13 @@ class AppHandler(BaseHTTPRequestHandler):
             return self.serve_file(
                 "logo_orange.png",
                 "image/png",
+                cache_control="public, max-age=31536000, immutable",
+                send_body=False,
+            )
+        if parsed.path == "/bike-scooter.svg":
+            return self.serve_file(
+                "bike-scooter.svg",
+                "image/svg+xml; charset=utf-8",
                 cache_control="public, max-age=31536000, immutable",
                 send_body=False,
             )
