@@ -383,7 +383,6 @@ const loginError = document.getElementById("login-error");
 const mobileNavOverlay = document.getElementById("mobile-nav-overlay");
 const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
 const pageTitle = document.getElementById("page-title");
-const pageSubtitle = document.getElementById("page-subtitle");
 const globalSearch = document.getElementById("global-search");
 const statusFilter = document.getElementById("status-filter");
 const metricsGrid = document.getElementById("metrics-grid");
@@ -821,7 +820,7 @@ function getWorkOrderPartsStatus(order) {
   if (!order.parts?.length) {
     return {
       summary: "Запчасти не требуются",
-      details: '<p class="success-text">Для этой работы дополнительные детали не нужны.</p>',
+      details: "",
     };
   }
 
@@ -836,7 +835,7 @@ function getWorkOrderPartsStatus(order) {
 
   return {
     summary: "Все нужные запчасти в наличии",
-    details: '<p class="success-text">Комплект собран, ремонт можно запускать.</p>',
+    details: "",
   };
 }
 
@@ -860,7 +859,8 @@ function openWorkOrderDetail(order) {
   if (workOrderDetailDate) workOrderDetailDate.textContent = order.intake_date || "-";
   if (workOrderDetailMinutes) workOrderDetailMinutes.textContent = `${order.estimated_minutes || 0} мин`;
   if (workOrderDetailHint) {
-    workOrderDetailHint.textContent = order.planned_work || "Открой диагностику и проверь типовую схему ремонта для этой поломки.";
+    const plan = String(order.planned_work ?? "").trim();
+    workOrderDetailHint.textContent = plan || "—";
   }
   workOrderOverlay.classList.remove("hidden");
 }
@@ -1059,52 +1059,18 @@ function getDashboardStats() {
 }
 
 function renderSectionHeader() {
-  const ownerMode = getRole() === "owner";
   const sectionMeta = {
-    overview: ownerMode
-      ? {
-          title: "Дашборд",
-          subtitle: "Ключевая картина сервиса на сейчас.",
-        }
-      : {
-          title: "Дашборд",
-          subtitle: "Быстрые приоритеты механика на текущую смену.",
-        },
-    bikes: {
-      title: "Парк",
-      subtitle: "Номера и статусы байков.",
-    },
-    profile: {
-      title: "Профиль",
-      subtitle: "",
-    },
-    diagnostics: {
-      title: "Диагностика",
-      subtitle: "Журнал осмотров.",
-    },
-    repairs: {
-      title: "Очередь",
-      subtitle: "Текущие заявки и история.",
-    },
-    "issue-checklist": {
-      title: "Выдача",
-      subtitle: "Перед передачей клиенту.",
-    },
-    inventory: {
-      title: "Склад",
-      subtitle: "Остатки и минимумы.",
-    },
-    owner: {
-      title: "Показатели",
-      subtitle: "Цели и закупка.",
-    },
+    overview: { title: "Дашборд" },
+    bikes: { title: "Парк" },
+    profile: { title: "Профиль" },
+    diagnostics: { title: "Диаг" },
+    repairs: { title: "Очередь" },
+    "issue-checklist": { title: "Выдача" },
+    inventory: { title: "Склад" },
+    owner: { title: "Показатели" },
   };
   const meta = sectionMeta[state.activeSection] || sectionMeta.overview;
   pageTitle.textContent = meta.title;
-  if (pageSubtitle) {
-    pageSubtitle.textContent = meta.subtitle || "";
-    pageSubtitle.classList.toggle("hidden", !meta.subtitle);
-  }
 }
 
 function renderRoleContent() {
@@ -1217,18 +1183,17 @@ function renderDiagnosticsTable() {
     .join("");
 
   if (!state.diagnostics.length) {
-    diagnosticsGrid.innerHTML = '<article class="inventory-card"><p class="muted">Диагностированных байков пока нет.</p></article>';
+    diagnosticsGrid.innerHTML = '<article class="inventory-card"><p class="muted">Нет записей.</p></article>';
   }
 }
 
 function renderDiagnosticCategoryGrid() {
-  const cards = Object.entries(DIAGNOSTIC_LIBRARY).map(([category, config]) => {
+  const cards = Object.entries(DIAGNOSTIC_LIBRARY).map(([category]) => {
     const count = getDiagnosticCategoryCount(category);
     return `
       <button class="diagnostic-category-card" type="button" data-action="start-diagnostic-category" data-category="${escapeHtml(category)}">
         <strong>${escapeHtml(category)}</strong>
-        <p>${escapeHtml(config.summary)}</p>
-        <p class="muted">Записей: ${count}</p>
+        <span class="diagnostic-category-count">${count}</span>
       </button>
     `;
   });
@@ -1258,7 +1223,7 @@ function renderDiagnosticFaultGrid() {
   }
 
   if (!config) {
-    diagnosticFaultGrid.innerHTML = '<p class="muted">Сначала выбери раздел диагностики.</p>';
+    diagnosticFaultGrid.innerHTML = "";
     return;
   }
 
@@ -1298,7 +1263,7 @@ function syncDiagnosticWizard() {
   diagnosticSelectedFault.textContent = fault || "Не выбрана";
 
   const editing = state.diagnosticFlow.mode === "edit";
-  diagnosticModalTitle.textContent = editing ? "Редактирование диагностической записи" : "Новая диагностическая запись";
+  diagnosticModalTitle.textContent = editing ? "Редактирование" : "Новая запись";
 
   diagnosticStepCategories.classList.toggle("is-active", !category);
   diagnosticStepFaults.classList.toggle("is-active", Boolean(category) && !fault);
@@ -1405,7 +1370,7 @@ function renderMetrics() {
       key: "diagnosed",
       icon: "🩺",
       tint: "stat-neutral",
-      label: "Диагностировано",
+      label: "Диаг за период",
       value: String(stats.diagnosedInPeriod),
       details: (state.diagnostics || [])
         .filter((item) => isDateInDashboardPeriod(item.date))
@@ -1470,7 +1435,7 @@ function renderMetrics() {
             ${
               card.details.length
                 ? card.details.map((item) => `<div class="stat-detail-line">${escapeHtml(item)}</div>`).join("")
-                : '<div class="stat-detail-line muted">Нет данных за период.</div>'
+                : '<div class="stat-detail-line muted">—</div>'
             }
           </div>
         </article>
@@ -1580,7 +1545,7 @@ function getEvents() {
       ts: toTs(d.date),
       title: d.bike,
       type: "diagnostic",
-      text: `Диагностика · ${[d.category, d.fault].filter(Boolean).join(" · ") || "—"}`,
+      text: `Диаг · ${[d.category, d.fault].filter(Boolean).join(" · ") || "—"}`,
     });
   });
 
@@ -1832,7 +1797,7 @@ function renderBikeRepairHistory() {
   const rows = getParkRepairHistoryItems();
   if (!rows.length) {
     bikeRepairHistory.innerHTML =
-      '<p class="muted bike-history-empty">Пока нет завершённых ремонтов. После «Завершить ремонт» в очереди запись появится здесь.</p>';
+      '<p class="muted bike-history-empty">Нет записей.</p>';
     return;
   }
   bikeRepairHistory.innerHTML = rows
@@ -1950,7 +1915,7 @@ function renderPriorityNext() {
   if (!priorityNextEl) return;
   const rows = getPriorityNextOrders();
   if (!rows.length) {
-    priorityNextEl.innerHTML = '<p class="muted priority-empty">Нет открытых заявок.</p>';
+    priorityNextEl.innerHTML = '<p class="muted priority-empty">Пусто.</p>';
     return;
   }
   priorityNextEl.innerHTML = rows
@@ -2050,7 +2015,7 @@ function renderOwnerPanel() {
     : '<div class="stack-item muted">Дефицитов нет.</div>';
 
   ownerProcess.innerHTML = [
-    `<div class="stack-item"><strong>Диагностировано (период)</strong><p class="muted">${stats.diagnosedInPeriod}</p></div>`,
+    `<div class="stack-item"><strong>Диаг (период)</strong><p class="muted">${stats.diagnosedInPeriod}</p></div>`,
     `<div class="stack-item"><strong>ТО / проверка</strong><p class="muted">${stats.inspectionNow}</p></div>`,
     `<div class="stack-item"><strong>Ждут запчасти</strong><p class="muted">${stats.waitingPartsNow}</p></div>`,
   ].join("");
@@ -2653,7 +2618,7 @@ document.addEventListener("click", async (event) => {
   }
 
   if (action === "delete-diagnostic") {
-    if (!window.confirm("Удалить эту диагностическую запись?")) return;
+    if (!window.confirm("Удалить запись?")) return;
     await api(`/api/diagnostics/${id}`, { method: "DELETE", headers: {} });
     await bootstrap();
   }

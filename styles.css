@@ -258,13 +258,6 @@ textarea {
   line-height: 1.2;
 }
 
-.page-subtitle {
-  margin: 4px 0 0;
-  font-size: 0.9rem;
-  color: var(--muted);
-  max-width: 42em;
-}
-
 .topbar-right {
   display: flex;
   align-items: center;
@@ -354,10 +347,6 @@ body.mobile-menu-open {
   box-shadow: 0 0 0 1px rgba(255, 149, 66, 0.1);
 }
 
-.priority-lead {
-  margin: -6px 0 14px;
-  font-size: 0.88rem;
-}
 
 .priority-next {
   display: flex;
@@ -879,11 +868,6 @@ table {
   gap: 20px;
 }
 
-.bike-history-card .bike-history-lead {
-  margin: -6px 0 14px;
-  font-size: 0.88rem;
-  line-height: 1.4;
-}
 
 .bike-history-empty {
   margin: 0;
@@ -1483,6 +1467,10 @@ tbody tr:hover {
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
 }
 
+.diagnostic-category-card {
+  position: relative;
+}
+
 .diagnostic-category-card,
 .diagnostic-fault-card {
   border: 1px solid var(--border);
@@ -1495,6 +1483,16 @@ tbody tr:hover {
   transition: border-color 0.12s ease;
 }
 
+.diagnostic-category-count {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .diagnostic-category-card:hover,
 .diagnostic-fault-card:hover {
   border-color: var(--text);
@@ -1505,14 +1503,8 @@ tbody tr:hover {
   display: block;
   font-size: 0.9rem;
   font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.diagnostic-category-card p {
-  margin: 0;
-  font-size: 0.78rem;
-  color: var(--muted);
-  line-height: 1.35;
+  margin-bottom: 0;
+  padding-right: 28px;
 }
 
 .diagnostic-wizard {
@@ -1814,18 +1806,6 @@ tbody tr:hover {
   margin: 0;
   font-size: 1.2rem;
   font-weight: 600;
-}
-
-.auth-lead {
-  margin: 2px 0 0;
-  font-size: 0.88rem;
-  color: var(--muted);
-}
-
-.auth-note {
-  margin-top: 14px;
-  font-size: 0.82rem;
-  color: var(--muted);
 }
 
 .auth-form {

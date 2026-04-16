@@ -22,7 +22,6 @@
           </div>
           <div>
             <h1 class="auth-title">Байк Сервис</h1>
-            <p class="auth-lead">Вход</p>
           </div>
         </div>
 
@@ -38,8 +37,6 @@
             </label>
             <button class="primary-btn wide" type="submit">Войти</button>
           </form>
-
-          <p class="auth-note">Доступ выдаёт администратор.</p>
 
           <p id="login-error" class="error-text hidden"></p>
         </div>
@@ -67,7 +64,7 @@
           <button class="nav-link is-active" type="button" data-section="overview">Дашборд</button>
           <button class="nav-link" type="button" data-section="repairs">Очередь</button>
           <button class="nav-link" type="button" data-section="bikes">Парк</button>
-          <button class="nav-link" type="button" data-section="diagnostics">Диагностика</button>
+          <button class="nav-link" type="button" data-section="diagnostics">Диаг</button>
           <button class="nav-link" type="button" data-section="inventory">Склад</button>
           <button class="nav-link" type="button" data-section="issue-checklist">Выдача</button>
           <button class="nav-link owner-only" type="button" data-section="owner">Показатели</button>
@@ -88,7 +85,6 @@
           </button>
           <div class="topbar-title-block">
             <h1 id="page-title" class="page-heading">Дашборд</h1>
-            <p id="page-subtitle" class="page-subtitle"></p>
           </div>
           <div class="topbar-right" aria-label="Контекст">
             <span class="topbar-pill topbar-pill-accent">механик</span>
@@ -100,7 +96,6 @@
           <div class="overview-layout">
             <section class="panel panel-priority">
               <h3 class="panel-title">Сделай сначала</h3>
-              <p class="priority-lead muted">1–3 самых срочных байка по очереди и запчастям</p>
               <div id="priority-next" class="priority-next"></div>
             </section>
 
@@ -226,9 +221,6 @@
 
           <section class="content-card bike-history-card">
             <h3 class="panel-title">История ремонтов</h3>
-            <p class="muted bike-history-lead">
-              Записи после «Завершить ремонт» в очереди. Поиск выше фильтрует и таблицу парка, и историю по номеру байка.
-            </p>
             <div id="bike-repair-history" class="bike-repair-history" aria-live="polite"></div>
           </section>
         </section>
@@ -247,9 +239,9 @@
         <section id="section-diagnostics" class="screen-section hidden">
           <section class="content-card">
             <div class="workspace-toolbar">
-              <h3 class="panel-title toolbar-title">Диагностика</h3>
+              <h3 class="panel-title toolbar-title">Диаг</h3>
               <div class="toolbar-right mechanic-only">
-                <button id="open-diagnostic-modal" class="primary-btn" type="button">Добавить диагностику</button>
+                <button id="open-diagnostic-modal" class="primary-btn" type="button">Добавить</button>
               </div>
             </div>
             <div id="diagnostics-grid" class="diagnostics-grid"></div>
@@ -359,9 +351,9 @@
         <span class="mobile-tab-icon">📋</span>
         <span class="mobile-tab-label">Очередь</span>
       </button>
-      <button class="mobile-tab" type="button" data-section="diagnostics" aria-label="Диагностика">
+      <button class="mobile-tab" type="button" data-section="diagnostics" aria-label="Диаг">
         <span class="mobile-tab-icon mobile-tab-icon-badge">🩺</span>
-        <span class="mobile-tab-label">Диагностика</span>
+        <span class="mobile-tab-label">Диаг</span>
       </button>
       <button class="mobile-tab" type="button" data-section="inventory" aria-label="Склад">
         <span class="mobile-tab-icon">📦</span>
@@ -377,7 +369,6 @@
       <div class="modal-card">
         <div class="modal-head">
           <div>
-            <div class="section-label">Новая запись</div>
             <h2>Внести ремонт</h2>
           </div>
           <button id="close-repair-modal" class="ghost-btn" type="button">Закрыть</button>
@@ -404,7 +395,6 @@
                 aria-label="Номер байка"
               />
             </div>
-            <span class="muted">Формат: 2 буквы + 3 цифры + 1 буква. Допустимы буквы Р, Е, У.</span>
           </label>
           <label class="wide">
             <span>Что сломано</span>
@@ -439,7 +429,6 @@
       <div class="modal-card">
         <div class="modal-head">
           <div>
-            <div class="section-label">Карточка ремонта</div>
             <h2 id="work-order-modal-title">Ремонт байка</h2>
           </div>
           <button id="close-work-order-modal" class="ghost-btn" type="button">Закрыть</button>
@@ -470,7 +459,7 @@
           </article>
 
           <article class="stack-item">
-            <strong>Дата диагностики</strong>
+            <strong>Дата</strong>
             <p id="work-order-detail-date" class="muted">-</p>
           </article>
 
@@ -480,8 +469,8 @@
           </article>
 
           <article class="stack-item wide">
-            <strong>Подсказка</strong>
-            <p id="work-order-detail-hint" class="muted">-</p>
+            <strong>План работ</strong>
+            <p id="work-order-detail-hint" class="muted">—</p>
           </article>
         </div>
       </div>
@@ -491,7 +480,6 @@
       <div class="modal-card">
         <div class="modal-head">
           <div>
-            <div class="section-label">Склад</div>
             <h2>Добавить позицию</h2>
           </div>
           <button id="close-inventory-modal" class="ghost-btn" type="button">Закрыть</button>
@@ -519,7 +507,6 @@
       <div class="modal-card">
         <div class="modal-head">
           <div>
-            <div class="section-label">Парк</div>
             <h2 id="bike-modal-title">Новый байк</h2>
           </div>
           <button id="close-bike-modal" class="ghost-btn" type="button">Закрыть</button>
@@ -542,7 +529,6 @@
                 aria-label="Номер байка"
               />
             </div>
-            <span class="muted">Формат: 2 буквы + 3 цифры + 1 буква. Допустимы буквы Р, Е, У.</span>
           </label>
           <label>
             <span>Модель</span>
@@ -570,8 +556,7 @@
       <div class="modal-card">
         <div class="modal-head">
           <div>
-            <div class="section-label">Диагностика</div>
-            <h2 id="diagnostic-modal-title">Новая диагностическая запись</h2>
+            <h2 id="diagnostic-modal-title">Новая запись</h2>
           </div>
           <button id="close-diagnostic-modal" class="ghost-btn" type="button">Закрыть</button>
         </div>
@@ -586,7 +571,6 @@
           <section id="diagnostic-step-view-categories" class="diagnostic-step-view">
             <div class="diagnostic-step-head">
               <div>
-                <div class="section-label">Шаг 1</div>
                 <h3>Выбери узел байка</h3>
               </div>
             </div>
@@ -596,7 +580,6 @@
           <section id="diagnostic-step-view-faults" class="diagnostic-step-view hidden">
             <div class="diagnostic-step-head">
               <div>
-                <div class="section-label">Шаг 2</div>
                 <h3 id="diagnostic-faults-title">Выбери типовую поломку</h3>
               </div>
               <button id="diagnostic-back-to-categories" class="ghost-btn" type="button">Назад</button>
@@ -610,11 +593,9 @@
           <input name="fault" type="hidden" />
           <div class="diagnostic-selection-summary wide">
             <div class="diagnostic-selection-card">
-              <span class="section-label">Раздел</span>
               <strong id="diagnostic-selected-category">Не выбран</strong>
             </div>
             <div class="diagnostic-selection-card">
-              <span class="section-label">Поломка</span>
               <strong id="diagnostic-selected-fault">Не выбрана</strong>
             </div>
             <button id="diagnostic-back-to-faults" class="ghost-btn" type="button">Изменить выбор</button>
@@ -639,7 +620,6 @@
                 aria-label="Номер байка"
               />
             </div>
-            <span class="muted">Формат: 2 буквы + 3 цифры + 1 буква. Допустимы буквы Р, Е, У.</span>
           </label>
           <label>
             <span>Кто проверял</span>
@@ -657,7 +637,7 @@
             <span>Нужные запчасти</span>
             <input name="requiredParts" type="text" placeholder="Например: Колодки:1, Камера:1" />
           </label>
-          <button class="primary-btn wide" type="submit">Сохранить диагностику</button>
+          <button class="primary-btn wide" type="submit">Сохранить</button>
         </form>
       </div>
     </div>
@@ -666,7 +646,6 @@
       <div class="modal-card">
         <div class="modal-head">
           <div>
-            <div class="section-label">Профиль</div>
             <h2>Сменить пароль</h2>
           </div>
           <button id="close-account-button" class="ghost-btn" type="button">Закрыть</button>
