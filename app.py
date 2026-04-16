@@ -1147,6 +1147,14 @@ class AppHandler(BaseHTTPRequestHandler):
             return self.serve_file("script.js", "application/javascript; charset=utf-8", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/logo_orange.png":
             return self.serve_file("logo_orange.png", "image/png", cache_control="public, max-age=31536000, immutable")
+        if parsed.path == "/favicon.ico":
+            return self.serve_file("logo_orange.png", "image/png", cache_control="public, max-age=31536000, immutable")
+        if parsed.path == "/site.webmanifest":
+            return self.serve_file(
+                "site.webmanifest",
+                "application/manifest+json; charset=utf-8",
+                cache_control="public, max-age=86400",
+            )
         if parsed.path == "/api/bootstrap":
             user = require_auth(self)
             if not user:
@@ -1178,6 +1186,20 @@ class AppHandler(BaseHTTPRequestHandler):
                 "logo_orange.png",
                 "image/png",
                 cache_control="public, max-age=31536000, immutable",
+                send_body=False,
+            )
+        if parsed.path == "/favicon.ico":
+            return self.serve_file(
+                "logo_orange.png",
+                "image/png",
+                cache_control="public, max-age=31536000, immutable",
+                send_body=False,
+            )
+        if parsed.path == "/site.webmanifest":
+            return self.serve_file(
+                "site.webmanifest",
+                "application/manifest+json; charset=utf-8",
+                cache_control="public, max-age=86400",
                 send_body=False,
             )
         if parsed.path == "/api/bootstrap":
