@@ -1268,19 +1268,19 @@ tbody tr:hover {
 }
 
 .queue-stale-badge.is-overdue {
-  background: rgba(255, 80, 80, 0.22);
-  color: #ffb4b4;
-  border: 1px solid rgba(255, 120, 120, 0.45);
+  background: rgba(217, 60, 53, 0.12);
+  color: var(--red);
+  border: 1px solid rgba(217, 60, 53, 0.28);
 }
 
 .queue-stale-badge.is-long {
-  background: rgba(255, 193, 90, 0.18);
-  color: #ffd86b;
-  border: 1px solid rgba(255, 193, 90, 0.4);
+  background: rgba(184, 106, 0, 0.12);
+  color: var(--yellow);
+  border: 1px solid rgba(184, 106, 0, 0.28);
 }
 
 .queue-mini-card.has-stale-warning {
-  box-shadow: 0 0 0 1px rgba(255, 149, 66, 0.35);
+  box-shadow: 0 0 0 1px rgba(0, 122, 255, 0.22);
 }
 
 .queue-mini-bike {
@@ -1294,26 +1294,38 @@ tbody tr:hover {
 }
 
 .queue-fault {
-  color: #ffd86b;
+  color: var(--text);
 }
 
 .queue-parts {
-  color: #ff9494;
+  color: var(--muted);
 }
 
 .queue-mini-card.is-green {
-  border-color: rgba(50, 213, 131, 0.46);
-  background: linear-gradient(180deg, rgba(23, 49, 39, 0.92) 0%, rgba(19, 34, 30, 0.94) 100%);
+  border-color: rgba(22, 156, 99, 0.28);
+  background: linear-gradient(
+    180deg,
+    rgba(206, 245, 223, 0.55) 0%,
+    rgba(255, 255, 255, 0.92) 100%
+  );
 }
 
 .queue-mini-card.is-yellow {
-  border-color: rgba(255, 193, 90, 0.52);
-  background: linear-gradient(180deg, rgba(62, 46, 21, 0.92) 0%, rgba(43, 33, 17, 0.94) 100%);
+  border-color: rgba(184, 106, 0, 0.3);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 234, 191, 0.58) 0%,
+    rgba(255, 255, 255, 0.92) 100%
+  );
 }
 
 .queue-mini-card.is-red {
-  border-color: rgba(255, 107, 107, 0.5);
-  background: linear-gradient(180deg, rgba(62, 27, 35, 0.92) 0%, rgba(45, 21, 28, 0.94) 100%);
+  border-color: rgba(217, 60, 53, 0.32);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 222, 222, 0.62) 0%,
+    rgba(255, 255, 255, 0.92) 100%
+  );
 }
 
 .queue-filter-toolbar {

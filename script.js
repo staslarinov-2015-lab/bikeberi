@@ -1705,15 +1705,28 @@ function renderRepairsTable() {
   }
 }
 
+/** 0 = нет на складе, 1 = мало (как stock-chip-warn), 2 = норма — для сортировки и цветовых групп. */
+function inventoryStockTier(item) {
+  const s = Number(item.stock || 0);
+  if (s <= 0) return 0;
+  if (s <= 4) return 1;
+  return 2;
+}
+
 function renderInventory() {
   const canManage = getRole() === "mechanic" || getRole() === "owner";
   if (inventorySearchInput) {
     inventorySearchInput.value = state.inventorySearch || "";
   }
   const query = String(state.inventorySearch || "").trim().toLowerCase();
-  const rows = state.inventory.filter((item) =>
-    !query ? true : String(item.name || "").toLowerCase().includes(query)
-  );
+  const rows = state.inventory
+    .filter((item) => (!query ? true : String(item.name || "").toLowerCase().includes(query)))
+    .sort((a, b) => {
+      const ta = inventoryStockTier(a);
+      const tb = inventoryStockTier(b);
+      if (ta !== tb) return ta - tb;
+      return String(a.name || "").localeCompare(String(b.name || ""), "ru", { sensitivity: "base" });
+    });
 
   inventoryGrid.innerHTML = rows
     .map((item) => {
