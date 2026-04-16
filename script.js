@@ -539,7 +539,7 @@ function getBikeStatusClass(status) {
 function getBikeStatusOptions() {
   if (getRole() === "mechanic") {
     return [
-      ["на диагностике", "На диагностике"],
+      ["принят", "Принят"],
       ["ждет запчасти", "Ждет запчасти"],
       ["в ремонте", "В ремонте"],
       ["готов", "Готов"],
@@ -1307,8 +1307,13 @@ function renderTimeline() {
 
 function getBikeStatusRows() {
   const bikes = state.bikes || [];
-  const total = bikes.length || 1;
-  const counts = bikes.reduce((acc, bike) => {
+  const mechanicMode = getRole() === "mechanic";
+  const mechanicVisible = new Set(["принят", "ждет запчасти", "в ремонте", "готов"]);
+  const bikesForRows = mechanicMode
+    ? bikes.filter((bike) => mechanicVisible.has(String(bike.status || "").trim()))
+    : bikes;
+  const total = bikesForRows.length || 1;
+  const counts = bikesForRows.reduce((acc, bike) => {
     const key = String(bike.status || "нет данных").trim() || "нет данных";
     acc[key] = (acc[key] || 0) + 1;
     return acc;
@@ -1560,14 +1565,19 @@ function renderInventory() {
 
 function getBikeStatusChipList() {
   const bikes = state.bikes || [];
-  const counts = bikes.reduce((acc, bike) => {
+  const mechanicMode = getRole() === "mechanic";
+  const mechanicVisible = new Set(["принят", "ждет запчасти", "в ремонте", "готов"]);
+  const bikesForFilter = mechanicMode
+    ? bikes.filter((bike) => mechanicVisible.has(String(bike.status || "").trim()))
+    : bikes;
+  const counts = bikesForFilter.reduce((acc, bike) => {
     const status = String(bike.status || "нет данных").trim() || "нет данных";
     acc[status] = (acc[status] || 0) + 1;
     return acc;
   }, {});
   const keys = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
   return [
-    { key: "all", label: `Все (${bikes.length})` },
+    { key: "all", label: `Все (${bikesForFilter.length})` },
     ...keys.map((key) => ({ key, label: `${key} (${counts[key]})` })),
   ];
 }
@@ -1584,8 +1594,11 @@ function renderBikeFilterChips() {
 
 function getFilteredBikes() {
   const query = String(state.bikeSearch || "").trim().toLowerCase();
+  const mechanicMode = getRole() === "mechanic";
+  const mechanicVisible = new Set(["принят", "ждет запчасти", "в ремонте", "готов"]);
   return (state.bikes || [])
     .filter((bike) => {
+      if (mechanicMode && !mechanicVisible.has(String(bike.status || "").trim())) return false;
       if (state.bikeStatusFilter !== "all" && String(bike.status) !== state.bikeStatusFilter) return false;
       if (!query) return true;
       const hay = [

@@ -78,7 +78,7 @@ BIKE_STATUS_OPTIONS = (
 )
 
 MECHANIC_BIKE_STATUS_OPTIONS = (
-    "на диагностике",
+    "принят",
     "ждет запчасти",
     "в ремонте",
     "готов",
