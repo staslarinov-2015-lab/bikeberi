@@ -156,6 +156,9 @@ def main() -> int:
         conn.commit()
         print("Done. Upload this target file to your server and restart the app if needed.")
         return 0
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 

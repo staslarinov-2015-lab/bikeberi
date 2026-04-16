@@ -275,7 +275,10 @@ def read_json(handler):
     raw = handler.rfile.read(length) if length else b"{}"
     if not raw:
         return {}
-    return json.loads(raw.decode("utf-8"))
+    try:
+        return json.loads(raw.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {}
 
 
 def get_db():

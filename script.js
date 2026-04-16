@@ -1653,8 +1653,17 @@ function renderWorkOrders() {
   const queueOrders = state.workOrders.filter((order) => order.status !== "в ремонте");
 
   const getOrderCardTone = (order) => {
-    const faultText = String(order.fault || order.issue || "").trim().toLowerCase();
-    const hasUnknownFault = !faultText || /неизвест|непонят|уточн|диагност/.test(faultText);
+    const faultRaw = String(order.fault || "").trim();
+    const issueRaw = String(order.issue || "").trim();
+    const faultText = faultRaw.toLowerCase();
+    const issueText = issueRaw.toLowerCase();
+    const haystack = `${faultText} ${issueText}`;
+    // Красный: пустая поломка или явные формулировки «неясно / нужно уточнить», без ложных срабатываний на слове «диагностика» в обычном тексте.
+    const hasUnknownFault =
+      !faultRaw ||
+      /неизвестн|не\s*известн|непонятн|не\s*понятн|не\s*ясн|уточнить\s+после|нужна\s+углубленн|без\s+осмотр|не\s*определ/i.test(
+        haystack
+      );
     const waitingParts = Boolean(order.missing_parts?.length) || order.status === "ждет запчасти";
     if (hasUnknownFault) return "is-red";
     if (waitingParts) return "is-yellow";
@@ -1715,6 +1724,8 @@ function renderWorkOrders() {
       `;
     })
     .join("");
+
+  refreshRepairTimers();
 }
 
 function renderOwnerPanel() {
@@ -2049,8 +2060,9 @@ document.querySelectorAll("[data-status-filter]").forEach((button) => {
 
 // bike status chips are handled in the main click handler below
 
-repairForm.addEventListener("submit", async (event) => {
+repairForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!repairForm) return;
 
   const formData = new FormData(repairForm);
   const editingId = repairForm.dataset.editId;
