@@ -1,0 +1,12 @@
+# Render Blueprint: деплой при каждом коммите в main.
+# Подключение: Dashboard → Blueprint → привязать репозиторий или Sync.
+# Если сервис уже создан вручную — задайте то же `name`, что в панели, чтобы не плодить дубликат.
+services:
+  - type: web
+    name: bikeberi
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    repo: https://github.com/staslarinov-2015-lab/bikeberi
+    branch: main
+    autoDeployTrigger: commit
+    healthCheckPath: /
