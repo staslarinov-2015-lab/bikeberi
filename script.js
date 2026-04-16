@@ -1673,20 +1673,12 @@ function renderWorkOrders() {
           ? `Не хватает: ${order.missing_parts.map((p) => `${p.name} x${p.missing}`).join(", ")}`
           : (order.required_parts_text || "Запчасти не требуются");
         return `
-          <article class="content-card owner-card repair-compact-card repair-compact-card-active" data-action="open-work-order" data-id="${order.id}">
-            <div class="bike-card-head repair-compact-head">
-              <div>
-                <div class="bike-card-code">${escapeHtml(order.bike_code)}</div>
-                <div class="bike-card-model">Активный ремонт</div>
-              </div>
-              <span class="status-pill ${getBikeStatusClass(order.status)}">${escapeHtml(order.status)}</span>
+          <article class="content-card owner-card repair-compact-card queue-mini-card" data-action="open-work-order" data-id="${order.id}">
+            <div class="queue-mini-head">
+              <strong class="queue-mini-bike">${escapeHtml(order.bike_code)}</strong>
             </div>
-            <div class="repair-compact-main">
-              <p class="metric-value repair-timer" data-repair-deadline="${escapeHtml(order.estimated_ready_at || "")}">${escapeHtml(formatRepairCountdown(order.estimated_ready_at))}</p>
-              <p class="muted">Осталось времени на ремонт</p>
-              <p class="muted">${escapeHtml(order.fault || order.issue || "")}</p>
-              <p class="muted">${escapeHtml(parts)}</p>
-            </div>
+            <p class="muted queue-mini-line">${escapeHtml(order.fault || order.issue || "Поломка не указана")}</p>
+            <p class="muted queue-mini-line">${escapeHtml(parts)}</p>
             <div class="table-actions">
               ${order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">Завершить ремонт</button>` : ""}
             </div>
@@ -1708,20 +1700,12 @@ function renderWorkOrders() {
         ? `Не хватает: ${order.missing_parts.map((p) => `${p.name} x${p.missing}`).join(", ")}`
         : (order.required_parts_text || "Запчасти не требуются");
       return `
-        <article class="content-card owner-card repair-compact-card" data-action="open-work-order" data-id="${order.id}">
-          <div class="repair-compact-row">
-            <div>
-              <div class="bike-card-code repair-queue-code">${escapeHtml(order.bike_code)}</div>
-              <div class="muted repair-queue-meta">Диагностика: ${escapeHtml(order.intake_date)}</div>
-              <div class="muted repair-queue-meta">${escapeHtml(order.fault || order.issue || "")}</div>
-            </div>
-            <span class="status-pill ${getBikeStatusClass(order.status)}">${escapeHtml(order.status)}</span>
+        <article class="content-card owner-card repair-compact-card queue-mini-card" data-action="open-work-order" data-id="${order.id}">
+          <div class="queue-mini-head">
+            <strong class="queue-mini-bike">${escapeHtml(order.bike_code)}</strong>
           </div>
-          <div class="repair-compact-main">
-            <p class="metric-value">${escapeHtml(String(order.estimated_minutes || 0))} мин</p>
-            <p class="muted">Расчетное время на ремонт</p>
-            <p class="muted">${escapeHtml(partsSummary)}</p>
-          </div>
+          <p class="muted queue-mini-line">${escapeHtml(order.fault || order.issue || "Поломка не указана")}</p>
+          <p class="muted queue-mini-line">${escapeHtml(partsSummary)}</p>
           <div class="table-actions">
             ${order.can_start ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-start" data-id="${order.id}">Начать ремонт</button>` : ""}
             ${!order.can_start && order.status !== "готов" ? `<button class="ghost-btn" type="button" disabled>Ждем комплектность</button>` : ""}
@@ -1730,8 +1714,6 @@ function renderWorkOrders() {
       `;
     })
     .join("");
-
-  refreshRepairTimers();
 }
 
 function renderOwnerPanel() {

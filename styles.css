@@ -1154,6 +1154,29 @@ tbody tr:hover {
   border-color: var(--border-strong);
 }
 
+.queue-mini-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.queue-mini-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.queue-mini-bike {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.queue-mini-line {
+  margin: 0;
+}
+
 .repair-compact-head,
 .repair-compact-row {
   display: flex;
