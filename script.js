@@ -399,6 +399,7 @@ const inventorySearchInput = document.getElementById("inventory-search");
 const bikeSearchInput = document.getElementById("bike-search");
 const bikeFilterChips = document.getElementById("bike-filter-chips");
 const bikesTable = document.getElementById("bikes-table");
+const bikeRepairHistory = document.getElementById("bike-repair-history");
 const workOrdersBoard = document.getElementById("work-orders-board");
 const activeRepairBoard = document.getElementById("active-repair-board");
 const issueChecklistForm = document.getElementById("issue-checklist-form");
@@ -1806,6 +1807,55 @@ function renderBikeFilterChips() {
     .join("");
 }
 
+/** Завершённые ремонты (из очереди и вручную со статусом «Готов») для блока в парке. */
+function getParkRepairHistoryItems() {
+  const done = (state.repairs || []).filter((r) => String(r.status || "").trim().toLowerCase() === "готов");
+  const q = String(state.bikeSearch || "").trim().toLowerCase();
+  const rows = q
+    ? done.filter((r) => {
+        const hay = [r.bike, r.issue, r.work, r.parts_used].filter(Boolean).join(" ").toLowerCase();
+        return hay.includes(q);
+      })
+    : done;
+  return rows
+    .sort((a, b) => {
+      const da = String(a.date || "");
+      const db = String(b.date || "");
+      if (da !== db) return db.localeCompare(da);
+      return Number(b.id) - Number(a.id);
+    })
+    .slice(0, 100);
+}
+
+function renderBikeRepairHistory() {
+  if (!bikeRepairHistory) return;
+  const rows = getParkRepairHistoryItems();
+  if (!rows.length) {
+    bikeRepairHistory.innerHTML =
+      '<p class="muted bike-history-empty">Пока нет завершённых ремонтов. После «Завершить ремонт» в очереди запись появится здесь.</p>';
+    return;
+  }
+  bikeRepairHistory.innerHTML = rows
+    .map(
+      (item) => `
+        <article class="bike-history-item">
+          <div class="bike-history-item-head">
+            <strong class="bike-history-code">${escapeHtml(item.bike)}</strong>
+            <time class="muted bike-history-date" datetime="${escapeHtml(item.date)}">${escapeHtml(item.date)}</time>
+          </div>
+          <p class="bike-history-issue">${escapeHtml(item.issue || "—")}</p>
+          <p class="bike-history-work muted">${escapeHtml(item.work || "—")}</p>
+          ${
+            item.parts_used && item.parts_used !== "-"
+              ? `<p class="bike-history-parts"><span class="section-label">Запчасти</span> ${escapeHtml(item.parts_used)}</p>`
+              : ""
+          }
+        </article>
+      `
+    )
+    .join("");
+}
+
 function getFilteredBikes() {
   const query = String(state.bikeSearch || "").trim().toLowerCase();
   const mechanicMode = getRole() === "mechanic";
@@ -1863,6 +1913,8 @@ function renderBikes() {
   if (!rows.length) {
     bikesTable.innerHTML = `<tr><td colspan="3" class="muted">Байки не найдены.</td></tr>`;
   }
+
+  renderBikeRepairHistory();
 }
 
 function renderQueueFilterToolbar() {

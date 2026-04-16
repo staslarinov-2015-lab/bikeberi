@@ -873,6 +873,73 @@ table {
   white-space: nowrap;
 }
 
+#section-bikes {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.bike-history-card .bike-history-lead {
+  margin: -6px 0 14px;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.bike-history-empty {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.bike-repair-history {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bike-history-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  background: var(--bg);
+  font-size: 0.92rem;
+}
+
+.bike-history-item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.bike-history-code {
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+}
+
+.bike-history-date {
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.bike-history-issue {
+  margin: 0 0 6px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.bike-history-work {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.bike-history-parts {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
 #section-bikes tbody tr.bike-row-clickable {
   cursor: pointer;
 }
