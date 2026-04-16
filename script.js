@@ -1487,6 +1487,7 @@ function renderAlerts() {
 }
 
 function renderRepairsTable() {
+  if (!repairsTable) return;
   const rows = getFilteredRepairs();
   const canManage = getRole() === "mechanic" || getRole() === "owner";
 
@@ -1651,21 +1652,36 @@ function renderWorkOrders() {
   const activeOrders = state.workOrders.filter((order) => order.status === "в ремонте");
   const queueOrders = state.workOrders.filter((order) => order.status !== "в ремонте");
 
+  const getOrderCardTone = (order) => {
+    const faultText = String(order.fault || order.issue || "").trim().toLowerCase();
+    const hasUnknownFault = !faultText || /неизвест|непонят|уточн|диагност/.test(faultText);
+    const waitingParts = Boolean(order.missing_parts?.length) || order.status === "ждет запчасти";
+    if (hasUnknownFault) return "is-red";
+    if (waitingParts) return "is-yellow";
+    return "is-green";
+  };
+
+  const getPartsLine = (order) => {
+    if (order.missing_parts?.length) {
+      return order.missing_parts.map((p) => `${p.name} x${p.missing}`).join(", ");
+    }
+    return order.required_parts_text || "Запчасти не указаны";
+  };
+
   if (!activeOrders.length) {
     activeRepairBoard.innerHTML = '<div class="stack-item muted">Нет активного ремонта.</div>';
   } else {
     activeRepairBoard.innerHTML = activeOrders
       .map((order) => {
-        const parts = order.missing_parts?.length
-          ? `Не хватает: ${order.missing_parts.map((p) => `${p.name} x${p.missing}`).join(", ")}`
-          : (order.required_parts_text || "Запчасти не требуются");
+        const toneClass = getOrderCardTone(order);
+        const parts = getPartsLine(order);
         return `
-          <article class="content-card owner-card repair-compact-card queue-mini-card" data-action="open-work-order" data-id="${order.id}">
+          <article class="content-card owner-card repair-compact-card queue-mini-card ${toneClass}" data-action="open-work-order" data-id="${order.id}">
             <div class="queue-mini-head">
               <strong class="queue-mini-bike">${escapeHtml(order.bike_code)}</strong>
             </div>
-            <p class="muted queue-mini-line">${escapeHtml(order.fault || order.issue || "Поломка не указана")}</p>
-            <p class="muted queue-mini-line">${escapeHtml(parts)}</p>
+            <p class="queue-mini-line queue-fault">${escapeHtml(order.fault || order.issue || "Поломка не указана")}</p>
+            <p class="queue-mini-line queue-parts">${escapeHtml(parts)}</p>
             <div class="table-actions">
               ${order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">Завершить ремонт</button>` : ""}
             </div>
@@ -1683,19 +1699,17 @@ function renderWorkOrders() {
 
   workOrdersBoard.innerHTML = queueOrders
     .map((order) => {
-      const partsSummary = order.missing_parts?.length
-        ? `Не хватает: ${order.missing_parts.map((p) => `${p.name} x${p.missing}`).join(", ")}`
-        : (order.required_parts_text || "Запчасти не требуются");
+      const toneClass = getOrderCardTone(order);
+      const partsSummary = getPartsLine(order);
       return `
-        <article class="content-card owner-card repair-compact-card queue-mini-card" data-action="open-work-order" data-id="${order.id}">
+        <article class="content-card owner-card repair-compact-card queue-mini-card ${toneClass}" data-action="open-work-order" data-id="${order.id}">
           <div class="queue-mini-head">
             <strong class="queue-mini-bike">${escapeHtml(order.bike_code)}</strong>
           </div>
-          <p class="muted queue-mini-line">${escapeHtml(order.fault || order.issue || "Поломка не указана")}</p>
-          <p class="muted queue-mini-line">${escapeHtml(partsSummary)}</p>
+          <p class="queue-mini-line queue-fault">${escapeHtml(order.fault || order.issue || "Поломка не указана")}</p>
+          <p class="queue-mini-line queue-parts">${escapeHtml(partsSummary)}</p>
           <div class="table-actions">
             ${order.can_start ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-start" data-id="${order.id}">Начать ремонт</button>` : ""}
-            ${!order.can_start && order.status !== "готов" ? `<button class="ghost-btn" type="button" disabled>Ждем комплектность</button>` : ""}
           </div>
         </article>
       `;
@@ -1726,8 +1740,8 @@ function renderOwnerPanel() {
 
 function render() {
   loginOverlay.classList.toggle("hidden", Boolean(state.user));
-  globalSearch.value = state.search;
-  statusFilter.value = state.statusFilter;
+  if (globalSearch) globalSearch.value = state.search;
+  if (statusFilter) statusFilter.value = state.statusFilter;
   if (settingsForm) {
     settingsForm.elements.totalBikes.value = state.kpi.totalBikes || "";
     settingsForm.elements.targetRate.value = state.kpi.targetRate || "";
@@ -2003,7 +2017,7 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-globalSearch.addEventListener("input", (event) => {
+globalSearch?.addEventListener("input", (event) => {
   state.search = event.target.value;
   renderRepairsTable();
 });
@@ -2018,7 +2032,7 @@ inventorySearchInput?.addEventListener("input", (event) => {
   renderInventory();
 });
 
-statusFilter.addEventListener("change", (event) => {
+statusFilter?.addEventListener("change", (event) => {
   state.statusFilter = event.target.value;
   renderStatusChips();
   renderRepairsTable();
@@ -2027,7 +2041,7 @@ statusFilter.addEventListener("change", (event) => {
 document.querySelectorAll("[data-status-filter]").forEach((button) => {
   button.addEventListener("click", () => {
     state.statusFilter = button.dataset.statusFilter;
-    statusFilter.value = state.statusFilter;
+    if (statusFilter) statusFilter.value = state.statusFilter;
     renderStatusChips();
     renderRepairsTable();
   });

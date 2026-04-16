@@ -1168,6 +1168,7 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  cursor: pointer;
 }
 
 .queue-mini-head {
@@ -1185,6 +1186,29 @@ tbody tr:hover {
 
 .queue-mini-line {
   margin: 0;
+}
+
+.queue-fault {
+  color: #ffd86b;
+}
+
+.queue-parts {
+  color: #ff9494;
+}
+
+.queue-mini-card.is-green {
+  border-color: rgba(50, 213, 131, 0.46);
+  background: linear-gradient(180deg, rgba(23, 49, 39, 0.92) 0%, rgba(19, 34, 30, 0.94) 100%);
+}
+
+.queue-mini-card.is-yellow {
+  border-color: rgba(255, 193, 90, 0.52);
+  background: linear-gradient(180deg, rgba(62, 46, 21, 0.92) 0%, rgba(43, 33, 17, 0.94) 100%);
+}
+
+.queue-mini-card.is-red {
+  border-color: rgba(255, 107, 107, 0.5);
+  background: linear-gradient(180deg, rgba(62, 27, 35, 0.92) 0%, rgba(45, 21, 28, 0.94) 100%);
 }
 
 .repair-compact-head,

@@ -219,51 +219,6 @@
 
             <h3 class="panel-title block-title">Ожидают</h3>
             <div id="work-orders-board" class="stack-list"></div>
-
-            <div class="workspace-toolbar toolbar-tight">
-              <label class="search-wrap search-wrap-wide">
-                <span class="visually-hidden">Поиск</span>
-                <input id="global-search" type="search" placeholder="Поиск в истории…" />
-              </label>
-              <div class="toolbar-right">
-                <button id="refresh-button" class="ghost-btn icon-refresh" type="button" aria-label="Обновить" title="Обновить"></button>
-                <button id="open-repair-modal" class="primary-btn mechanic-only" type="button">Запись</button>
-              </div>
-            </div>
-
-            <div class="status-toolbar">
-              <button class="status-filter-chip is-active" type="button" data-status-filter="all">Все</button>
-              <button class="status-filter-chip status-chip-ready" type="button" data-status-filter="Готов">Готов</button>
-              <button class="status-filter-chip status-chip-progress" type="button" data-status-filter="В ремонте">В ремонте</button>
-              <button class="status-filter-chip status-chip-waiting" type="button" data-status-filter="Ожидает запчасти">Ожидает запчасти</button>
-              <select id="status-filter" class="status-filter-select">
-                <option value="all">Все статусы</option>
-                <option value="Готов">Готов</option>
-                <option value="В ремонте">В ремонте</option>
-                <option value="Ожидает запчасти">Ожидает запчасти</option>
-              </select>
-            </div>
-
-            <h3 class="panel-title block-title">История</h3>
-
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Дата</th>
-                    <th>Байк</th>
-                    <th>Проблема</th>
-                    <th>Что сделано</th>
-                    <th>Использовано</th>
-                    <th>Нужно заказать</th>
-                    <th>Статус</th>
-                    <th class="mechanic-only">Действия</th>
-                  </tr>
-                </thead>
-                <tbody id="repairs-table"></tbody>
-              </table>
-            </div>
           </section>
         </section>
 
