@@ -1535,15 +1535,14 @@ class AppHandler(BaseHTTPRequestHandler):
             payload = read_json(self)
             name = str(payload.get("name", "")).strip()
             stock = payload.get("stock")
-            minimum = payload.get("min")
             if not name:
                 return json_response(self, 400, {"error": "Название запчасти обязательно"})
 
             try:
                 stock = int(stock)
-                minimum = int(minimum)
             except (TypeError, ValueError):
-                return json_response(self, 400, {"error": "Остаток и минимум должны быть числами"})
+                return json_response(self, 400, {"error": "Остаток должен быть числом"})
+            minimum = 1
 
             conn = get_db()
             existing = conn.execute(
@@ -1995,9 +1994,9 @@ class AppHandler(BaseHTTPRequestHandler):
                 return json_response(self, 400, {"error": "Название запчасти обязательно"})
             try:
                 stock = parse_positive_int(payload.get("stock"), "Остаток")
-                minimum = parse_positive_int(payload.get("min"), "Минимум")
             except ValueError as error:
                 return json_response(self, 400, {"error": str(error)})
+            minimum = 1
 
             conn = get_db()
             conn.execute(

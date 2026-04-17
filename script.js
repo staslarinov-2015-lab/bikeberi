@@ -1787,6 +1787,13 @@ function renderInventory() {
             <span class="stock-chip ${chipClass}">${escapeHtml(String(Math.max(stock, 0)))}</span>
           </div>
           ${isOut ? '<p class="error-text">Требуется закупка</p>' : ""}
+          ${
+            canManage
+              ? `<div class="inventory-card-actions">
+                  <button class="danger-btn" type="button" data-action="delete-inventory-item" data-id="${item.id}">Удалить</button>
+                </div>`
+              : ""
+          }
         </article>
       `;
     })
@@ -2547,7 +2554,6 @@ inventoryForm.addEventListener("submit", async (event) => {
     body: JSON.stringify({
       name: String(formData.get("name")).trim(),
       stock: Number(formData.get("stock")),
-      min: Number(formData.get("min")),
     }),
   });
 
@@ -2783,8 +2789,13 @@ document.addEventListener("click", async (event) => {
     inventoryForm.dataset.editId = id;
     inventoryForm.elements.name.value = item.name;
     inventoryForm.elements.stock.value = item.stock;
-    inventoryForm.elements.min.value = item.min;
     inventoryOverlay.classList.remove("hidden");
+  }
+
+  if (action === "delete-inventory-item") {
+    if (!window.confirm("Удалить эту запчасть со склада?")) return;
+    await api(`/api/inventory/${id}`, { method: "DELETE", headers: {} });
+    await bootstrap();
   }
 
   if (action === "edit-diagnostic") {

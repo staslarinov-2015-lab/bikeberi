@@ -1202,6 +1202,12 @@ tbody tr:hover {
   transform: translateY(-1px);
 }
 
+.inventory-card-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
 .diagnostics-grid {
   display: grid;
   gap: 12px;
