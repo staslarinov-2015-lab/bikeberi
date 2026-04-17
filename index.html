@@ -63,6 +63,7 @@
         <nav class="sidebar-nav" aria-label="Разделы">
           <button class="nav-link is-active" type="button" data-section="overview">Дашборд</button>
           <button class="nav-link" type="button" data-section="repairs">Очередь</button>
+          <button class="nav-link" type="button" data-section="chat">Чат</button>
           <button class="nav-link" type="button" data-section="bikes">Парк</button>
           <button class="nav-link" type="button" data-section="diagnostics">Диагностика</button>
           <button class="nav-link" type="button" data-section="inventory">Склад</button>
@@ -189,15 +190,18 @@
               <p id="profile-message" class="success-text hidden"></p>
             </article>
 
-            <article class="content-card owner-card owner-card-wide">
-              <h3 class="panel-title">Чат owner / механик</h3>
-              <div id="team-chat-list" class="team-chat-list" aria-live="polite"></div>
-              <form id="team-chat-form" class="team-chat-form">
-                <input name="message" type="text" maxlength="400" placeholder="Сообщение команде…" required />
-                <button class="primary-btn" type="submit">Отправить</button>
-              </form>
-            </article>
           </div>
+        </section>
+
+        <section id="section-chat" class="screen-section hidden">
+          <section class="content-card">
+            <h3 class="panel-title">Чат owner / механик</h3>
+            <div id="team-chat-list" class="team-chat-list" aria-live="polite"></div>
+            <form id="team-chat-form" class="team-chat-form">
+              <input name="message" type="text" maxlength="400" placeholder="Сообщение команде…" required />
+              <button class="primary-btn" type="submit">Отправить</button>
+            </form>
+          </section>
         </section>
 
         <section id="section-bikes" class="screen-section hidden">
@@ -384,6 +388,10 @@
       <button class="mobile-tab" type="button" data-section="repairs" aria-label="Очередь">
         <span class="mobile-tab-icon">📋</span>
         <span class="mobile-tab-label">Очередь</span>
+      </button>
+      <button class="mobile-tab" type="button" data-section="chat" aria-label="Чат">
+        <span class="mobile-tab-icon">💬</span>
+        <span class="mobile-tab-label">Чат</span>
       </button>
       <button class="mobile-tab" type="button" data-section="diagnostics" aria-label="Диаг">
         <span class="mobile-tab-icon mobile-tab-icon-badge">🩺</span>

@@ -1103,6 +1103,7 @@ function renderSectionHeader() {
     overview: { title: "Дашборд" },
     bikes: { title: "Парк" },
     profile: { title: "Профиль" },
+    chat: { title: "Чат" },
     diagnostics: { title: "Диагностика" },
     repairs: { title: "Очередь" },
     "issue-checklist": { title: "Выдача" },
@@ -2219,7 +2220,7 @@ currentUser?.addEventListener("click", () => {
 });
 
 openChatButton?.addEventListener("click", () => {
-  state.activeSection = "profile";
+  state.activeSection = "chat";
   closeMobileMenu();
   render();
   teamChatList?.scrollIntoView({ behavior: "smooth", block: "start" });
