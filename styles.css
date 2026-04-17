@@ -332,21 +332,6 @@ body.mobile-menu-open {
   gap: 20px;
 }
 
-.dashboard-role-badge {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: #fff;
-  color: var(--muted);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -2024,7 +2009,20 @@ textarea:focus-visible {
 /* iPhone / mobile-first mechanic UX */
 @media (max-width: 900px) {
   .topbar-right {
+    display: flex;
+    margin-left: auto;
+    justify-content: flex-end;
+  }
+
+  .topbar-right > :not(#topbar-role-pill) {
     display: none;
+  }
+
+  #topbar-role-pill {
+    font-weight: 800;
+    color: var(--accent);
+    border-color: rgba(255, 122, 19, 0.32);
+    background: rgba(255, 122, 19, 0.12);
   }
 
   .screen-section {
