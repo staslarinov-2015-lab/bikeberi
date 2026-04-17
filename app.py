@@ -1476,15 +1476,21 @@ class AppHandler(BaseHTTPRequestHandler):
             )
         if parsed.path == "/icon-192.png":
             return self.serve_file("icon-192.png", "image/png", cache_control="public, max-age=31536000, immutable")
+        if parsed.path == "/icon-192-v2.png":
+            return self.serve_file("icon-192-v2.png", "image/png", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/icon-512.png":
             return self.serve_file("icon-512.png", "image/png", cache_control="public, max-age=31536000, immutable")
+        if parsed.path == "/icon-512-v2.png":
+            return self.serve_file("icon-512-v2.png", "image/png", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/apple-touch-icon.png":
             return self.serve_file("apple-touch-icon.png", "image/png", cache_control="public, max-age=31536000, immutable")
+        if parsed.path == "/apple-touch-icon-v2.png":
+            return self.serve_file("apple-touch-icon-v2.png", "image/png", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/bike-scooter.svg":
             return self.serve_file("bike-scooter.svg", "image/svg+xml; charset=utf-8", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/favicon.ico":
             return self.serve_file(
-                "icon-192.png",
+                "icon-192-v2.png",
                 "image/png",
                 cache_control="public, max-age=31536000, immutable",
             )
@@ -1548,6 +1554,13 @@ class AppHandler(BaseHTTPRequestHandler):
                 cache_control="public, max-age=31536000, immutable",
                 send_body=False,
             )
+        if parsed.path == "/icon-192-v2.png":
+            return self.serve_file(
+                "icon-192-v2.png",
+                "image/png",
+                cache_control="public, max-age=31536000, immutable",
+                send_body=False,
+            )
         if parsed.path == "/icon-512.png":
             return self.serve_file(
                 "icon-512.png",
@@ -1555,9 +1568,23 @@ class AppHandler(BaseHTTPRequestHandler):
                 cache_control="public, max-age=31536000, immutable",
                 send_body=False,
             )
+        if parsed.path == "/icon-512-v2.png":
+            return self.serve_file(
+                "icon-512-v2.png",
+                "image/png",
+                cache_control="public, max-age=31536000, immutable",
+                send_body=False,
+            )
         if parsed.path == "/apple-touch-icon.png":
             return self.serve_file(
                 "apple-touch-icon.png",
+                "image/png",
+                cache_control="public, max-age=31536000, immutable",
+                send_body=False,
+            )
+        if parsed.path == "/apple-touch-icon-v2.png":
+            return self.serve_file(
+                "apple-touch-icon-v2.png",
                 "image/png",
                 cache_control="public, max-age=31536000, immutable",
                 send_body=False,
@@ -1571,7 +1598,7 @@ class AppHandler(BaseHTTPRequestHandler):
             )
         if parsed.path == "/favicon.ico":
             return self.serve_file(
-                "icon-192.png",
+                "icon-192-v2.png",
                 "image/png",
                 cache_control="public, max-age=31536000, immutable",
                 send_body=False,
@@ -2470,6 +2497,9 @@ class AppHandler(BaseHTTPRequestHandler):
             .replace("/icon-192.png", f"/icon-192.png?v={get_asset_version('icon-192.png')}")
             .replace("/icon-512.png", f"/icon-512.png?v={get_asset_version('icon-512.png')}")
             .replace("/apple-touch-icon.png", f"/apple-touch-icon.png?v={get_asset_version('apple-touch-icon.png')}")
+            .replace("/icon-192-v2.png", f"/icon-192-v2.png?v={get_asset_version('icon-192-v2.png')}")
+            .replace("/icon-512-v2.png", f"/icon-512-v2.png?v={get_asset_version('icon-512-v2.png')}")
+            .replace("/apple-touch-icon-v2.png", f"/apple-touch-icon-v2.png?v={get_asset_version('apple-touch-icon-v2.png')}")
             .replace(
                 "/2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG",
                 f"/2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG?v={get_asset_version('2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG')}",
