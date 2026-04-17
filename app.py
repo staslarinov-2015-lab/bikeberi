@@ -2435,8 +2435,11 @@ class AppHandler(BaseHTTPRequestHandler):
             path.read_text(encoding="utf-8")
             .replace("./styles.css", f"./styles.css?v={get_asset_version('styles.css')}")
             .replace("./script.js", f"./script.js?v={get_asset_version('script.js')}")
-            .replace("./logo_blue.svg", f"./logo_blue.svg?v={get_asset_version('logo_blue.svg')}")
             .replace("./logo_orange.png", f"./logo_orange.png?v={get_asset_version('logo_orange.png')}")
+            .replace(
+                "./2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG",
+                f"./2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG?v={get_asset_version('2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG')}",
+            )
             .replace(
                 "/2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG",
                 f"/2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG?v={get_asset_version('2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG')}",
