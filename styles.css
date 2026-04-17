@@ -258,6 +258,16 @@ textarea {
   line-height: 1.2;
 }
 
+.topbar-app-name {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .topbar-right {
   display: flex;
   align-items: center;
