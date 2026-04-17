@@ -466,14 +466,17 @@ def notify_inventory_critical_if_needed(conn, part_name: str, stock_value: int):
 
 
 def is_difficult_repair(fault: str, issue: str, estimated_minutes: int, required_parts_text: str) -> bool:
-    minutes = int(estimated_minutes or 0)
-    if minutes >= 70:
+    fault_text = str(fault or "").strip()
+    issue_text = str(issue or "").strip()
+    if not fault_text and not issue_text:
         return True
-    haystack = f"{str(fault or '').lower()} {str(issue or '').lower()}"
-    if re.search(r"неизвестн|не\s*понятн|не\s*ясн|диагност|сложн|замыкани|ошибк", haystack):
-        return True
-    parts_count = len(parse_required_parts_text(required_parts_text or ""))
-    return parts_count >= 3
+    haystack = f"{fault_text.lower()} {issue_text.lower()}"
+    return bool(
+        re.search(
+            r"неизвестн|не\s*понятн|не\s*ясн|не\s*указ|не\s*определ|уточнит|unknown|not\s*specified",
+            haystack,
+        )
+    )
 
 
 def notify_difficult_repair_if_needed(conn, work_order_id: int, bike_code: str, fault: str, issue: str, estimated_minutes: int, required_parts_text: str):
