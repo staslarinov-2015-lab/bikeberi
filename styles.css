@@ -2080,9 +2080,9 @@ textarea:focus-visible {
     bottom: 0;
     z-index: 95;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 6px;
-    padding: 10px 10px 12px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+    padding: 8px 6px 10px;
     background: rgba(25, 25, 25, 0.92);
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(10px);
@@ -2092,7 +2092,7 @@ textarea:focus-visible {
     border: 0;
     background: transparent;
     color: rgba(255, 255, 255, 0.9);
-    padding: 8px 6px;
+    padding: 7px 4px;
     border-radius: 14px;
     display: grid;
     justify-items: center;
@@ -2106,7 +2106,7 @@ textarea:focus-visible {
   }
 
   .mobile-tab-icon {
-    font-size: 1.05rem;
+    font-size: 0.96rem;
     line-height: 1;
     color: inherit;
   }
@@ -2122,7 +2122,7 @@ textarea:focus-visible {
   }
 
   .mobile-tab-label {
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     line-height: 1.15;
     letter-spacing: 0.01em;
     text-align: center;
