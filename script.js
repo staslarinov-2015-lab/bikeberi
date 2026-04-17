@@ -1946,11 +1946,18 @@ function renderBikes() {
 
 function renderQueueFilterToolbar() {
   if (!queueFilterChipsEl) return;
+  const orders = state.workOrders || [];
+  const counts = {
+    all: orders.length,
+    in_repair: orders.filter((o) => o.status === "в ремонте").length,
+    waiting_parts: orders.filter((o) => o.status === "ждет запчасти" || (o.missing_parts?.length > 0)).length,
+    complex: orders.filter((o) => getOrderComplexityTone(o) === "is-red").length,
+  };
   const chips = [
-    { key: "all", label: "Все" },
-    { key: "in_repair", label: "В ремонте" },
-    { key: "waiting_parts", label: "Ждут запчасти" },
-    { key: "complex", label: "Сложные" },
+    { key: "all", label: `Все (${counts.all})` },
+    { key: "in_repair", label: `В ремонте (${counts.in_repair})` },
+    { key: "waiting_parts", label: `Ждут запчасти (${counts.waiting_parts})` },
+    { key: "complex", label: `Сложные (${counts.complex})` },
   ];
   queueFilterChipsEl.innerHTML = chips
     .map(
@@ -2010,6 +2017,31 @@ function renderWorkOrders() {
     return order.required_parts_text || "Запчасти не указаны";
   };
 
+  const getTimeMetaLine = (order) => {
+    if (order.status === "в ремонте" && order.started_at) {
+      const started = new Date(order.started_at);
+      const startedLabel = Number.isNaN(started.getTime()) ? "" : started.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+      if (order.estimated_ready_at) {
+        const eta = new Date(order.estimated_ready_at);
+        const etaLabel = Number.isNaN(eta.getTime()) ? "" : eta.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+        if (startedLabel && etaLabel) return `Старт ${startedLabel} · ETA ${etaLabel}`;
+      }
+      if (startedLabel) return `Старт ${startedLabel}`;
+    }
+    const intakeRaw = order.intake_date || order.created_at;
+    if (!intakeRaw) return "";
+    const intakeDate = new Date(intakeRaw);
+    if (Number.isNaN(intakeDate.getTime())) return "";
+    return `Принят ${intakeDate.toLocaleDateString("ru-RU")}`;
+  };
+
+  const getPriorityBadge = (order) => {
+    if (String(order.priority || "").toLowerCase() !== "высокий") return "";
+    const note = String(order.owner_note || "").trim();
+    const text = note ? `Приоритет: ${note}` : "Приоритет владельца";
+    return `<span class="queue-priority-badge">${escapeHtml(text)}</span>`;
+  };
+
   if (!activeOrders.length) {
     activeRepairBoard.innerHTML = '<div class="stack-item muted">Нет активного ремонта.</div>';
   } else {
@@ -2025,6 +2057,8 @@ function renderWorkOrders() {
             </div>
             <p class="queue-mini-line queue-fault">${escapeHtml(order.fault || order.issue || "Поломка не указана")}</p>
             <p class="queue-mini-line queue-parts">${escapeHtml(parts)}</p>
+            ${getTimeMetaLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getTimeMetaLine(order))}</p>` : ""}
+            ${getPriorityBadge(order)}
             <div class="table-actions">
               ${order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">На выдачу</button>` : ""}
             </div>
@@ -2051,6 +2085,8 @@ function renderWorkOrders() {
           </div>
           <p class="queue-mini-line queue-fault">${escapeHtml(order.fault || order.issue || "Поломка не указана")}</p>
           <p class="queue-mini-line queue-parts">${escapeHtml(partsSummary)}</p>
+          ${getTimeMetaLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getTimeMetaLine(order))}</p>` : ""}
+          ${getPriorityBadge(order)}
           <div class="table-actions">
             ${order.can_start ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-start" data-id="${order.id}">Начать ремонт</button>` : ""}
           </div>

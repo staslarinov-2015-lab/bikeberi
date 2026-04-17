@@ -1441,6 +1441,23 @@ tbody tr:hover {
   color: var(--muted);
 }
 
+.queue-meta {
+  color: #6b7c95;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.queue-priority-badge {
+  display: inline-flex;
+  margin-top: 2px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(255, 122, 19, 0.14);
+  color: #c45c0b;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
 .queue-mini-card.is-green {
   border-color: rgba(22, 156, 99, 0.28);
   background: linear-gradient(
