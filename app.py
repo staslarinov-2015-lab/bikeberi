@@ -11,6 +11,7 @@ from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -55,6 +56,10 @@ def resolve_db_path() -> Path:
 
 DB_PATH = resolve_db_path()
 SEED_SQL_PATH = BASE_DIR / "seed_dump.sql"
+TELEGRAM_BOT_TOKEN = os.environ.get("BIKEBERI_TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_WEBHOOK_SECRET = os.environ.get("BIKEBERI_TELEGRAM_WEBHOOK_SECRET", "").strip()
+TELEGRAM_OWNER_CHAT_ID = os.environ.get("BIKEBERI_TELEGRAM_OWNER_CHAT_ID", "").strip()
+TELEGRAM_MECHANIC_CHAT_ID = os.environ.get("BIKEBERI_TELEGRAM_MECHANIC_CHAT_ID", "").strip()
 
 BIKE_STATUSES = {
     "в аренде",
@@ -287,6 +292,85 @@ def read_json(handler):
         return json.loads(raw.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError):
         return {}
+
+
+def telegram_is_enabled() -> bool:
+    return bool(
+        TELEGRAM_BOT_TOKEN
+        and TELEGRAM_WEBHOOK_SECRET
+        and TELEGRAM_OWNER_CHAT_ID
+        and TELEGRAM_MECHANIC_CHAT_ID
+    )
+
+
+def telegram_chat_role(chat_id_raw: str) -> str:
+    chat_id = str(chat_id_raw).strip()
+    if chat_id == TELEGRAM_OWNER_CHAT_ID:
+        return "owner"
+    if chat_id == TELEGRAM_MECHANIC_CHAT_ID:
+        return "mechanic"
+    return ""
+
+
+def telegram_target_chat_for_sender(sender_role: str) -> str:
+    if sender_role == "owner":
+        return TELEGRAM_MECHANIC_CHAT_ID
+    if sender_role == "mechanic":
+        return TELEGRAM_OWNER_CHAT_ID
+    return ""
+
+
+def telegram_send_message(chat_id_raw: str, text: str):
+    chat_id = str(chat_id_raw or "").strip()
+    message = str(text or "").strip()
+    if not chat_id or not message or not TELEGRAM_BOT_TOKEN:
+        return
+    payload = json.dumps({"chat_id": chat_id, "text": message}).encode("utf-8")
+    request = Request(
+        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=8):
+            pass
+    except Exception:
+        # Telegram transport is best-effort and must not break core app flow.
+        return
+
+
+def mirror_internal_chat_to_telegram(sender_role: str, sender_name: str, message: str):
+    if not telegram_is_enabled():
+        return
+    target_chat_id = telegram_target_chat_for_sender(sender_role)
+    if not target_chat_id:
+        return
+    role_label = "Управляющий" if sender_role == "owner" else "Механик"
+    text = f"Байк Сервис · {role_label}\n{sender_name}\n\n{message}"
+    telegram_send_message(target_chat_id, text)
+
+
+def store_chat_message(sender_role: str, sender_name: str, message: str):
+    role = str(sender_role or "").strip()
+    if role not in {"owner", "mechanic"}:
+        return False
+    name = str(sender_name or "").strip() or ("Управляющий" if role == "owner" else "Механик")
+    text = str(message or "").strip()
+    if not text:
+        return False
+    text = text[:400]
+    conn = get_db()
+    conn.execute(
+        """
+        INSERT INTO team_chat_messages (sender_role, sender_name, message, created_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (role, name, text, utc_now().isoformat()),
+    )
+    conn.commit()
+    conn.close()
+    return True
 
 
 def get_db():
@@ -1256,6 +1340,26 @@ class AppHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         parsed = urlparse(self.path)
 
+        if parsed.path.startswith("/api/telegram/webhook/"):
+            if not telegram_is_enabled():
+                return text_response(self, 404, "Not found")
+            provided_secret = parsed.path.rsplit("/", 1)[-1].strip()
+            if not provided_secret or provided_secret != TELEGRAM_WEBHOOK_SECRET:
+                return text_response(self, 403, "Forbidden")
+            payload = read_json(self)
+            message_obj = payload.get("message") or payload.get("edited_message") or {}
+            text = str(message_obj.get("text", "")).strip()
+            chat_id = str((message_obj.get("chat") or {}).get("id", "")).strip()
+            if not text or not chat_id:
+                return json_response(self, 200, {"ok": True})
+            sender_role = telegram_chat_role(chat_id)
+            if not sender_role:
+                return json_response(self, 200, {"ok": True})
+            sender_name = "Управляющий" if sender_role == "owner" else "Механик"
+            if store_chat_message(sender_role, sender_name, text):
+                return json_response(self, 200, {"ok": True})
+            return json_response(self, 400, {"error": "Сообщение не сохранено"})
+
         if parsed.path == "/api/login":
             payload = read_json(self)
             username = str(payload.get("username", "")).strip()
@@ -1524,16 +1628,9 @@ class AppHandler(BaseHTTPRequestHandler):
                 return json_response(self, 400, {"error": "Сообщение пустое"})
             if len(message) > 400:
                 return json_response(self, 400, {"error": "Сообщение должно быть до 400 символов"})
-            conn = get_db()
-            conn.execute(
-                """
-                INSERT INTO team_chat_messages (sender_role, sender_name, message, created_at)
-                VALUES (?, ?, ?, ?)
-                """,
-                (user["role"], user["full_name"], message, utc_now().isoformat()),
-            )
-            conn.commit()
-            conn.close()
+            if not store_chat_message(user["role"], user["full_name"], message):
+                return json_response(self, 400, {"error": "Сообщение не сохранено"})
+            mirror_internal_chat_to_telegram(user["role"], user["full_name"], message)
             return json_response(self, 201, {"ok": True})
 
         if parsed.path.startswith("/api/work-orders/") and parsed.path.endswith("/transition"):
