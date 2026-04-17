@@ -599,6 +599,9 @@ def supabase_download_db_if_any() -> bool:
             _SUPABASE_UPLOAD_ALLOWED = True
     else:
         _SUPABASE_LAST_ERROR = "Supabase download failed: " + "; ".join(errors[-6:]) if errors else "Supabase download failed"
+        if SUPABASE_ALLOW_EMPTY_BOOTSTRAP:
+            # Recovery mode: allow service start and first upload even when all probes failed.
+            _SUPABASE_UPLOAD_ALLOWED = True
     return False
 
 
@@ -661,7 +664,9 @@ def ensure_db_file():
     if SUPABASE_DB_SYNC_ENABLED:
         if supabase_download_db_if_any():
             return
-        allow_empty_bootstrap_now = SUPABASE_ALLOW_EMPTY_BOOTSTRAP and _SUPABASE_LAST_DOWNLOAD_NOT_FOUND
+        allow_empty_bootstrap_now = SUPABASE_ALLOW_EMPTY_BOOTSTRAP and (
+            _SUPABASE_LAST_DOWNLOAD_NOT_FOUND or _SUPABASE_UPLOAD_ALLOWED
+        )
         if not allow_empty_bootstrap_now:
             raise RuntimeError(
                 "Supabase DB download failed. Refusing to start with empty local DB to avoid data reset. "
