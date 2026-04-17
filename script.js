@@ -434,6 +434,7 @@ const teamChatList = document.getElementById("team-chat-list");
 const currentUser = document.getElementById("current-user");
 const sidebarRoleTitle = document.getElementById("sidebar-role-title");
 const topbarRolePill = document.getElementById("topbar-role-pill");
+const dashboardRoleBadge = document.getElementById("dashboard-role-badge");
 const openChatButton = document.getElementById("open-chat-button");
 const accountButton = document.getElementById("account-button");
 const accountOverlay = document.getElementById("account-overlay");
@@ -1121,6 +1122,9 @@ function renderRoleContent() {
   }
   if (topbarRolePill) {
     topbarRolePill.textContent = roleLabel.toLowerCase();
+  }
+  if (dashboardRoleBadge) {
+    dashboardRoleBadge.textContent = `Роль: ${roleLabel.toLowerCase()}`;
   }
 
   currentUser.textContent = state.user
