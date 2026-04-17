@@ -186,6 +186,15 @@
               </form>
               <p id="profile-message" class="success-text hidden"></p>
             </article>
+
+            <article class="content-card owner-card owner-card-wide">
+              <h3 class="panel-title">Чат owner / механик</h3>
+              <div id="team-chat-list" class="team-chat-list" aria-live="polite"></div>
+              <form id="team-chat-form" class="team-chat-form">
+                <input name="message" type="text" maxlength="400" placeholder="Сообщение команде…" required />
+                <button class="primary-btn" type="submit">Отправить</button>
+              </form>
+            </article>
           </div>
         </section>
 
@@ -311,12 +320,35 @@
 
             <article class="content-card owner-card">
               <h3 class="panel-title">Закупка</h3>
-              <div id="owner-procurement" class="stack-list"></div>
+              <div id="owner-notifications" class="stack-list"></div>
             </article>
 
             <article class="content-card owner-card">
               <h3 class="panel-title">Нагрузка</h3>
               <div id="owner-process" class="stack-list"></div>
+            </article>
+
+            <article class="content-card owner-card owner-card-wide">
+              <h3 class="panel-title">Приоритет механику</h3>
+              <form id="owner-priority-form" class="form-grid">
+                <label>
+                  <span>Байк</span>
+                  <input name="bikeCode" type="text" maxlength="6" placeholder="РЕ123У" required />
+                </label>
+                <label>
+                  <span>Приоритет</span>
+                  <select name="priority" required>
+                    <option value="высокий">Высокий</option>
+                    <option value="обычный" selected>Обычный</option>
+                    <option value="низкий">Низкий</option>
+                  </select>
+                </label>
+                <label class="wide">
+                  <span>Комментарий владельца</span>
+                  <input name="ownerNote" type="text" maxlength="220" placeholder="Например: сделать до 14:00" />
+                </label>
+                <button class="primary-btn wide" type="submit">Поставить приоритет</button>
+              </form>
             </article>
 
             <article class="content-card owner-card owner-card-wide">

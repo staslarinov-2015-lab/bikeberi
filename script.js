@@ -9,6 +9,8 @@ const state = {
   bikeStatusFilter: "all",
   queueFilter: "all",
   inventorySearch: "",
+  teamChat: [],
+  ownerNotifications: [],
   kpi: {
     totalBikes: 0,
     targetRate: 95,
@@ -256,6 +258,7 @@ function getRepairStaleness(order) {
 }
 
 function priorityTier(order) {
+  if (String(order.priority || "").toLowerCase() === "высокий") return -1;
   const waiting = order.status === "ждет запчасти" || (order.missing_parts?.length > 0);
   if (waiting) return 0;
   if (order.status === "в ремонте") {
@@ -275,6 +278,9 @@ function priorityIntakeTs(order) {
 }
 
 function getRepairPriorityLabel(order) {
+  if (String(order.priority || "").toLowerCase() === "высокий") {
+    return order.owner_note ? `Приоритет владельца: ${order.owner_note}` : "Приоритет владельца";
+  }
   if (order.status === "ждет запчасти" || order.missing_parts?.length) return "Ждёт запчасти";
   if (order.status === "в ремонте") {
     const st = getRepairStaleness(order);
@@ -419,8 +425,11 @@ const bikeForm = document.getElementById("bike-form");
 const diagnosticForm = document.getElementById("diagnostic-form");
 const ownerKpi = document.getElementById("owner-kpi");
 const ownerKpiNote = document.getElementById("owner-kpi-note");
-const ownerProcurement = document.getElementById("owner-procurement");
+const ownerNotificationsEl = document.getElementById("owner-notifications");
 const ownerProcess = document.getElementById("owner-process");
+const ownerPriorityForm = document.getElementById("owner-priority-form");
+const teamChatForm = document.getElementById("team-chat-form");
+const teamChatList = document.getElementById("team-chat-list");
 const currentUser = document.getElementById("current-user");
 const sidebarRoleTitle = document.getElementById("sidebar-role-title");
 const accountButton = document.getElementById("account-button");
@@ -2010,19 +2019,41 @@ function renderOwnerPanel() {
   ownerKpi.textContent = `${stats.inRepairNow}`;
   ownerKpiNote.textContent = "Байков в ремонте сейчас";
 
-  const procurementItems = (state.inventory || [])
-    .filter((item) => Number(item.stock) <= Number(item.min))
-    .map((item) => `<div class="stack-item"><strong>${escapeHtml(item.name)}</strong><p class="muted">Остаток ${escapeHtml(item.stock)} · минимум ${escapeHtml(item.min)}</p></div>`);
-
-  ownerProcurement.innerHTML = procurementItems.length
-    ? procurementItems.join("")
-    : '<div class="stack-item muted">Дефицитов нет.</div>';
+  const notifications = state.ownerNotifications || [];
+  ownerNotificationsEl.innerHTML = notifications.length
+    ? notifications
+        .slice(0, 10)
+        .map((item) => `<div class="stack-item"><strong>${item.severity === "high" ? "Срочно" : "Внимание"}</strong><p class="muted">${escapeHtml(item.text)}</p></div>`)
+        .join("")
+    : '<div class="stack-item muted">Уведомлений нет.</div>';
 
   ownerProcess.innerHTML = [
     `<div class="stack-item"><strong>Диагностика (период)</strong><p class="muted">${stats.diagnosedInPeriod}</p></div>`,
     `<div class="stack-item"><strong>ТО / проверка</strong><p class="muted">${stats.inspectionNow}</p></div>`,
     `<div class="stack-item"><strong>Ждут запчасти</strong><p class="muted">${stats.waitingPartsNow}</p></div>`,
   ].join("");
+}
+
+function renderTeamChat() {
+  if (!teamChatList) return;
+  const rows = state.teamChat || [];
+  if (!rows.length) {
+    teamChatList.innerHTML = '<div class="muted">Пока пусто.</div>';
+    return;
+  }
+  teamChatList.innerHTML = rows
+    .slice(-40)
+    .map((item) => {
+      const mine = item.sender_role === getRole();
+      return `
+        <article class="team-chat-item ${mine ? "is-mine" : ""}">
+          <div class="team-chat-meta">${escapeHtml(item.sender_name)} · ${new Date(item.created_at).toLocaleString("ru-RU")}</div>
+          <div class="team-chat-text">${escapeHtml(item.message)}</div>
+        </article>
+      `;
+    })
+    .join("");
+  teamChatList.scrollTop = teamChatList.scrollHeight;
 }
 
 function render() {
@@ -2056,6 +2087,7 @@ function render() {
   renderWorkOrders();
   renderIssueChecklist();
   renderOwnerPanel();
+  renderTeamChat();
   renderProfile();
   renderBikeFormStatusOptions();
 }
@@ -2070,6 +2102,8 @@ async function bootstrap() {
     state.inventory = payload.inventory;
     state.diagnostics = payload.diagnostics || [];
     state.workOrders = payload.workOrders || [];
+    state.teamChat = payload.teamChat || [];
+    state.ownerNotifications = payload.ownerNotifications || [];
     if (getRole() !== "owner" && state.activeSection === "owner") {
       state.activeSection = "overview";
     }
@@ -2503,6 +2537,39 @@ if (settingsForm) {
         mechanicFocus: String(formData.get("mechanicFocus") || "").trim(),
       }),
     });
+    await bootstrap();
+  });
+}
+
+if (ownerPriorityForm) {
+  ownerPriorityForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(ownerPriorityForm);
+    await api("/api/owner/assign-priority", {
+      method: "POST",
+      body: JSON.stringify({
+        bikeCode: String(formData.get("bikeCode") || "").trim().toUpperCase(),
+        priority: String(formData.get("priority") || "обычный").trim(),
+        ownerNote: String(formData.get("ownerNote") || "").trim(),
+      }),
+    });
+    ownerPriorityForm.reset();
+    if (ownerPriorityForm.elements.priority) ownerPriorityForm.elements.priority.value = "обычный";
+    await bootstrap();
+  });
+}
+
+if (teamChatForm) {
+  teamChatForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(teamChatForm);
+    await api("/api/team-chat", {
+      method: "POST",
+      body: JSON.stringify({
+        message: String(formData.get("message") || "").trim(),
+      }),
+    });
+    teamChatForm.reset();
     await bootstrap();
   });
 }

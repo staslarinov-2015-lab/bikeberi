@@ -395,6 +395,7 @@ def init_db():
             required_parts_text TEXT NOT NULL DEFAULT '-',
             planned_work TEXT NOT NULL DEFAULT '-',
             priority TEXT NOT NULL DEFAULT 'обычный',
+            owner_note TEXT NOT NULL DEFAULT '',
             parts_ready INTEGER NOT NULL DEFAULT 0,
             completed_repair_id INTEGER,
             started_at TEXT,
@@ -428,6 +429,14 @@ def init_db():
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS team_chat_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender_role TEXT NOT NULL CHECK (sender_role IN ('mechanic', 'owner')),
+            sender_name TEXT NOT NULL,
+            message TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
         """
     )
 
@@ -446,6 +455,7 @@ def init_db():
     ensure_column(cur, "work_orders", "required_parts_text", "TEXT NOT NULL DEFAULT '-'")
     ensure_column(cur, "work_orders", "planned_work", "TEXT NOT NULL DEFAULT '-'")
     ensure_column(cur, "work_orders", "priority", "TEXT NOT NULL DEFAULT 'обычный'")
+    ensure_column(cur, "work_orders", "owner_note", "TEXT NOT NULL DEFAULT ''")
     ensure_column(cur, "work_orders", "parts_ready", "INTEGER NOT NULL DEFAULT 0")
     ensure_column(cur, "work_orders", "completed_repair_id", "INTEGER")
     ensure_column(cur, "work_orders", "started_at", "TEXT")
@@ -985,6 +995,7 @@ def hydrate_work_orders(conn):
             work_orders.required_parts_text,
             work_orders.planned_work,
             work_orders.priority,
+            work_orders.owner_note,
             work_orders.parts_ready,
             work_orders.started_at,
             work_orders.created_at,
@@ -1119,6 +1130,39 @@ def fetch_bootstrap_payload(user):
         for row in conn.execute("SELECT key, value FROM settings").fetchall()
     }
     work_orders = hydrate_work_orders(conn)
+    team_chat = [
+        dict(row)
+        for row in conn.execute(
+            """
+            SELECT id, sender_role, sender_name, message, created_at
+            FROM team_chat_messages
+            ORDER BY id DESC
+            LIMIT 60
+            """
+        ).fetchall()
+    ]
+    team_chat.reverse()
+    owner_notifications = []
+    for order in work_orders:
+        for missing in order.get("missing_parts", []):
+            owner_notifications.append(
+                {
+                    "type": "work_order",
+                    "severity": "high",
+                    "text": f"{order['bike_code']}: не хватает {missing['name']} x{missing['missing']}",
+                    "created_at": order.get("intake_date") or order.get("created_at") or utc_now().isoformat(),
+                }
+            )
+    for item in inventory:
+        if item["need_to_order"]:
+            owner_notifications.append(
+                {
+                    "type": "inventory",
+                    "severity": "medium",
+                    "text": f"{item['name']}: остаток {item['stock']} (мин. {item['min']})",
+                    "created_at": utc_now().isoformat(),
+                }
+            )
     conn.close()
 
     return {
@@ -1133,6 +1177,8 @@ def fetch_bootstrap_payload(user):
         "inventory": inventory,
         "diagnostics": diagnostics,
         "workOrders": work_orders,
+        "teamChat": team_chat,
+        "ownerNotifications": owner_notifications[:80],
     }
 
 
@@ -1490,6 +1536,28 @@ class AppHandler(BaseHTTPRequestHandler):
             conn.close()
             return json_response(self, 201, {"ok": True, "workOrderId": work_order_id})
 
+        if parsed.path == "/api/team-chat":
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            payload = read_json(self)
+            message = str(payload.get("message", "")).strip()
+            if not message:
+                return json_response(self, 400, {"error": "Сообщение пустое"})
+            if len(message) > 400:
+                return json_response(self, 400, {"error": "Сообщение должно быть до 400 символов"})
+            conn = get_db()
+            conn.execute(
+                """
+                INSERT INTO team_chat_messages (sender_role, sender_name, message, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (user["role"], user["full_name"], message, utc_now().isoformat()),
+            )
+            conn.commit()
+            conn.close()
+            return json_response(self, 201, {"ok": True})
+
         if parsed.path.startswith("/api/work-orders/") and parsed.path.endswith("/transition"):
             user = require_role(self, {"mechanic", "owner"})
             if not user:
@@ -1624,6 +1692,48 @@ class AppHandler(BaseHTTPRequestHandler):
             conn.commit()
             conn.close()
             return json_response(self, 200, {"ok": True, "status": next_status})
+
+        if parsed.path == "/api/owner/assign-priority":
+            user = require_role(self, {"owner"})
+            if not user:
+                return
+            payload = read_json(self)
+            try:
+                bike_code = validate_bike_code(payload.get("bikeCode", ""))
+            except ValueError as error:
+                return json_response(self, 400, {"error": str(error)})
+            priority = str(payload.get("priority", "")).strip().lower()
+            if priority not in {"высокий", "обычный", "низкий"}:
+                return json_response(self, 400, {"error": "Приоритет должен быть: высокий, обычный или низкий"})
+            owner_note = str(payload.get("ownerNote", "")).strip()
+            if len(owner_note) > 220:
+                return json_response(self, 400, {"error": "Комментарий владельца должен быть до 220 символов"})
+            conn = get_db()
+            row = conn.execute(
+                """
+                SELECT work_orders.id
+                FROM work_orders
+                JOIN bikes ON bikes.id = work_orders.bike_id
+                WHERE bikes.code = ? AND work_orders.status != 'готов'
+                ORDER BY work_orders.id DESC
+                LIMIT 1
+                """,
+                (bike_code,),
+            ).fetchone()
+            if not row:
+                conn.close()
+                return json_response(self, 404, {"error": "Активная сервисная заявка для этого байка не найдена"})
+            conn.execute(
+                "UPDATE work_orders SET priority = ?, owner_note = ? WHERE id = ?",
+                (priority, owner_note, row["id"]),
+            )
+            note = f"Владелец поставил приоритет: {priority}"
+            if owner_note:
+                note += f". Комментарий: {owner_note}"
+            add_work_order_history(conn, int(row["id"]), user["full_name"], "owner_priority", note)
+            conn.commit()
+            conn.close()
+            return json_response(self, 200, {"ok": True})
 
         if parsed.path == "/api/account/password":
             user = require_auth(self)

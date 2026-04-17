@@ -1777,6 +1777,45 @@ tbody tr:hover {
   font-weight: 600;
 }
 
+.team-chat-list {
+  max-height: 280px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 2px;
+  margin-bottom: 12px;
+}
+
+.team-chat-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: var(--bg);
+}
+
+.team-chat-item.is-mine {
+  border-color: rgba(0, 122, 255, 0.35);
+  background: rgba(0, 122, 255, 0.06);
+}
+
+.team-chat-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.team-chat-text {
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.team-chat-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
 .readonly-badge {
   display: inline-flex;
   padding: 6px 10px;
