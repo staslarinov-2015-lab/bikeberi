@@ -2199,6 +2199,7 @@ textarea:focus-visible {
     background: rgba(25, 25, 25, 0.92);
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(10px);
+    align-items: stretch;
   }
 
   .mobile-tab {
@@ -2208,9 +2209,13 @@ textarea:focus-visible {
     padding: 7px 4px;
     border-radius: 14px;
     display: grid;
+    grid-template-rows: 20px minmax(0, 1fr);
+    align-items: center;
     justify-items: center;
     gap: 4px;
     font-weight: 800;
+    min-height: 56px;
+    height: 100%;
   }
 
   .mobile-tab.is-active {
@@ -2222,6 +2227,11 @@ textarea:focus-visible {
     font-size: 0.96rem;
     line-height: 1;
     color: inherit;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
 .mobile-tab-icon-with-badge {
