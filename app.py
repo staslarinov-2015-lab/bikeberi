@@ -69,6 +69,8 @@ _SUPABASE_UPLOAD_ALLOWED = not SUPABASE_DB_SYNC_ENABLED
 _SUPABASE_LAST_ERROR = ""
 _SUPABASE_LAST_SYNC_AT = ""
 _SUPABASE_LAST_DOWNLOAD_NOT_FOUND = False
+# Bucket that successfully downloaded/uploaded (may differ from SUPABASE_BUCKET if env is stale).
+_SUPABASE_ACTIVE_BUCKET = ""
 ALLOW_DEMO_SEED = os.environ.get("BIKEBERI_ALLOW_DEMO_SEED", "false").strip().lower() == "true"
 
 BIKE_STATUSES = {
@@ -502,10 +504,33 @@ def notify_difficult_repair_if_needed(conn, work_order_id: int, bike_code: str, 
     telegram_notify_role("owner", message)
 
 
+def supabase_bucket_candidates() -> list[str]:
+    """Unique bucket names to try (env can be stale in PaaS UI; keep safe fallbacks)."""
+    raw = os.environ.get("BIKEBERI_SUPABASE_BUCKET", "").strip()
+    extra = os.environ.get("BIKEBERI_SUPABASE_BUCKET_FALLBACKS", "").strip()
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for part in [raw, *[x.strip() for x in extra.split(",") if x.strip()]]:
+        if not part or part in seen:
+            continue
+        seen.add(part)
+        ordered.append(part)
+    for fallback in ("bikeberi-data", "bikservice-data", "bikservice - data"):
+        if fallback not in seen:
+            seen.add(fallback)
+            ordered.append(fallback)
+    return ordered
+
+
+def supabase_storage_object_url_for(bucket: str, object_key: str) -> str:
+    bucket_q = quote(bucket, safe="")
+    obj_q = quote(object_key, safe="/")
+    return f"{SUPABASE_URL}/storage/v1/object/{bucket_q}/{obj_q}"
+
+
 def supabase_storage_object_url() -> str:
-    bucket = quote(SUPABASE_BUCKET, safe="")
-    obj = quote(SUPABASE_DB_OBJECT, safe="/")
-    return f"{SUPABASE_URL}/storage/v1/object/{bucket}/{obj}"
+    bucket = _SUPABASE_ACTIVE_BUCKET or SUPABASE_BUCKET
+    return supabase_storage_object_url_for(bucket, SUPABASE_DB_OBJECT)
 
 
 def supabase_storage_headers(content_type: str | None = None, upsert: bool = False) -> dict:
@@ -521,62 +546,84 @@ def supabase_storage_headers(content_type: str | None = None, upsert: bool = Fal
 
 
 def supabase_download_db_if_any() -> bool:
-    global _SUPABASE_UPLOAD_ALLOWED, _SUPABASE_LAST_ERROR, _SUPABASE_LAST_SYNC_AT, _SUPABASE_LAST_DOWNLOAD_NOT_FOUND
+    global _SUPABASE_UPLOAD_ALLOWED, _SUPABASE_LAST_ERROR, _SUPABASE_LAST_SYNC_AT, _SUPABASE_LAST_DOWNLOAD_NOT_FOUND, _SUPABASE_ACTIVE_BUCKET
     if not SUPABASE_DB_SYNC_ENABLED:
         return False
     _SUPABASE_LAST_DOWNLOAD_NOT_FOUND = False
-    url = supabase_storage_object_url()
-    request = Request(url, headers=supabase_storage_headers(), method="GET")
-    try:
-        with urlopen(request, timeout=12) as response:
-            payload = response.read()
-    except HTTPError as error:
-        if error.code == 404:
-            _SUPABASE_LAST_DOWNLOAD_NOT_FOUND = True
-            _SUPABASE_LAST_ERROR = f"Supabase DB object not found: {SUPABASE_BUCKET}/{SUPABASE_DB_OBJECT}"
-            if SUPABASE_ALLOW_EMPTY_BOOTSTRAP:
-                # Explicitly allowed first launch for empty bootstrap.
-                _SUPABASE_UPLOAD_ALLOWED = True
-            return False
-        _SUPABASE_LAST_ERROR = f"Supabase download HTTP error: {error.code}"
-        return False
-    except Exception:
-        _SUPABASE_LAST_ERROR = "Supabase download failed (network/credentials)"
-        return False
-    if not payload:
-        _SUPABASE_LAST_ERROR = "Supabase download returned empty payload"
-        return False
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    DB_PATH.write_bytes(payload)
-    _SUPABASE_UPLOAD_ALLOWED = True
-    _SUPABASE_LAST_ERROR = ""
-    _SUPABASE_LAST_SYNC_AT = utc_now().isoformat()
-    return True
+    _SUPABASE_ACTIVE_BUCKET = ""
+    errors: list[str] = []
+    saw_404 = False
+    saw_non404 = False
+    for bucket in supabase_bucket_candidates():
+        url = supabase_storage_object_url_for(bucket, SUPABASE_DB_OBJECT)
+        request = Request(url, headers=supabase_storage_headers(), method="GET")
+        try:
+            with urlopen(request, timeout=12) as response:
+                payload = response.read()
+        except HTTPError as error:
+            if error.code == 404:
+                saw_404 = True
+                errors.append(f"{bucket}:404")
+                continue
+            saw_non404 = True
+            errors.append(f"{bucket}:HTTP{error.code}")
+            continue
+        except Exception:
+            saw_non404 = True
+            errors.append(f"{bucket}:network")
+            continue
+        if not payload:
+            errors.append(f"{bucket}:empty")
+            saw_non404 = True
+            continue
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        DB_PATH.write_bytes(payload)
+        _SUPABASE_UPLOAD_ALLOWED = True
+        _SUPABASE_LAST_ERROR = ""
+        _SUPABASE_LAST_SYNC_AT = utc_now().isoformat()
+        _SUPABASE_ACTIVE_BUCKET = bucket
+        return True
+    # Nothing downloaded
+    if saw_404 and not saw_non404:
+        _SUPABASE_LAST_DOWNLOAD_NOT_FOUND = True
+        _SUPABASE_LAST_ERROR = f"Supabase DB object not found in any bucket for {SUPABASE_DB_OBJECT}"
+        if SUPABASE_ALLOW_EMPTY_BOOTSTRAP:
+            _SUPABASE_UPLOAD_ALLOWED = True
+    else:
+        _SUPABASE_LAST_ERROR = "Supabase download failed: " + "; ".join(errors[-6:]) if errors else "Supabase download failed"
+    return False
 
 
 def supabase_upload_db_snapshot():
-    global _SUPABASE_LAST_ERROR, _SUPABASE_LAST_SYNC_AT
+    global _SUPABASE_LAST_ERROR, _SUPABASE_LAST_SYNC_AT, _SUPABASE_ACTIVE_BUCKET
     if not SUPABASE_DB_SYNC_ENABLED or not _SUPABASE_UPLOAD_ALLOWED or not DB_PATH.exists():
         return
     with _SUPABASE_SYNC_LOCK:
         payload = DB_PATH.read_bytes()
         if not payload:
             return
-        url = supabase_storage_object_url()
-        for _ in range(3):
-            request = Request(
-                url,
-                data=payload,
-                headers=supabase_storage_headers(content_type="application/octet-stream", upsert=True),
-                method="POST",
-            )
-            try:
-                with urlopen(request, timeout=12):
-                    _SUPABASE_LAST_ERROR = ""
-                    _SUPABASE_LAST_SYNC_AT = utc_now().isoformat()
-                    return
-            except Exception:
-                continue
+        # Prefer bucket that already worked; otherwise try every candidate.
+        upload_buckets: list[str] = []
+        for b in (_SUPABASE_ACTIVE_BUCKET, SUPABASE_BUCKET, *supabase_bucket_candidates()):
+            if b and b not in upload_buckets:
+                upload_buckets.append(b)
+        for bucket in upload_buckets:
+            url = supabase_storage_object_url_for(bucket, SUPABASE_DB_OBJECT)
+            for _ in range(3):
+                request = Request(
+                    url,
+                    data=payload,
+                    headers=supabase_storage_headers(content_type="application/octet-stream", upsert=True),
+                    method="POST",
+                )
+                try:
+                    with urlopen(request, timeout=12):
+                        _SUPABASE_LAST_ERROR = ""
+                        _SUPABASE_LAST_SYNC_AT = utc_now().isoformat()
+                        _SUPABASE_ACTIVE_BUCKET = bucket
+                        return
+                except Exception:
+                    continue
         _SUPABASE_LAST_ERROR = "Supabase upload failed after retries"
 
 
@@ -1487,6 +1534,8 @@ def build_storage_health_payload() -> dict:
         "supabaseObject": SUPABASE_DB_OBJECT,
         "allowEmptyBootstrap": SUPABASE_ALLOW_EMPTY_BOOTSTRAP,
         "uploadAllowed": _SUPABASE_UPLOAD_ALLOWED,
+        "activeBucket": _SUPABASE_ACTIVE_BUCKET,
+        "bucketCandidates": supabase_bucket_candidates(),
         "lastDownloadNotFound": _SUPABASE_LAST_DOWNLOAD_NOT_FOUND,
         "lastSyncAt": _SUPABASE_LAST_SYNC_AT,
         "lastError": _SUPABASE_LAST_ERROR,
