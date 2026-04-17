@@ -409,6 +409,91 @@ def store_chat_message(sender_role: str, sender_name: str, message: str):
     return True
 
 
+def telegram_chat_id_for_role(role: str, config: dict | None = None) -> str:
+    cfg = config or get_telegram_config()
+    if role == "owner":
+        return cfg["owner_chat_id"]
+    if role == "mechanic":
+        return cfg["mechanic_chat_id"]
+    return ""
+
+
+def telegram_notify_role(role: str, text: str, config: dict | None = None):
+    cfg = config or get_telegram_config()
+    if not telegram_is_enabled(cfg):
+        return
+    chat_id = telegram_chat_id_for_role(role, cfg)
+    if not chat_id:
+        return
+    telegram_send_message(chat_id, text, cfg)
+
+
+def get_setting_value(conn, key: str, default: str = "") -> str:
+    row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    if not row:
+        return default
+    return str(row["value"] or default)
+
+
+def set_setting_value(conn, key: str, value: str):
+    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+
+
+def inventory_alert_level(stock_value: int) -> int:
+    stock = int(stock_value or 0)
+    if stock <= 0:
+        return 2
+    if stock == 1:
+        return 1
+    return 0
+
+
+def notify_inventory_critical_if_needed(conn, part_name: str, stock_value: int):
+    part = normalize_inventory_name(part_name)
+    level = inventory_alert_level(stock_value)
+    setting_key = f"inventory_alert_level::{part}"
+    previous_level = int(get_setting_value(conn, setting_key, "0") or "0")
+    if previous_level == level:
+        return
+    set_setting_value(conn, setting_key, str(level))
+    if level == 0:
+        return
+    if level == 2:
+        message = f"Критичный остаток: {part} = 0. Нужна срочная закупка."
+    else:
+        message = f"Низкий остаток: {part} = 1. Запланируйте закупку."
+    telegram_notify_role("owner", f"Байк Сервис · Склад\n\n{message}")
+
+
+def is_difficult_repair(fault: str, issue: str, estimated_minutes: int, required_parts_text: str) -> bool:
+    minutes = int(estimated_minutes or 0)
+    if minutes >= 70:
+        return True
+    haystack = f"{str(fault or '').lower()} {str(issue or '').lower()}"
+    if re.search(r"неизвестн|не\s*понятн|не\s*ясн|диагност|сложн|замыкани|ошибк", haystack):
+        return True
+    parts_count = len(parse_required_parts_text(required_parts_text or ""))
+    return parts_count >= 3
+
+
+def notify_difficult_repair_if_needed(conn, work_order_id: int, bike_code: str, fault: str, issue: str, estimated_minutes: int, required_parts_text: str):
+    if not is_difficult_repair(fault, issue, estimated_minutes, required_parts_text):
+        return
+    setting_key = f"difficult_repair_notified::{work_order_id}"
+    if get_setting_value(conn, setting_key, "0") == "1":
+        return
+    set_setting_value(conn, setting_key, "1")
+    details = fault or issue or "сложная неисправность"
+    message = (
+        "Байк Сервис · Сложный ремонт\n\n"
+        f"Байк: {bike_code}\n"
+        f"Задача: {details}\n"
+        f"План: {int(estimated_minutes or 0)} мин\n"
+        "Рекомендуется контроль владельца."
+    )
+    telegram_notify_role("owner", message)
+
+
 def supabase_storage_object_url() -> str:
     bucket = quote(SUPABASE_BUCKET, safe="")
     obj = quote(SUPABASE_DB_OBJECT, safe="/")
@@ -1639,7 +1724,7 @@ class AppHandler(BaseHTTPRequestHandler):
 
             conn = get_db()
             existing = conn.execute(
-                "SELECT id FROM inventory WHERE name = ?",
+                "SELECT id, stock FROM inventory WHERE name = ?",
                 (name,),
             ).fetchone()
             if existing:
@@ -1647,11 +1732,13 @@ class AppHandler(BaseHTTPRequestHandler):
                     "UPDATE inventory SET stock = ?, min = ?, updated_at = ? WHERE id = ?",
                     (stock, minimum, utc_now().isoformat(), existing["id"]),
                 )
+                notify_inventory_critical_if_needed(conn, name, stock)
             else:
                 conn.execute(
                     "INSERT INTO inventory (name, stock, min, updated_at) VALUES (?, ?, ?, ?)",
                     (name, stock, minimum, utc_now().isoformat()),
                 )
+                notify_inventory_critical_if_needed(conn, name, stock)
             conn.commit()
             conn.close()
             return json_response(self, 201, {"ok": True})
@@ -1774,6 +1861,15 @@ class AppHandler(BaseHTTPRequestHandler):
                 (next_status, 1 if reservation["all_reserved"] else 0, estimated_ready_at, work_order_id),
             )
             set_bike_status(conn, bike_id, next_status)
+            notify_difficult_repair_if_needed(
+                conn,
+                int(work_order_id),
+                bike_code,
+                str(payload.get("fault", "")).strip(),
+                str(payload.get("symptoms", "")).strip(),
+                estimated_minutes,
+                required_parts_text,
+            )
             add_work_order_history(
                 conn,
                 work_order_id,
@@ -1905,6 +2001,12 @@ class AppHandler(BaseHTTPRequestHandler):
                         "UPDATE work_order_parts SET qty_used = qty_required WHERE work_order_id = ? AND part_name = ?",
                         (work_order_id, part["part_name"]),
                     )
+                    updated_item = conn.execute(
+                        "SELECT stock FROM inventory WHERE name = ?",
+                        (part["part_name"],),
+                    ).fetchone()
+                    current_stock = int(updated_item["stock"] or 0) if updated_item else 0
+                    notify_inventory_critical_if_needed(conn, part["part_name"], current_stock)
                 repair_id = order["completed_repair_id"]
                 if repair_id is None:
                     repair_cursor = conn.execute(
@@ -2096,6 +2198,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 "UPDATE inventory SET name = ?, stock = ?, min = ?, updated_at = ? WHERE id = ?",
                 (name, stock, minimum, utc_now().isoformat(), inventory_id),
             )
+            notify_inventory_critical_if_needed(conn, name, stock)
             conn.commit()
             conn.close()
             return json_response(self, 200, {"ok": True})
