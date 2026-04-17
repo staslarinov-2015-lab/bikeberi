@@ -10,3 +10,7 @@ services:
     branch: main
     autoDeployTrigger: commit
     healthCheckPath: /
+    disk:
+      name: bikeberi-data
+      mountPath: /data
+      sizeGB: 1
