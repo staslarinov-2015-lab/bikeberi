@@ -337,6 +337,15 @@ textarea {
   color: var(--accent);
 }
 
+button.topbar-pill {
+  margin: 0;
+  font: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
 .mobile-nav-overlay,
 .mobile-menu-toggle {
   display: none;
@@ -1891,6 +1900,10 @@ tbody tr:hover {
 
 .profile-name-display {
   font-weight: 600;
+}
+
+.profile-password-btn {
+  margin-top: 12px;
 }
 
 .team-chat-list {

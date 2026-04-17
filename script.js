@@ -452,6 +452,7 @@ const profilePhoneDisplay = document.getElementById("profile-phone-display");
 const profileTelegramDisplay = document.getElementById("profile-telegram-display");
 const profilePositionDisplay = document.getElementById("profile-position-display");
 const profileAvatar = document.getElementById("profile-avatar");
+const profileOpenPasswordButton = document.getElementById("profile-open-password");
 const logoutButton = document.getElementById("logout-button");
 const repairOverlay = document.getElementById("repair-overlay");
 const inventoryOverlay = document.getElementById("inventory-overlay");
@@ -2313,14 +2314,25 @@ logoutButton.addEventListener("click", async () => {
   }
 });
 
-accountButton.addEventListener("click", () => {
+function openPasswordModal() {
   passwordError.classList.add("hidden");
   passwordMessage.classList.add("hidden");
   passwordForm.reset();
   accountOverlay.classList.remove("hidden");
-});
+}
+
+accountButton.addEventListener("click", openPasswordModal);
+
+profileOpenPasswordButton?.addEventListener("click", openPasswordModal);
 
 currentUser?.addEventListener("click", () => {
+  state.activeSection = "profile";
+  closeMobileMenu();
+  render();
+});
+
+topbarRolePill?.addEventListener("click", () => {
+  if (!state.user) return;
   state.activeSection = "profile";
   closeMobileMenu();
   render();
