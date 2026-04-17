@@ -56,10 +56,6 @@ def resolve_db_path() -> Path:
 
 DB_PATH = resolve_db_path()
 SEED_SQL_PATH = BASE_DIR / "seed_dump.sql"
-TELEGRAM_BOT_TOKEN = os.environ.get("BIKEBERI_TELEGRAM_BOT_TOKEN", "").strip()
-TELEGRAM_WEBHOOK_SECRET = os.environ.get("BIKEBERI_TELEGRAM_WEBHOOK_SECRET", "").strip()
-TELEGRAM_OWNER_CHAT_ID = os.environ.get("BIKEBERI_TELEGRAM_OWNER_CHAT_ID", "").strip()
-TELEGRAM_MECHANIC_CHAT_ID = os.environ.get("BIKEBERI_TELEGRAM_MECHANIC_CHAT_ID", "").strip()
 
 BIKE_STATUSES = {
     "в аренде",
@@ -294,40 +290,70 @@ def read_json(handler):
         return {}
 
 
-def telegram_is_enabled() -> bool:
-    return bool(
-        TELEGRAM_BOT_TOKEN
-        and TELEGRAM_WEBHOOK_SECRET
-        and TELEGRAM_OWNER_CHAT_ID
-        and TELEGRAM_MECHANIC_CHAT_ID
-    )
+def get_telegram_config() -> dict:
+    config = {
+        "token": os.environ.get("BIKEBERI_TELEGRAM_BOT_TOKEN", "").strip(),
+        "secret": os.environ.get("BIKEBERI_TELEGRAM_WEBHOOK_SECRET", "").strip(),
+        "owner_chat_id": os.environ.get("BIKEBERI_TELEGRAM_OWNER_CHAT_ID", "").strip(),
+        "mechanic_chat_id": os.environ.get("BIKEBERI_TELEGRAM_MECHANIC_CHAT_ID", "").strip(),
+    }
+    if all(config.values()):
+        return config
+    try:
+        conn = get_db()
+        rows = {
+            row["key"]: str(row["value"] or "").strip()
+            for row in conn.execute(
+                "SELECT key, value FROM settings WHERE key IN ('telegram_bot_token', 'telegram_webhook_secret', 'telegram_owner_chat_id', 'telegram_mechanic_chat_id')"
+            ).fetchall()
+        }
+        conn.close()
+    except Exception:
+        rows = {}
+    if not config["token"]:
+        config["token"] = rows.get("telegram_bot_token", "")
+    if not config["secret"]:
+        config["secret"] = rows.get("telegram_webhook_secret", "")
+    if not config["owner_chat_id"]:
+        config["owner_chat_id"] = rows.get("telegram_owner_chat_id", "")
+    if not config["mechanic_chat_id"]:
+        config["mechanic_chat_id"] = rows.get("telegram_mechanic_chat_id", "")
+    return config
 
 
-def telegram_chat_role(chat_id_raw: str) -> str:
+def telegram_is_enabled(config: dict | None = None) -> bool:
+    cfg = config or get_telegram_config()
+    return bool(cfg["token"] and cfg["secret"] and cfg["owner_chat_id"] and cfg["mechanic_chat_id"])
+
+
+def telegram_chat_role(chat_id_raw: str, config: dict | None = None) -> str:
+    cfg = config or get_telegram_config()
     chat_id = str(chat_id_raw).strip()
-    if chat_id == TELEGRAM_OWNER_CHAT_ID:
+    if chat_id == cfg["owner_chat_id"]:
         return "owner"
-    if chat_id == TELEGRAM_MECHANIC_CHAT_ID:
+    if chat_id == cfg["mechanic_chat_id"]:
         return "mechanic"
     return ""
 
 
-def telegram_target_chat_for_sender(sender_role: str) -> str:
+def telegram_target_chat_for_sender(sender_role: str, config: dict | None = None) -> str:
+    cfg = config or get_telegram_config()
     if sender_role == "owner":
-        return TELEGRAM_MECHANIC_CHAT_ID
+        return cfg["mechanic_chat_id"]
     if sender_role == "mechanic":
-        return TELEGRAM_OWNER_CHAT_ID
+        return cfg["owner_chat_id"]
     return ""
 
 
-def telegram_send_message(chat_id_raw: str, text: str):
+def telegram_send_message(chat_id_raw: str, text: str, config: dict | None = None):
+    cfg = config or get_telegram_config()
     chat_id = str(chat_id_raw or "").strip()
     message = str(text or "").strip()
-    if not chat_id or not message or not TELEGRAM_BOT_TOKEN:
+    if not chat_id or not message or not cfg["token"]:
         return
     payload = json.dumps({"chat_id": chat_id, "text": message}).encode("utf-8")
     request = Request(
-        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+        f"https://api.telegram.org/bot{cfg['token']}/sendMessage",
         data=payload,
         headers={"Content-Type": "application/json"},
         method="POST",
@@ -341,14 +367,15 @@ def telegram_send_message(chat_id_raw: str, text: str):
 
 
 def mirror_internal_chat_to_telegram(sender_role: str, sender_name: str, message: str):
-    if not telegram_is_enabled():
+    config = get_telegram_config()
+    if not telegram_is_enabled(config):
         return
-    target_chat_id = telegram_target_chat_for_sender(sender_role)
+    target_chat_id = telegram_target_chat_for_sender(sender_role, config)
     if not target_chat_id:
         return
     role_label = "Управляющий" if sender_role == "owner" else "Механик"
     text = f"Байк Сервис · {role_label}\n{sender_name}\n\n{message}"
-    telegram_send_message(target_chat_id, text)
+    telegram_send_message(target_chat_id, text, config)
 
 
 def store_chat_message(sender_role: str, sender_name: str, message: str):
@@ -760,13 +787,25 @@ def init_db():
     if settings_count == 0:
         cur.executemany(
             "INSERT INTO settings (key, value) VALUES (?, ?)",
-            [("total_bikes", "40"), ("target_rate", "95"), ("mechanic_focus", "оперативка")],
+            [
+                ("total_bikes", "40"),
+                ("target_rate", "95"),
+                ("mechanic_focus", "оперативка"),
+                ("telegram_bot_token", ""),
+                ("telegram_webhook_secret", ""),
+                ("telegram_owner_chat_id", ""),
+                ("telegram_mechanic_chat_id", ""),
+            ],
         )
     else:
-        cur.execute(
-            "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+        for key, value in [
             ("mechanic_focus", "оперативка"),
-        )
+            ("telegram_bot_token", ""),
+            ("telegram_webhook_secret", ""),
+            ("telegram_owner_chat_id", ""),
+            ("telegram_mechanic_chat_id", ""),
+        ]:
+            cur.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (key, value))
 
     # Keep historical/service/chat data intact across application updates.
     # Never run destructive startup cleanup here.
@@ -1341,10 +1380,11 @@ class AppHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
 
         if parsed.path.startswith("/api/telegram/webhook/"):
-            if not telegram_is_enabled():
+            config = get_telegram_config()
+            if not telegram_is_enabled(config):
                 return text_response(self, 404, "Not found")
             provided_secret = parsed.path.rsplit("/", 1)[-1].strip()
-            if not provided_secret or provided_secret != TELEGRAM_WEBHOOK_SECRET:
+            if not provided_secret or provided_secret != config["secret"]:
                 return text_response(self, 403, "Forbidden")
             payload = read_json(self)
             message_obj = payload.get("message") or payload.get("edited_message") or {}
@@ -1352,13 +1392,38 @@ class AppHandler(BaseHTTPRequestHandler):
             chat_id = str((message_obj.get("chat") or {}).get("id", "")).strip()
             if not text or not chat_id:
                 return json_response(self, 200, {"ok": True})
-            sender_role = telegram_chat_role(chat_id)
+            sender_role = telegram_chat_role(chat_id, config)
             if not sender_role:
                 return json_response(self, 200, {"ok": True})
             sender_name = "Управляющий" if sender_role == "owner" else "Механик"
             if store_chat_message(sender_role, sender_name, text):
                 return json_response(self, 200, {"ok": True})
             return json_response(self, 400, {"error": "Сообщение не сохранено"})
+
+        if parsed.path == "/api/telegram/webhook/register":
+            user = require_role(self, {"owner"})
+            if not user:
+                return
+            config = get_telegram_config()
+            if not telegram_is_enabled(config):
+                return json_response(self, 400, {"error": "Сначала заполните Telegram настройки"})
+            host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or ""
+            if not host:
+                return json_response(self, 400, {"error": "Не удалось определить хост для webhook"})
+            webhook_url = f"https://{host}/api/telegram/webhook/{config['secret']}"
+            payload = json.dumps({"url": webhook_url}).encode("utf-8")
+            request = Request(
+                f"https://api.telegram.org/bot{config['token']}/setWebhook",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            try:
+                with urlopen(request, timeout=10) as response:
+                    telegram_result = json.loads(response.read().decode("utf-8"))
+            except Exception:
+                return json_response(self, 502, {"error": "Не удалось зарегистрировать webhook в Telegram"})
+            return json_response(self, 200, {"ok": True, "webhookUrl": webhook_url, "telegram": telegram_result})
 
         if parsed.path == "/api/login":
             payload = read_json(self)
@@ -2023,6 +2088,35 @@ class AppHandler(BaseHTTPRequestHandler):
             conn.execute("UPDATE settings SET value = ? WHERE key = 'total_bikes'", (str(total_bikes),))
             conn.execute("UPDATE settings SET value = ? WHERE key = 'target_rate'", (str(target_rate),))
             conn.execute("UPDATE settings SET value = ? WHERE key = 'mechanic_focus'", (mechanic_focus,))
+            conn.commit()
+            conn.close()
+            return json_response(self, 200, {"ok": True})
+
+        if parsed.path == "/api/telegram/settings":
+            user = require_role(self, {"owner"})
+            if not user:
+                return
+            payload = read_json(self)
+            token = str(payload.get("botToken", "")).strip()
+            webhook_secret = str(payload.get("webhookSecret", "")).strip()
+            owner_chat_id = str(payload.get("ownerChatId", "")).strip()
+            mechanic_chat_id = str(payload.get("mechanicChatId", "")).strip()
+            if not token or ":" not in token:
+                return json_response(self, 400, {"error": "Некорректный BOT token"})
+            if len(webhook_secret) < 12:
+                return json_response(self, 400, {"error": "Webhook secret должен быть не короче 12 символов"})
+            if not owner_chat_id or not owner_chat_id.lstrip("-").isdigit():
+                return json_response(self, 400, {"error": "ownerChatId должен быть числом"})
+            if not mechanic_chat_id or not mechanic_chat_id.lstrip("-").isdigit():
+                return json_response(self, 400, {"error": "mechanicChatId должен быть числом"})
+            conn = get_db()
+            for key, value in [
+                ("telegram_bot_token", token),
+                ("telegram_webhook_secret", webhook_secret),
+                ("telegram_owner_chat_id", owner_chat_id),
+                ("telegram_mechanic_chat_id", mechanic_chat_id),
+            ]:
+                conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
             conn.commit()
             conn.close()
             return json_response(self, 200, {"ok": True})
