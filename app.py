@@ -1468,9 +1468,9 @@ class AppHandler(BaseHTTPRequestHandler):
             return self.serve_file("logo_blue.svg", "image/svg+xml; charset=utf-8", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/logo_orange.png":
             return self.serve_file("logo_orange.png", "image/png", cache_control="public, max-age=31536000, immutable")
-        if parsed.path == "/0F3E40D1-669A-4A7D-8A92-B59030ECB53B.PNG":
+        if parsed.path == "/2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG":
             return self.serve_file(
-                "0F3E40D1-669A-4A7D-8A92-B59030ECB53B.PNG",
+                "2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG",
                 "image/png",
                 cache_control="public, max-age=31536000, immutable",
             )
@@ -1478,7 +1478,7 @@ class AppHandler(BaseHTTPRequestHandler):
             return self.serve_file("bike-scooter.svg", "image/svg+xml; charset=utf-8", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/favicon.ico":
             return self.serve_file(
-                "0F3E40D1-669A-4A7D-8A92-B59030ECB53B.PNG",
+                "2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG",
                 "image/png",
                 cache_control="public, max-age=31536000, immutable",
             )
@@ -1528,9 +1528,9 @@ class AppHandler(BaseHTTPRequestHandler):
                 cache_control="public, max-age=31536000, immutable",
                 send_body=False,
             )
-        if parsed.path == "/0F3E40D1-669A-4A7D-8A92-B59030ECB53B.PNG":
+        if parsed.path == "/2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG":
             return self.serve_file(
-                "0F3E40D1-669A-4A7D-8A92-B59030ECB53B.PNG",
+                "2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG",
                 "image/png",
                 cache_control="public, max-age=31536000, immutable",
                 send_body=False,
@@ -1544,7 +1544,7 @@ class AppHandler(BaseHTTPRequestHandler):
             )
         if parsed.path == "/favicon.ico":
             return self.serve_file(
-                "0F3E40D1-669A-4A7D-8A92-B59030ECB53B.PNG",
+                "2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG",
                 "image/png",
                 cache_control="public, max-age=31536000, immutable",
                 send_body=False,
@@ -2438,8 +2438,8 @@ class AppHandler(BaseHTTPRequestHandler):
             .replace("./logo_blue.svg", f"./logo_blue.svg?v={get_asset_version('logo_blue.svg')}")
             .replace("./logo_orange.png", f"./logo_orange.png?v={get_asset_version('logo_orange.png')}")
             .replace(
-                "/0F3E40D1-669A-4A7D-8A92-B59030ECB53B.PNG",
-                f"/0F3E40D1-669A-4A7D-8A92-B59030ECB53B.PNG?v={get_asset_version('0F3E40D1-669A-4A7D-8A92-B59030ECB53B.PNG')}",
+                "/2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG",
+                f"/2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG?v={get_asset_version('2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG')}",
             )
             .encode("utf-8")
         )
