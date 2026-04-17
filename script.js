@@ -710,14 +710,22 @@ function renderIssueChecklist() {
 }
 
 async function api(path, options = {}) {
-  const response = await fetch(path, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    credentials: "same-origin",
-    ...options,
-  });
+  const { notifyError, ...fetchOptions } = options;
+  let response;
+  try {
+    response = await fetch(path, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(fetchOptions.headers || {}),
+      },
+      credentials: "same-origin",
+      ...fetchOptions,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Сеть недоступна";
+    if (notifyError) window.alert(message);
+    throw new Error(message);
+  }
 
   const contentType = response.headers.get("content-type") || "";
   const payload = contentType.includes("application/json")
@@ -729,6 +737,7 @@ async function api(path, options = {}) {
       typeof payload === "object" && payload && payload.error
         ? payload.error
         : "Ошибка запроса";
+    if (notifyError) window.alert(message);
     throw new Error(message);
   }
 
@@ -2480,17 +2489,22 @@ issueChecklistStatus?.addEventListener("click", async () => {
   const isComplete = items.every((item) => Boolean(state.issueChecklist.checked[item.id]));
   if (!isComplete || !state.issueChecklist.pendingWorkOrderId) return;
 
-  await api(`/api/work-orders/${state.issueChecklist.pendingWorkOrderId}/transition`, {
-    method: "POST",
-    body: JSON.stringify({ action: "complete_checklist" }),
-  });
+  try {
+    await api(`/api/work-orders/${state.issueChecklist.pendingWorkOrderId}/transition`, {
+      method: "POST",
+      body: JSON.stringify({ action: "complete_checklist" }),
+      notifyError: true,
+    });
 
-  state.issueChecklist.completedAt = new Date().toLocaleString("ru-RU");
-  state.issueChecklist.pendingWorkOrderId = "";
-  saveIssueChecklistDraft();
-  await bootstrap();
-  state.activeSection = "repairs";
-  render();
+    state.issueChecklist.completedAt = new Date().toLocaleString("ru-RU");
+    state.issueChecklist.pendingWorkOrderId = "";
+    saveIssueChecklistDraft();
+    await bootstrap();
+    state.activeSection = "repairs";
+    render();
+  } catch {
+    // Ошибка уже показана через notifyError в api()
+  }
 });
 
 resetIssueChecklistButton?.addEventListener("click", () => {
@@ -2558,26 +2572,31 @@ repairForm?.addEventListener("submit", async (event) => {
     return;
   }
 
-  await api(editingId ? `/api/repairs/${editingId}` : "/api/repairs", {
-    method: editingId ? "PUT" : "POST",
-    body: JSON.stringify({
-      date: formData.get("date") || new Date().toISOString().slice(0, 10),
-      bike: bikeCode,
-      issue: String(formData.get("issue")).trim(),
-      work: String(formData.get("work")).trim(),
-      parts_used: String(formData.get("partsUsed")).trim() || "-",
-      needed_parts: String(formData.get("neededParts")).trim() || "-",
-      status: String(formData.get("status")),
-    }),
-  });
+  try {
+    await api(editingId ? `/api/repairs/${editingId}` : "/api/repairs", {
+      method: editingId ? "PUT" : "POST",
+      body: JSON.stringify({
+        date: formData.get("date") || new Date().toISOString().slice(0, 10),
+        bike: bikeCode,
+        issue: String(formData.get("issue")).trim(),
+        work: String(formData.get("work")).trim(),
+        parts_used: String(formData.get("partsUsed")).trim() || "-",
+        needed_parts: String(formData.get("neededParts")).trim() || "-",
+        status: String(formData.get("status")),
+      }),
+      notifyError: true,
+    });
 
-  repairForm.reset();
-  resetBikeCodeValue("repair");
-  delete repairForm.dataset.editId;
-  repairOverlay.classList.add("hidden");
-  state.repairDraftFromDiagnostic = null;
-  state.activeSection = "repairs";
-  await bootstrap();
+    repairForm.reset();
+    resetBikeCodeValue("repair");
+    delete repairForm.dataset.editId;
+    repairOverlay.classList.add("hidden");
+    state.repairDraftFromDiagnostic = null;
+    state.activeSection = "repairs";
+    await bootstrap();
+  } catch {
+    // Ошибка уже показана через notifyError в api()
+  }
 });
 
 inventoryForm.addEventListener("submit", async (event) => {
@@ -2599,6 +2618,7 @@ inventoryForm.addEventListener("submit", async (event) => {
         name: String(formData.get("name")).trim(),
         stock: Number(formData.get("stock")),
       }),
+      notifyError: true,
     });
 
     inventoryForm.reset();
@@ -2606,9 +2626,8 @@ inventoryForm.addEventListener("submit", async (event) => {
     inventoryOverlay.classList.add("hidden");
     state.activeSection = "inventory";
     await bootstrap();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Не удалось сохранить позицию";
-    window.alert(message);
+  } catch {
+    // Ошибка уже показана через notifyError в api()
   } finally {
     if (submitButton) {
       submitButton.disabled = false;
@@ -2629,22 +2648,27 @@ bikeForm?.addEventListener("submit", async (event) => {
     return;
   }
 
-  await api(editingId ? `/api/bikes/${editingId}` : "/api/bikes", {
-    method: editingId ? "PUT" : "POST",
-    body: JSON.stringify({
-      code: bikeCode,
-      model: String(formData.get("model")).trim() || "Wenbox U2",
-      status: String(formData.get("status")).trim(),
-      notes: String(formData.get("notes")).trim(),
-    }),
-  });
+  try {
+    await api(editingId ? `/api/bikes/${editingId}` : "/api/bikes", {
+      method: editingId ? "PUT" : "POST",
+      body: JSON.stringify({
+        code: bikeCode,
+        model: String(formData.get("model")).trim() || "Wenbox U2",
+        status: String(formData.get("status")).trim(),
+        notes: String(formData.get("notes")).trim(),
+      }),
+      notifyError: true,
+    });
 
-  bikeForm.reset();
-  resetBikeCodeValue("bike");
-  delete bikeForm.dataset.editId;
-  bikeOverlay?.classList.add("hidden");
-  state.activeSection = "bikes";
-  await bootstrap();
+    bikeForm.reset();
+    resetBikeCodeValue("bike");
+    delete bikeForm.dataset.editId;
+    bikeOverlay?.classList.add("hidden");
+    state.activeSection = "bikes";
+    await bootstrap();
+  } catch {
+    // Ошибка уже показана через notifyError в api()
+  }
 });
 
 diagnosticForm.addEventListener("submit", async (event) => {
@@ -2659,26 +2683,31 @@ diagnosticForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  await api(editingId ? `/api/diagnostics/${editingId}` : "/api/diagnostics", {
-    method: editingId ? "PUT" : "POST",
-    body: JSON.stringify({
-      date: formData.get("date") || new Date().toISOString().slice(0, 10),
-      bike: bikeCode,
-      mechanicName: String(formData.get("mechanicName")).trim(),
-      category: String(formData.get("category")).trim(),
-      fault: String(formData.get("fault")).trim(),
-      symptoms: String(formData.get("symptoms")).trim(),
-      conclusion: String(formData.get("conclusion")).trim(),
-      severity: "Средняя",
-      recommendation: "Плановый ремонт",
-      required_parts_text: String(formData.get("requiredParts")).trim(),
-    }),
-  });
+  try {
+    await api(editingId ? `/api/diagnostics/${editingId}` : "/api/diagnostics", {
+      method: editingId ? "PUT" : "POST",
+      body: JSON.stringify({
+        date: formData.get("date") || new Date().toISOString().slice(0, 10),
+        bike: bikeCode,
+        mechanicName: String(formData.get("mechanicName")).trim(),
+        category: String(formData.get("category")).trim(),
+        fault: String(formData.get("fault")).trim(),
+        symptoms: String(formData.get("symptoms")).trim(),
+        conclusion: String(formData.get("conclusion")).trim(),
+        severity: "Средняя",
+        recommendation: "Плановый ремонт",
+        required_parts_text: String(formData.get("requiredParts")).trim(),
+      }),
+      notifyError: true,
+    });
 
-  resetDiagnosticFlow();
-  diagnosticOverlay.classList.add("hidden");
-  state.activeSection = "diagnostics";
-  await bootstrap();
+    resetDiagnosticFlow();
+    diagnosticOverlay.classList.add("hidden");
+    state.activeSection = "diagnostics";
+    await bootstrap();
+  } catch {
+    // Ошибка уже показана через notifyError в api()
+  }
 });
 
 passwordForm.addEventListener("submit", async (event) => {
@@ -2709,15 +2738,20 @@ if (settingsForm) {
   settingsForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(settingsForm);
-    await api("/api/settings", {
-      method: "PUT",
-      body: JSON.stringify({
-        totalBikes: Number(formData.get("totalBikes")),
-        targetRate: Number(formData.get("targetRate")),
-        mechanicFocus: String(formData.get("mechanicFocus") || "").trim(),
-      }),
-    });
-    await bootstrap();
+    try {
+      await api("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          totalBikes: Number(formData.get("totalBikes")),
+          targetRate: Number(formData.get("targetRate")),
+          mechanicFocus: String(formData.get("mechanicFocus") || "").trim(),
+        }),
+        notifyError: true,
+      });
+      await bootstrap();
+    } catch {
+      // Ошибка уже показана через notifyError в api()
+    }
   });
 }
 
@@ -2725,17 +2759,22 @@ if (ownerPriorityForm) {
   ownerPriorityForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(ownerPriorityForm);
-    await api("/api/owner/assign-priority", {
-      method: "POST",
-      body: JSON.stringify({
-        bikeCode: String(formData.get("bikeCode") || "").trim().toUpperCase(),
-        priority: String(formData.get("priority") || "обычный").trim(),
-        ownerNote: String(formData.get("ownerNote") || "").trim(),
-      }),
-    });
-    ownerPriorityForm.reset();
-    if (ownerPriorityForm.elements.priority) ownerPriorityForm.elements.priority.value = "обычный";
-    await bootstrap();
+    try {
+      await api("/api/owner/assign-priority", {
+        method: "POST",
+        body: JSON.stringify({
+          bikeCode: String(formData.get("bikeCode") || "").trim().toUpperCase(),
+          priority: String(formData.get("priority") || "обычный").trim(),
+          ownerNote: String(formData.get("ownerNote") || "").trim(),
+        }),
+        notifyError: true,
+      });
+      ownerPriorityForm.reset();
+      if (ownerPriorityForm.elements.priority) ownerPriorityForm.elements.priority.value = "обычный";
+      await bootstrap();
+    } catch {
+      // Ошибка уже показана через notifyError в api()
+    }
   });
 }
 
@@ -2743,14 +2782,19 @@ if (teamChatForm) {
   teamChatForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(teamChatForm);
-    await api("/api/team-chat", {
-      method: "POST",
-      body: JSON.stringify({
-        message: String(formData.get("message") || "").trim(),
-      }),
-    });
-    teamChatForm.reset();
-    await bootstrap();
+    try {
+      await api("/api/team-chat", {
+        method: "POST",
+        body: JSON.stringify({
+          message: String(formData.get("message") || "").trim(),
+        }),
+        notifyError: true,
+      });
+      teamChatForm.reset();
+      await bootstrap();
+    } catch {
+      // Ошибка уже показана через notifyError в api()
+    }
   });
 }
 
@@ -2760,20 +2804,25 @@ if (profileForm) {
     profileMessage.classList.add("hidden");
 
     const formData = new FormData(profileForm);
-    const payload = await api("/api/profile", {
-      method: "PUT",
-      body: JSON.stringify({
-        fullName: String(formData.get("fullName")).trim(),
-        position: String(formData.get("position")).trim(),
-        phone: String(formData.get("phone")).trim(),
-        telegram: String(formData.get("telegram")).trim(),
-        notes: String(formData.get("notes")).trim(),
-      }),
-    });
+    try {
+      const payload = await api("/api/profile", {
+        method: "PUT",
+        body: JSON.stringify({
+          fullName: String(formData.get("fullName")).trim(),
+          position: String(formData.get("position")).trim(),
+          phone: String(formData.get("phone")).trim(),
+          telegram: String(formData.get("telegram")).trim(),
+          notes: String(formData.get("notes")).trim(),
+        }),
+        notifyError: true,
+      });
 
-    profileMessage.textContent = payload.message;
-    profileMessage.classList.remove("hidden");
-    await bootstrap();
+      profileMessage.textContent = payload.message;
+      profileMessage.classList.remove("hidden");
+      await bootstrap();
+    } catch {
+      // Ошибка уже показана через notifyError в api()
+    }
   });
 }
 
@@ -2830,8 +2879,12 @@ document.addEventListener("click", async (event) => {
 
   if (action === "delete-repair") {
     if (!window.confirm("Удалить эту запись ремонта?")) return;
-    await api(`/api/repairs/${id}`, { method: "DELETE", headers: {} });
-    await bootstrap();
+    try {
+      await api(`/api/repairs/${id}`, { method: "DELETE", headers: {}, notifyError: true });
+      await bootstrap();
+    } catch {
+      // Ошибка уже показана через notifyError в api()
+    }
   }
 
   if (action === "open-inventory-item") {
@@ -2847,8 +2900,12 @@ document.addEventListener("click", async (event) => {
 
   if (action === "delete-inventory-item") {
     if (!window.confirm("Удалить эту запчасть со склада?")) return;
-    await api(`/api/inventory/${id}`, { method: "DELETE", headers: {} });
-    await bootstrap();
+    try {
+      await api(`/api/inventory/${id}`, { method: "DELETE", headers: {}, notifyError: true });
+      await bootstrap();
+    } catch {
+      // Ошибка уже показана через notifyError в api()
+    }
   }
 
   if (action === "edit-diagnostic") {
@@ -2875,8 +2932,12 @@ document.addEventListener("click", async (event) => {
 
   if (action === "delete-diagnostic") {
     if (!window.confirm("Удалить эту диагностическую запись?")) return;
-    await api(`/api/diagnostics/${id}`, { method: "DELETE", headers: {} });
-    await bootstrap();
+    try {
+      await api(`/api/diagnostics/${id}`, { method: "DELETE", headers: {}, notifyError: true });
+      await bootstrap();
+    } catch {
+      // Ошибка уже показана через notifyError в api()
+    }
   }
 
   if (action === "create-repair-from-diagnostic") {
@@ -2921,22 +2982,31 @@ document.addEventListener("click", async (event) => {
     const bike = state.bikes.find((entry) => String(entry.id) === id);
     const statusSelect = document.querySelector(`[data-bike-status-id="${id}"]`);
     if (!bike || !statusSelect) return;
-    await api(`/api/bikes/${id}`, {
-      method: "PUT",
-      body: JSON.stringify({
-        code: bike.code,
-        model: bike.model || "Wenbox U2",
-        status: String(statusSelect.value).trim(),
-        notes: bike.notes || "",
-      }),
-    });
-    await bootstrap();
+    try {
+      await api(`/api/bikes/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          code: bike.code,
+          model: bike.model || "Wenbox U2",
+          status: String(statusSelect.value).trim(),
+          notes: bike.notes || "",
+        }),
+        notifyError: true,
+      });
+      await bootstrap();
+    } catch {
+      // Ошибка уже показана через notifyError в api()
+    }
   }
 
   if (action === "delete-bike") {
     if (!window.confirm("Удалить этот байк из парка? Связанные активные заявки по нему тоже будут удалены.")) return;
-    await api(`/api/bikes/${id}`, { method: "DELETE", headers: {} });
-    await bootstrap();
+    try {
+      await api(`/api/bikes/${id}`, { method: "DELETE", headers: {}, notifyError: true });
+      await bootstrap();
+    } catch {
+      // Ошибка уже показана через notifyError в api()
+    }
   }
 
   if (action === "open-work-order") {
@@ -2954,16 +3024,21 @@ document.addEventListener("click", async (event) => {
     if (action === "work-order-start") {
       await ensureNotificationPermission();
     }
-    await api(`/api/work-orders/${id}/transition`, {
-      method: "POST",
-      body: JSON.stringify({ action: actionMap[action] }),
-    });
-    await bootstrap();
-    if (action === "work-order-ready") {
-      const movedOrder = state.workOrders.find((entry) => String(entry.id) === String(id));
-      if (movedOrder && movedOrder.status === "проверка") {
-        startIssueChecklistForOrder(movedOrder);
+    try {
+      await api(`/api/work-orders/${id}/transition`, {
+        method: "POST",
+        body: JSON.stringify({ action: actionMap[action] }),
+        notifyError: true,
+      });
+      await bootstrap();
+      if (action === "work-order-ready") {
+        const movedOrder = state.workOrders.find((entry) => String(entry.id) === String(id));
+        if (movedOrder && movedOrder.status === "проверка") {
+          startIssueChecklistForOrder(movedOrder);
+        }
       }
+    } catch {
+      // Ошибка уже показана через notifyError в api()
     }
   }
 
