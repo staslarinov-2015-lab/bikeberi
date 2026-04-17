@@ -63,8 +63,11 @@ SUPABASE_SERVICE_ROLE_KEY = os.environ.get("BIKEBERI_SUPABASE_SERVICE_ROLE_KEY",
 SUPABASE_BUCKET = os.environ.get("BIKEBERI_SUPABASE_BUCKET", "bikeberi-data").strip() or "bikeberi-data"
 SUPABASE_DB_OBJECT = os.environ.get("BIKEBERI_SUPABASE_DB_OBJECT", "app.db").strip() or "app.db"
 SUPABASE_DB_SYNC_ENABLED = bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)
+SUPABASE_ALLOW_EMPTY_BOOTSTRAP = os.environ.get("BIKEBERI_SUPABASE_ALLOW_EMPTY_BOOTSTRAP", "false").strip().lower() == "true"
 _SUPABASE_SYNC_LOCK = threading.Lock()
 _SUPABASE_UPLOAD_ALLOWED = not SUPABASE_DB_SYNC_ENABLED
+_SUPABASE_LAST_ERROR = ""
+_SUPABASE_LAST_SYNC_AT = ""
 ALLOW_DEMO_SEED = os.environ.get("BIKEBERI_ALLOW_DEMO_SEED", "false").strip().lower() == "true"
 
 BIKE_STATUSES = {
@@ -517,7 +520,7 @@ def supabase_storage_headers(content_type: str | None = None, upsert: bool = Fal
 
 
 def supabase_download_db_if_any() -> bool:
-    global _SUPABASE_UPLOAD_ALLOWED
+    global _SUPABASE_UPLOAD_ALLOWED, _SUPABASE_LAST_ERROR, _SUPABASE_LAST_SYNC_AT
     if not SUPABASE_DB_SYNC_ENABLED:
         return False
     url = supabase_storage_object_url()
@@ -527,22 +530,29 @@ def supabase_download_db_if_any() -> bool:
             payload = response.read()
     except HTTPError as error:
         if error.code == 404:
-            # First launch: object does not exist yet, allow future uploads.
-            _SUPABASE_UPLOAD_ALLOWED = True
-        # For non-404 errors we keep upload locked to avoid overwriting remote on transient failures.
+            _SUPABASE_LAST_ERROR = f"Supabase DB object not found: {SUPABASE_BUCKET}/{SUPABASE_DB_OBJECT}"
+            if SUPABASE_ALLOW_EMPTY_BOOTSTRAP:
+                # Explicitly allowed first launch for empty bootstrap.
+                _SUPABASE_UPLOAD_ALLOWED = True
+            return False
+        _SUPABASE_LAST_ERROR = f"Supabase download HTTP error: {error.code}"
         return False
     except Exception:
+        _SUPABASE_LAST_ERROR = "Supabase download failed (network/credentials)"
         return False
     if not payload:
-        _SUPABASE_UPLOAD_ALLOWED = True
+        _SUPABASE_LAST_ERROR = "Supabase download returned empty payload"
         return False
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     DB_PATH.write_bytes(payload)
     _SUPABASE_UPLOAD_ALLOWED = True
+    _SUPABASE_LAST_ERROR = ""
+    _SUPABASE_LAST_SYNC_AT = utc_now().isoformat()
     return True
 
 
 def supabase_upload_db_snapshot():
+    global _SUPABASE_LAST_ERROR, _SUPABASE_LAST_SYNC_AT
     if not SUPABASE_DB_SYNC_ENABLED or not _SUPABASE_UPLOAD_ALLOWED or not DB_PATH.exists():
         return
     with _SUPABASE_SYNC_LOCK:
@@ -550,18 +560,21 @@ def supabase_upload_db_snapshot():
         if not payload:
             return
         url = supabase_storage_object_url()
-        request = Request(
-            url,
-            data=payload,
-            headers=supabase_storage_headers(content_type="application/octet-stream", upsert=True),
-            method="POST",
-        )
-        try:
-            with urlopen(request, timeout=12):
-                pass
-        except Exception:
-            # Remote snapshot is best-effort; core app flow must not fail.
-            return
+        for _ in range(3):
+            request = Request(
+                url,
+                data=payload,
+                headers=supabase_storage_headers(content_type="application/octet-stream", upsert=True),
+                method="POST",
+            )
+            try:
+                with urlopen(request, timeout=12):
+                    _SUPABASE_LAST_ERROR = ""
+                    _SUPABASE_LAST_SYNC_AT = utc_now().isoformat()
+                    return
+            except Exception:
+                continue
+        _SUPABASE_LAST_ERROR = "Supabase upload failed after retries"
 
 
 class SyncedConnection:
@@ -590,6 +603,11 @@ def ensure_db_file():
     if SUPABASE_DB_SYNC_ENABLED:
         if supabase_download_db_if_any():
             return
+        if not SUPABASE_ALLOW_EMPTY_BOOTSTRAP:
+            raise RuntimeError(
+                "Supabase DB download failed. Refusing to start with empty local DB to avoid data reset. "
+                "Check BIKEBERI_SUPABASE_* env and Storage object path."
+            )
     if DB_PATH.exists():
         return
     # Create a clean empty DB file instead of injecting demo snapshot.
@@ -1453,6 +1471,23 @@ def fetch_bootstrap_payload(user):
     }
 
 
+def build_storage_health_payload() -> dict:
+    db_exists = DB_PATH.exists()
+    db_size = DB_PATH.stat().st_size if db_exists else 0
+    return {
+        "dbPath": str(DB_PATH),
+        "dbExists": db_exists,
+        "dbSizeBytes": db_size,
+        "supabaseSyncEnabled": SUPABASE_DB_SYNC_ENABLED,
+        "supabaseBucket": SUPABASE_BUCKET,
+        "supabaseObject": SUPABASE_DB_OBJECT,
+        "allowEmptyBootstrap": SUPABASE_ALLOW_EMPTY_BOOTSTRAP,
+        "uploadAllowed": _SUPABASE_UPLOAD_ALLOWED,
+        "lastSyncAt": _SUPABASE_LAST_SYNC_AT,
+        "lastError": _SUPABASE_LAST_ERROR,
+    }
+
+
 class AppHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -1509,6 +1544,11 @@ class AppHandler(BaseHTTPRequestHandler):
             if not user:
                 return
             return json_response(self, 200, fetch_bootstrap_payload(user))
+        if parsed.path == "/api/system/storage-health":
+            user = require_role(self, {"owner"})
+            if not user:
+                return
+            return json_response(self, 200, build_storage_health_payload())
 
         return text_response(self, 404, "Not found")
 

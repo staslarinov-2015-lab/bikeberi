@@ -2585,20 +2585,36 @@ inventoryForm.addEventListener("submit", async (event) => {
 
   const formData = new FormData(inventoryForm);
   const editingId = inventoryForm.dataset.editId;
+  const submitButton = inventoryForm.querySelector('button[type="submit"]');
+  const originalSubmitLabel = submitButton ? submitButton.textContent : "";
 
-  await api(editingId ? `/api/inventory/${editingId}` : "/api/inventory", {
-    method: editingId ? "PUT" : "POST",
-    body: JSON.stringify({
-      name: String(formData.get("name")).trim(),
-      stock: Number(formData.get("stock")),
-    }),
-  });
+  try {
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "Сохраняем...";
+    }
+    await api(editingId ? `/api/inventory/${editingId}` : "/api/inventory", {
+      method: editingId ? "PUT" : "POST",
+      body: JSON.stringify({
+        name: String(formData.get("name")).trim(),
+        stock: Number(formData.get("stock")),
+      }),
+    });
 
-  inventoryForm.reset();
-  delete inventoryForm.dataset.editId;
-  inventoryOverlay.classList.add("hidden");
-  state.activeSection = "inventory";
-  await bootstrap();
+    inventoryForm.reset();
+    delete inventoryForm.dataset.editId;
+    inventoryOverlay.classList.add("hidden");
+    state.activeSection = "inventory";
+    await bootstrap();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Не удалось сохранить позицию";
+    window.alert(message);
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = originalSubmitLabel || "Сохранить позицию";
+    }
+  }
 });
 
 bikeForm?.addEventListener("submit", async (event) => {
