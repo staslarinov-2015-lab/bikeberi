@@ -1135,10 +1135,6 @@ tbody tr:hover {
   background: var(--surface);
 }
 
-.inventory-card.is-low {
-  border-color: rgba(185, 28, 28, 0.35);
-  background: #fffafa;
-}
 
 .inventory-card.inventory-card-minimal {
   display: flex;
@@ -1185,10 +1181,6 @@ tbody tr:hover {
 .stock-chip-danger {
   background: #fee2e2;
   color: #991b1b;
-}
-
-.inventory-card.is-out {
-  border-color: rgba(185, 28, 28, 0.45);
 }
 
 .inventory-card.is-clickable {

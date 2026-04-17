@@ -1781,12 +1781,11 @@ function renderInventory() {
       const isLow = stock >= 1 && stock <= 4;
       const chipClass = isOut ? "stock-chip-danger" : isLow ? "stock-chip-warn" : "stock-chip-ok";
       return `
-        <article class="inventory-card inventory-card-minimal ${isOut ? "is-out" : isLow ? "is-low" : ""} ${canManage ? "is-clickable" : ""}" ${canManage ? `data-action="open-inventory-item" data-id="${item.id}"` : ""}>
+        <article class="inventory-card inventory-card-minimal ${canManage ? "is-clickable" : ""}" ${canManage ? `data-action="open-inventory-item" data-id="${item.id}"` : ""}>
           <div class="inventory-minimal-head">
             <strong>${escapeHtml(item.name)}</strong>
             <span class="stock-chip ${chipClass}">${escapeHtml(String(Math.max(stock, 0)))}</span>
           </div>
-          ${isOut ? '<p class="error-text">Требуется закупка</p>' : ""}
           ${
             canManage
               ? `<div class="inventory-card-actions">
