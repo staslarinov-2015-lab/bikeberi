@@ -68,6 +68,7 @@ _SUPABASE_SYNC_LOCK = threading.Lock()
 _SUPABASE_UPLOAD_ALLOWED = not SUPABASE_DB_SYNC_ENABLED
 _SUPABASE_LAST_ERROR = ""
 _SUPABASE_LAST_SYNC_AT = ""
+_SUPABASE_LAST_DOWNLOAD_NOT_FOUND = False
 ALLOW_DEMO_SEED = os.environ.get("BIKEBERI_ALLOW_DEMO_SEED", "false").strip().lower() == "true"
 
 BIKE_STATUSES = {
@@ -520,9 +521,10 @@ def supabase_storage_headers(content_type: str | None = None, upsert: bool = Fal
 
 
 def supabase_download_db_if_any() -> bool:
-    global _SUPABASE_UPLOAD_ALLOWED, _SUPABASE_LAST_ERROR, _SUPABASE_LAST_SYNC_AT
+    global _SUPABASE_UPLOAD_ALLOWED, _SUPABASE_LAST_ERROR, _SUPABASE_LAST_SYNC_AT, _SUPABASE_LAST_DOWNLOAD_NOT_FOUND
     if not SUPABASE_DB_SYNC_ENABLED:
         return False
+    _SUPABASE_LAST_DOWNLOAD_NOT_FOUND = False
     url = supabase_storage_object_url()
     request = Request(url, headers=supabase_storage_headers(), method="GET")
     try:
@@ -530,6 +532,7 @@ def supabase_download_db_if_any() -> bool:
             payload = response.read()
     except HTTPError as error:
         if error.code == 404:
+            _SUPABASE_LAST_DOWNLOAD_NOT_FOUND = True
             _SUPABASE_LAST_ERROR = f"Supabase DB object not found: {SUPABASE_BUCKET}/{SUPABASE_DB_OBJECT}"
             if SUPABASE_ALLOW_EMPTY_BOOTSTRAP:
                 # Explicitly allowed first launch for empty bootstrap.
@@ -603,7 +606,8 @@ def ensure_db_file():
     if SUPABASE_DB_SYNC_ENABLED:
         if supabase_download_db_if_any():
             return
-        if not SUPABASE_ALLOW_EMPTY_BOOTSTRAP:
+        allow_empty_bootstrap_now = SUPABASE_ALLOW_EMPTY_BOOTSTRAP and _SUPABASE_LAST_DOWNLOAD_NOT_FOUND
+        if not allow_empty_bootstrap_now:
             raise RuntimeError(
                 "Supabase DB download failed. Refusing to start with empty local DB to avoid data reset. "
                 "Check BIKEBERI_SUPABASE_* env and Storage object path."
@@ -1483,6 +1487,7 @@ def build_storage_health_payload() -> dict:
         "supabaseObject": SUPABASE_DB_OBJECT,
         "allowEmptyBootstrap": SUPABASE_ALLOW_EMPTY_BOOTSTRAP,
         "uploadAllowed": _SUPABASE_UPLOAD_ALLOWED,
+        "lastDownloadNotFound": _SUPABASE_LAST_DOWNLOAD_NOT_FOUND,
         "lastSyncAt": _SUPABASE_LAST_SYNC_AT,
         "lastError": _SUPABASE_LAST_ERROR,
     }
