@@ -65,6 +65,7 @@ SUPABASE_DB_OBJECT = os.environ.get("BIKEBERI_SUPABASE_DB_OBJECT", "app.db").str
 SUPABASE_DB_SYNC_ENABLED = bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)
 _SUPABASE_SYNC_LOCK = threading.Lock()
 _SUPABASE_UPLOAD_ALLOWED = not SUPABASE_DB_SYNC_ENABLED
+ALLOW_DEMO_SEED = os.environ.get("BIKEBERI_ALLOW_DEMO_SEED", "false").strip().lower() == "true"
 
 BIKE_STATUSES = {
     "в аренде",
@@ -591,13 +592,9 @@ def ensure_db_file():
             return
     if DB_PATH.exists():
         return
-    if SEED_SQL_PATH.exists():
-        conn = sqlite3.connect(DB_PATH)
-        try:
-            conn.executescript(SEED_SQL_PATH.read_text(encoding="utf-8"))
-            conn.commit()
-        finally:
-            conn.close()
+    # Create a clean empty DB file instead of injecting demo snapshot.
+    conn = sqlite3.connect(DB_PATH)
+    conn.close()
 
 
 def ensure_column(cur, table: str, column: str, definition: str):
@@ -804,56 +801,57 @@ def init_db():
                 (username, password_hash, role, full_name, "", "", position, "", now),
             )
 
-    repairs_count = cur.execute("SELECT COUNT(*) FROM repairs").fetchone()[0]
-    if repairs_count == 0:
-        cur.executemany(
-            """
-            INSERT INTO repairs (date, bike, issue, work, parts_used, needed_parts, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                ("2026-04-01", "PE001Y", "Скрип тормоза", "Замена колодок", "Колодки (1 комплект)", "-", "Готов", now),
-                ("2026-03-31", "PE014Y", "Прокол заднего колеса", "Замена камеры и покрышки", "Камера, покрышка", "-", "Готов", now),
-                ("2026-03-31", "PE022Y", "Не тянет мотор", "Диагностика цепи питания и контроллера", "-", "Контроллер", "Ожидает запчасти", now),
-                ("2026-03-30", "PE017Y", "Люфт рулевой", "Разборка, протяжка, проверка рулевой", "Смазка", "-", "В ремонте", now),
-            ],
-        )
+    if ALLOW_DEMO_SEED:
+        repairs_count = cur.execute("SELECT COUNT(*) FROM repairs").fetchone()[0]
+        if repairs_count == 0:
+            cur.executemany(
+                """
+                INSERT INTO repairs (date, bike, issue, work, parts_used, needed_parts, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    ("2026-04-01", "PE001Y", "Скрип тормоза", "Замена колодок", "Колодки (1 комплект)", "-", "Готов", now),
+                    ("2026-03-31", "PE014Y", "Прокол заднего колеса", "Замена камеры и покрышки", "Камера, покрышка", "-", "Готов", now),
+                    ("2026-03-31", "PE022Y", "Не тянет мотор", "Диагностика цепи питания и контроллера", "-", "Контроллер", "Ожидает запчасти", now),
+                    ("2026-03-30", "PE017Y", "Люфт рулевой", "Разборка, протяжка, проверка рулевой", "Смазка", "-", "В ремонте", now),
+                ],
+            )
 
-    diagnostics_count = cur.execute("SELECT COUNT(*) FROM diagnostics").fetchone()[0]
-    if diagnostics_count == 0:
-        cur.executemany(
-            """
-            INSERT INTO diagnostics (date, bike, mechanic_name, category, fault, symptoms, conclusion, severity, recommendation, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                ("2026-03-31", "PE022Y", "Механик Байк Сервис", "Мотор", "Не тянет мотор", "Слабая тяга мотора, рывки при старте", "Нужна углубленная проверка контроллера и цепи питания", "Критичная", "Срочный ремонт", now),
-                ("2026-03-30", "PE017Y", "Механик Байк Сервис", "Руль и управление", "Люфт рулевой", "Чувствуется люфт в рулевой колонке", "Можно пустить в плановый ремонт в ближайшее окно", "Средняя", "Плановый ремонт", now),
-            ],
-        )
+        diagnostics_count = cur.execute("SELECT COUNT(*) FROM diagnostics").fetchone()[0]
+        if diagnostics_count == 0:
+            cur.executemany(
+                """
+                INSERT INTO diagnostics (date, bike, mechanic_name, category, fault, symptoms, conclusion, severity, recommendation, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    ("2026-03-31", "PE022Y", "Механик Байк Сервис", "Мотор", "Не тянет мотор", "Слабая тяга мотора, рывки при старте", "Нужна углубленная проверка контроллера и цепи питания", "Критичная", "Срочный ремонт", now),
+                    ("2026-03-30", "PE017Y", "Механик Байк Сервис", "Руль и управление", "Люфт рулевой", "Чувствуется люфт в рулевой колонке", "Можно пустить в плановый ремонт в ближайшее окно", "Средняя", "Плановый ремонт", now),
+                ],
+            )
 
-    inventory_count = cur.execute("SELECT COUNT(*) FROM inventory").fetchone()[0]
-    if inventory_count == 0:
-        cur.executemany(
-            "INSERT INTO inventory (name, stock, min, reserved, updated_at) VALUES (?, ?, ?, ?, ?)",
-            [
-                ("Колодки", 10, 5, 0, now),
-                ("Камеры", 2, 5, 0, now),
-                ("Покрышки", 6, 4, 0, now),
-                ("Контроллер", 1, 2, 0, now),
-                ("Крепеж пластика", 12, 4, 0, now),
-                ("Крышка батареи", 2, 1, 0, now),
-                ("Подшипник рулевой", 3, 1, 0, now),
-                ("Рычаг тормоза", 4, 1, 0, now),
-                ("Ручка газа", 3, 1, 0, now),
-                ("Тормозной диск", 2, 1, 0, now),
-                ("Зарядный порт", 3, 1, 0, now),
-                ("Комплект проводки", 2, 1, 0, now),
-                ("Передняя фара", 3, 1, 0, now),
-                ("Задний фонарь", 3, 1, 0, now),
-                ("Сигнал", 4, 1, 0, now),
-            ],
-        )
+        inventory_count = cur.execute("SELECT COUNT(*) FROM inventory").fetchone()[0]
+        if inventory_count == 0:
+            cur.executemany(
+                "INSERT INTO inventory (name, stock, min, reserved, updated_at) VALUES (?, ?, ?, ?, ?)",
+                [
+                    ("Колодки", 10, 5, 0, now),
+                    ("Камеры", 2, 5, 0, now),
+                    ("Покрышки", 6, 4, 0, now),
+                    ("Контроллер", 1, 2, 0, now),
+                    ("Крепеж пластика", 12, 4, 0, now),
+                    ("Крышка батареи", 2, 1, 0, now),
+                    ("Подшипник рулевой", 3, 1, 0, now),
+                    ("Рычаг тормоза", 4, 1, 0, now),
+                    ("Ручка газа", 3, 1, 0, now),
+                    ("Тормозной диск", 2, 1, 0, now),
+                    ("Зарядный порт", 3, 1, 0, now),
+                    ("Комплект проводки", 2, 1, 0, now),
+                    ("Передняя фара", 3, 1, 0, now),
+                    ("Задний фонарь", 3, 1, 0, now),
+                    ("Сигнал", 4, 1, 0, now),
+                ],
+            )
 
     for table_name in ("repairs", "diagnostics"):
         rows = cur.execute(f"SELECT id, bike FROM {table_name}").fetchall()
