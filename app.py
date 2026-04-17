@@ -79,7 +79,7 @@ MECHANIC_BIKE_STATUS_OPTIONS = (
     "принят",
     "ждет запчасти",
     "в ремонте",
-    "готов",
+    "проверка",
 )
 
 FAULT_CATALOG = {
@@ -1657,16 +1657,43 @@ class AppHandler(BaseHTTPRequestHandler):
                         ),
                     )
                     repair_id = repair_cursor.lastrowid
-                next_status = "готов"
+                next_status = "проверка"
                 conn.execute(
                     "UPDATE work_orders SET status = ?, completed_repair_id = ?, completed_at = ?, parts_ready = 1 WHERE id = ?",
                     (next_status, repair_id, utc_now().isoformat(), work_order_id),
                 )
                 conn.execute(
                     "UPDATE bikes SET status = ?, last_service_at = ?, updated_at = ? WHERE id = ?",
+                    ("проверка", utc_now().date().isoformat(), utc_now().isoformat(), order["bike_id"]),
+                )
+                add_work_order_history(
+                    conn,
+                    int(work_order_id),
+                    user["full_name"],
+                    "status",
+                    "Ремонт завершен, требуется пройти чек-лист выдачи",
+                )
+
+            elif action == "complete_checklist":
+                if order["status"] != "проверка":
+                    conn.close()
+                    return json_response(self, 400, {"error": "Сначала завершите ремонт и переведите байк на выдачу"})
+                next_status = "готов"
+                conn.execute(
+                    "UPDATE work_orders SET status = ?, completed_at = ?, parts_ready = 1 WHERE id = ?",
+                    (next_status, utc_now().isoformat(), work_order_id),
+                )
+                conn.execute(
+                    "UPDATE bikes SET status = ?, last_service_at = ?, updated_at = ? WHERE id = ?",
                     ("готов", utc_now().date().isoformat(), utc_now().isoformat(), order["bike_id"]),
                 )
-                add_work_order_history(conn, int(work_order_id), user["full_name"], "status", "Байк готов и может быть снова выдан в аренду")
+                add_work_order_history(
+                    conn,
+                    int(work_order_id),
+                    user["full_name"],
+                    "issue_checklist",
+                    "Чек-лист выдачи пройден, байк готов к выдаче",
+                )
             else:
                 conn.close()
                 return json_response(self, 400, {"error": "Неизвестное действие"})

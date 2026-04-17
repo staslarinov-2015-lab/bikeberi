@@ -25,6 +25,7 @@ const state = {
     bike: "",
     checked: {},
     completedAt: "",
+    pendingWorkOrderId: "",
   },
   repairDraftFromDiagnostic: null,
   diagnosticFlow: {
@@ -603,12 +604,14 @@ function loadIssueChecklistDraft() {
       bike: String(parsed.bike || ""),
       checked: typeof parsed.checked === "object" && parsed.checked ? parsed.checked : {},
       completedAt: String(parsed.completedAt || ""),
+      pendingWorkOrderId: String(parsed.pendingWorkOrderId || ""),
     };
   } catch (error) {
     state.issueChecklist = {
       bike: "",
       checked: {},
       completedAt: "",
+      pendingWorkOrderId: "",
     };
   }
 }
@@ -626,9 +629,23 @@ function resetIssueChecklistDraft() {
     bike: "",
     checked: {},
     completedAt: "",
+    pendingWorkOrderId: "",
   };
   saveIssueChecklistDraft();
   renderIssueChecklist();
+}
+
+function startIssueChecklistForOrder(order) {
+  if (!order) return;
+  state.issueChecklist = {
+    bike: String(order.bike_code || "").trim(),
+    checked: {},
+    completedAt: "",
+    pendingWorkOrderId: String(order.id || ""),
+  };
+  saveIssueChecklistDraft();
+  state.activeSection = "issue-checklist";
+  render();
 }
 
 function renderIssueChecklist() {
@@ -639,6 +656,7 @@ function renderIssueChecklist() {
   const totalCount = items.length;
   const percent = totalCount ? Math.round((checkedCount / totalCount) * 100) : 0;
   const isComplete = totalCount > 0 && checkedCount === totalCount;
+  const hasPending = Boolean(state.issueChecklist.pendingWorkOrderId);
 
   if (issueChecklistBike) {
     issueChecklistBike.value = state.issueChecklist.bike || "";
@@ -653,9 +671,13 @@ function renderIssueChecklist() {
     issueChecklistProgressBar.style.width = `${percent}%`;
   }
   if (issueChecklistStatus) {
-    issueChecklistStatus.className = `issue-checklist-status ${isComplete ? "is-ready" : "is-blocked"}`;
-    issueChecklistStatus.disabled = !isComplete;
-    issueChecklistStatus.textContent = state.issueChecklist.completedAt ? "Выдача подтверждена" : "Готов к выдаче";
+    issueChecklistStatus.className = `issue-checklist-status ${isComplete && hasPending ? "is-ready" : "is-blocked"}`;
+    issueChecklistStatus.disabled = !isComplete || !hasPending;
+    issueChecklistStatus.textContent = state.issueChecklist.completedAt
+      ? "Выдача подтверждена"
+      : hasPending
+        ? "Подтвердить выдачу"
+        : "Нет активной выдачи";
   }
   if (issueChecklistCompletedAt) {
     issueChecklistCompletedAt.textContent = state.issueChecklist.completedAt
@@ -737,7 +759,7 @@ function getBikeStatusOptions() {
       ["принят", "Принят"],
       ["ждет запчасти", "Ждет запчасти"],
       ["в ремонте", "В ремонте"],
-      ["готов", "Готов"],
+      ["проверка", "На выдаче"],
     ];
   }
 
@@ -1489,7 +1511,7 @@ function renderTimeline() {
 function getBikeStatusRows() {
   const bikes = state.bikes || [];
   const mechanicMode = getRole() === "mechanic";
-  const mechanicVisible = new Set(["принят", "ждет запчасти", "в ремонте", "готов"]);
+  const mechanicVisible = new Set(["принят", "ждет запчасти", "в ремонте", "проверка", "готов"]);
   const bikesForRows = mechanicMode
     ? bikes.filter((bike) => mechanicVisible.has(String(bike.status || "").trim()))
     : bikes;
@@ -1775,7 +1797,7 @@ function renderInventory() {
 function getBikeStatusChipList() {
   const bikes = state.bikes || [];
   const mechanicMode = getRole() === "mechanic";
-  const mechanicVisible = new Set(["принят", "ждет запчасти", "в ремонте", "готов"]);
+  const mechanicVisible = new Set(["принят", "ждет запчасти", "в ремонте", "проверка", "готов"]);
   const bikesForFilter = mechanicMode
     ? bikes.filter((bike) => mechanicVisible.has(String(bike.status || "").trim()))
     : bikes;
@@ -1853,7 +1875,7 @@ function renderBikeRepairHistory() {
 function getFilteredBikes() {
   const query = String(state.bikeSearch || "").trim().toLowerCase();
   const mechanicMode = getRole() === "mechanic";
-  const mechanicVisible = new Set(["принят", "ждет запчасти", "в ремонте", "готов"]);
+  const mechanicVisible = new Set(["принят", "ждет запчасти", "в ремонте", "проверка", "готов"]);
   return (state.bikes || [])
     .filter((bike) => {
       if (mechanicMode && !mechanicVisible.has(String(bike.status || "").trim())) return false;
@@ -1995,7 +2017,7 @@ function renderWorkOrders() {
             <p class="queue-mini-line queue-fault">${escapeHtml(order.fault || order.issue || "Поломка не указана")}</p>
             <p class="queue-mini-line queue-parts">${escapeHtml(parts)}</p>
             <div class="table-actions">
-              ${order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">Завершить ремонт</button>` : ""}
+              ${order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">На выдачу</button>` : ""}
             </div>
           </article>
         `;
@@ -2122,6 +2144,13 @@ async function bootstrap() {
     state.workOrders = payload.workOrders || [];
     state.teamChat = payload.teamChat || [];
     state.ownerNotifications = payload.ownerNotifications || [];
+    if (state.issueChecklist.pendingWorkOrderId) {
+      const pendingOrder = state.workOrders.find((item) => String(item.id) === String(state.issueChecklist.pendingWorkOrderId));
+      if (!pendingOrder || pendingOrder.status !== "проверка") {
+        state.issueChecklist.pendingWorkOrderId = "";
+        state.issueChecklist.completedAt = "";
+      }
+    }
     if (getRole() !== "owner" && state.activeSection === "owner") {
       state.activeSection = "overview";
     }
@@ -2343,14 +2372,22 @@ issueChecklistForm?.addEventListener("change", (event) => {
   renderIssueChecklist();
 });
 
-issueChecklistStatus?.addEventListener("click", () => {
+issueChecklistStatus?.addEventListener("click", async () => {
   const items = getIssueChecklistItems();
   const isComplete = items.every((item) => Boolean(state.issueChecklist.checked[item.id]));
-  if (!isComplete) return;
+  if (!isComplete || !state.issueChecklist.pendingWorkOrderId) return;
+
+  await api(`/api/work-orders/${state.issueChecklist.pendingWorkOrderId}/transition`, {
+    method: "POST",
+    body: JSON.stringify({ action: "complete_checklist" }),
+  });
 
   state.issueChecklist.completedAt = new Date().toLocaleString("ru-RU");
+  state.issueChecklist.pendingWorkOrderId = "";
   saveIssueChecklistDraft();
-  renderIssueChecklist();
+  await bootstrap();
+  state.activeSection = "repairs";
+  render();
 });
 
 resetIssueChecklistButton?.addEventListener("click", () => {
@@ -2799,6 +2836,12 @@ document.addEventListener("click", async (event) => {
       body: JSON.stringify({ action: actionMap[action] }),
     });
     await bootstrap();
+    if (action === "work-order-ready") {
+      const movedOrder = state.workOrders.find((entry) => String(entry.id) === String(id));
+      if (movedOrder && movedOrder.status === "проверка") {
+        startIssueChecklistForOrder(movedOrder);
+      }
+    }
   }
 
   if (action === "start-diagnostic-category") {
