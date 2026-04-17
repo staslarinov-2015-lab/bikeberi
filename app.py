@@ -725,6 +725,34 @@ def unsign_token(signed_token: str):
 
 
 def get_current_user(handler):
+    raw_cookie = handler.headers.get("Cookie")
+    if raw_cookie:
+        jar = cookies.SimpleCookie()
+        jar.load(raw_cookie)
+        morsel = jar.get(SESSION_COOKIE)
+        if morsel:
+            token = unsign_token(morsel.value)
+            if token:
+                conn = get_db()
+                session_row = conn.execute(
+                    """
+                    SELECT sessions.expires_at, users.*
+                    FROM sessions
+                    JOIN users ON users.id = sessions.user_id
+                    WHERE sessions.token = ?
+                    """,
+                    (token,),
+                ).fetchone()
+                if session_row:
+                    expires_at = datetime.fromisoformat(session_row["expires_at"])
+                    if expires_at >= utc_now():
+                        user = serialize_user(session_row)
+                        conn.close()
+                        return user
+                    conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+                    conn.commit()
+                conn.close()
+
     if GUEST_MODE:
         conn = get_db()
         now = utc_now().isoformat()
@@ -741,45 +769,7 @@ def get_current_user(handler):
         conn.close()
         return user
 
-    raw_cookie = handler.headers.get("Cookie")
-    if not raw_cookie:
-        return None
-
-    jar = cookies.SimpleCookie()
-    jar.load(raw_cookie)
-    morsel = jar.get(SESSION_COOKIE)
-    if not morsel:
-        return None
-
-    token = unsign_token(morsel.value)
-    if not token:
-        return None
-
-    conn = get_db()
-    session_row = conn.execute(
-        """
-        SELECT sessions.expires_at, users.*
-        FROM sessions
-        JOIN users ON users.id = sessions.user_id
-        WHERE sessions.token = ?
-        """,
-        (token,),
-    ).fetchone()
-
-    if not session_row:
-        conn.close()
-        return None
-
-    expires_at = datetime.fromisoformat(session_row["expires_at"])
-    if expires_at < utc_now():
-        conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
-        conn.commit()
-        conn.close()
-        return None
-
-    user = serialize_user(session_row)
-    conn.close()
-    return user
+    return None
 
 
 def create_session(user_id):
