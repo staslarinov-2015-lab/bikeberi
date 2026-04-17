@@ -9,15 +9,15 @@
   "theme_color": "#007aff",
   "icons": [
     {
-      "src": "/logo_orange.png",
-      "sizes": "192x192",
-      "type": "image/png",
+      "src": "/logo_blue.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/logo_orange.png",
-      "sizes": "512x512",
-      "type": "image/png",
+      "src": "/logo_blue.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any"
     }
   ]

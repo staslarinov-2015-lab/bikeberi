@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY app.py index.html styles.css script.js logo_orange.png bike-scooter.svg site.webmanifest seed_dump.sql ./
+COPY app.py index.html styles.css script.js logo_orange.png logo_blue.svg bike-scooter.svg site.webmanifest seed_dump.sql ./
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1

@@ -1173,12 +1173,14 @@ class AppHandler(BaseHTTPRequestHandler):
             return self.serve_file("styles.css", "text/css; charset=utf-8", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/script.js":
             return self.serve_file("script.js", "application/javascript; charset=utf-8", cache_control="public, max-age=31536000, immutable")
+        if parsed.path == "/logo_blue.svg":
+            return self.serve_file("logo_blue.svg", "image/svg+xml; charset=utf-8", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/logo_orange.png":
             return self.serve_file("logo_orange.png", "image/png", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/bike-scooter.svg":
             return self.serve_file("bike-scooter.svg", "image/svg+xml; charset=utf-8", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/favicon.ico":
-            return self.serve_file("logo_orange.png", "image/png", cache_control="public, max-age=31536000, immutable")
+            return self.serve_file("logo_blue.svg", "image/svg+xml; charset=utf-8", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/site.webmanifest":
             return self.serve_file(
                 "site.webmanifest",
@@ -1211,6 +1213,13 @@ class AppHandler(BaseHTTPRequestHandler):
                 cache_control="public, max-age=31536000, immutable",
                 send_body=False,
             )
+        if parsed.path == "/logo_blue.svg":
+            return self.serve_file(
+                "logo_blue.svg",
+                "image/svg+xml; charset=utf-8",
+                cache_control="public, max-age=31536000, immutable",
+                send_body=False,
+            )
         if parsed.path == "/logo_orange.png":
             return self.serve_file(
                 "logo_orange.png",
@@ -1227,8 +1236,8 @@ class AppHandler(BaseHTTPRequestHandler):
             )
         if parsed.path == "/favicon.ico":
             return self.serve_file(
-                "logo_orange.png",
-                "image/png",
+                "logo_blue.svg",
+                "image/svg+xml; charset=utf-8",
                 cache_control="public, max-age=31536000, immutable",
                 send_body=False,
             )
@@ -2033,6 +2042,7 @@ class AppHandler(BaseHTTPRequestHandler):
             path.read_text(encoding="utf-8")
             .replace("./styles.css", f"./styles.css?v={get_asset_version('styles.css')}")
             .replace("./script.js", f"./script.js?v={get_asset_version('script.js')}")
+            .replace("./logo_blue.svg", f"./logo_blue.svg?v={get_asset_version('logo_blue.svg')}")
             .replace("./logo_orange.png", f"./logo_orange.png?v={get_asset_version('logo_orange.png')}")
             .encode("utf-8")
         )
