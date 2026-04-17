@@ -38,12 +38,22 @@ HOST = os.environ.get("BIKEBERI_HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", os.environ.get("BIKEBERI_PORT", "8000")))
 COOKIE_SECURE = os.environ.get("BIKEBERI_COOKIE_SECURE", "false").lower() == "true"
 APP_NAME = os.environ.get("BIKEBERI_APP_NAME", "Байк Сервис")
-DB_PATH = Path(
-    os.environ.get(
-        "BIKEBERI_DB_PATH",
-        str(Path(os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", str(BASE_DIR))) / "app.db"),
-    )
-)
+
+
+def resolve_db_path() -> Path:
+    explicit = os.environ.get("BIKEBERI_DB_PATH")
+    if explicit:
+        return Path(explicit)
+    railway_mount = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH")
+    if railway_mount:
+        return Path(railway_mount) / "app.db"
+    # Prefer mounted persistent disk on PaaS providers (Render/Fly).
+    if Path("/data").exists():
+        return Path("/data/app.db")
+    return BASE_DIR / "app.db"
+
+
+DB_PATH = resolve_db_path()
 SEED_SQL_PATH = BASE_DIR / "seed_dump.sql"
 
 BIKE_STATUSES = {
@@ -674,31 +684,8 @@ def init_db():
             ("mechanic_focus", "оперативка"),
         )
 
-    cleanup_key = "service_history_reset_v1"
-    cleanup_done = cur.execute("SELECT 1 FROM settings WHERE key = ?", (cleanup_key,)).fetchone()
-    if not cleanup_done:
-        cur.execute("DELETE FROM work_order_history")
-        cur.execute("DELETE FROM work_order_parts")
-        cur.execute("DELETE FROM work_orders")
-        cur.execute("DELETE FROM repairs")
-        cur.execute("DELETE FROM diagnostics")
-        cur.execute("UPDATE inventory SET reserved = 0, updated_at = ?", (now,))
-        cur.execute(
-            """
-            UPDATE bikes
-            SET status = CASE
-                    WHEN status = 'в аренде' THEN 'в аренде'
-                    ELSE 'готов'
-                END,
-                last_service_at = NULL,
-                updated_at = ?
-            """,
-            (now,),
-        )
-        cur.execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-            (cleanup_key, now),
-        )
+    # Keep historical/service/chat data intact across application updates.
+    # Never run destructive startup cleanup here.
 
     conn.commit()
     conn.close()
