@@ -67,6 +67,7 @@ textarea {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 290px minmax(0, 1fr);
+  transition: filter 0.22s ease;
 }
 
 .workspace {
@@ -339,6 +340,7 @@ textarea {
 
 .mobile-tabbar {
   display: none;
+  transition: filter 0.22s ease;
 }
 
 .mobile-menu-toggle {
@@ -1919,6 +1921,7 @@ tbody tr:hover {
   padding: 20px;
   background: rgba(0, 0, 0, 0.35);
   overflow: auto;
+  transition: backdrop-filter 0.22s ease, background 0.22s ease;
 }
 
 body.is-auth-locked {
