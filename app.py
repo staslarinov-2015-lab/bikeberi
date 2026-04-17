@@ -6,11 +6,12 @@ import os
 import re
 import secrets
 import sqlite3
+import threading
 from datetime import datetime, timedelta, timezone
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 from urllib.request import Request, urlopen
 
 
@@ -56,6 +57,12 @@ def resolve_db_path() -> Path:
 
 DB_PATH = resolve_db_path()
 SEED_SQL_PATH = BASE_DIR / "seed_dump.sql"
+SUPABASE_URL = os.environ.get("BIKEBERI_SUPABASE_URL", "").rstrip("/")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("BIKEBERI_SUPABASE_SERVICE_ROLE_KEY", "").strip()
+SUPABASE_BUCKET = os.environ.get("BIKEBERI_SUPABASE_BUCKET", "bikeberi-data").strip() or "bikeberi-data"
+SUPABASE_DB_OBJECT = os.environ.get("BIKEBERI_SUPABASE_DB_OBJECT", "app.db").strip() or "app.db"
+SUPABASE_DB_SYNC_ENABLED = bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)
+_SUPABASE_SYNC_LOCK = threading.Lock()
 
 BIKE_STATUSES = {
     "в аренде",
@@ -400,14 +407,89 @@ def store_chat_message(sender_role: str, sender_name: str, message: str):
     return True
 
 
+def supabase_storage_object_url() -> str:
+    bucket = quote(SUPABASE_BUCKET, safe="")
+    obj = quote(SUPABASE_DB_OBJECT, safe="/")
+    return f"{SUPABASE_URL}/storage/v1/object/{bucket}/{obj}"
+
+
+def supabase_storage_headers(content_type: str | None = None, upsert: bool = False) -> dict:
+    headers = {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+    }
+    if content_type:
+        headers["Content-Type"] = content_type
+    if upsert:
+        headers["x-upsert"] = "true"
+    return headers
+
+
+def supabase_download_db_if_any():
+    if not SUPABASE_DB_SYNC_ENABLED:
+        return
+    url = supabase_storage_object_url()
+    request = Request(url, headers=supabase_storage_headers(), method="GET")
+    try:
+        with urlopen(request, timeout=12) as response:
+            payload = response.read()
+    except Exception:
+        # Fresh project or transient network issues: continue with local seed path.
+        return
+    if not payload:
+        return
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    DB_PATH.write_bytes(payload)
+
+
+def supabase_upload_db_snapshot():
+    if not SUPABASE_DB_SYNC_ENABLED or not DB_PATH.exists():
+        return
+    with _SUPABASE_SYNC_LOCK:
+        payload = DB_PATH.read_bytes()
+        if not payload:
+            return
+        url = supabase_storage_object_url()
+        request = Request(
+            url,
+            data=payload,
+            headers=supabase_storage_headers(content_type="application/octet-stream", upsert=True),
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=12):
+                pass
+        except Exception:
+            # Remote snapshot is best-effort; core app flow must not fail.
+            return
+
+
+class SyncedConnection:
+    def __init__(self, conn: sqlite3.Connection):
+        self._conn = conn
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    def commit(self):
+        self._conn.commit()
+        supabase_upload_db_snapshot()
+
+    def close(self):
+        return self._conn.close()
+
+
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    return conn
+    return SyncedConnection(conn)
 
 
 def ensure_db_file():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if DB_PATH.exists():
+        return
+    supabase_download_db_if_any()
     if DB_PATH.exists():
         return
     if SEED_SQL_PATH.exists():
