@@ -12,6 +12,7 @@ from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import quote, urlparse
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 
@@ -63,6 +64,7 @@ SUPABASE_BUCKET = os.environ.get("BIKEBERI_SUPABASE_BUCKET", "bikeberi-data").st
 SUPABASE_DB_OBJECT = os.environ.get("BIKEBERI_SUPABASE_DB_OBJECT", "app.db").strip() or "app.db"
 SUPABASE_DB_SYNC_ENABLED = bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)
 _SUPABASE_SYNC_LOCK = threading.Lock()
+_SUPABASE_UPLOAD_ALLOWED = not SUPABASE_DB_SYNC_ENABLED
 
 BIKE_STATUSES = {
     "в аренде",
@@ -425,25 +427,34 @@ def supabase_storage_headers(content_type: str | None = None, upsert: bool = Fal
     return headers
 
 
-def supabase_download_db_if_any():
+def supabase_download_db_if_any() -> bool:
+    global _SUPABASE_UPLOAD_ALLOWED
     if not SUPABASE_DB_SYNC_ENABLED:
-        return
+        return False
     url = supabase_storage_object_url()
     request = Request(url, headers=supabase_storage_headers(), method="GET")
     try:
         with urlopen(request, timeout=12) as response:
             payload = response.read()
+    except HTTPError as error:
+        if error.code == 404:
+            # First launch: object does not exist yet, allow future uploads.
+            _SUPABASE_UPLOAD_ALLOWED = True
+        # For non-404 errors we keep upload locked to avoid overwriting remote on transient failures.
+        return False
     except Exception:
-        # Fresh project or transient network issues: continue with local seed path.
-        return
+        return False
     if not payload:
-        return
+        _SUPABASE_UPLOAD_ALLOWED = True
+        return False
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     DB_PATH.write_bytes(payload)
+    _SUPABASE_UPLOAD_ALLOWED = True
+    return True
 
 
 def supabase_upload_db_snapshot():
-    if not SUPABASE_DB_SYNC_ENABLED or not DB_PATH.exists():
+    if not SUPABASE_DB_SYNC_ENABLED or not _SUPABASE_UPLOAD_ALLOWED or not DB_PATH.exists():
         return
     with _SUPABASE_SYNC_LOCK:
         payload = DB_PATH.read_bytes()
@@ -487,9 +498,9 @@ def get_db():
 
 def ensure_db_file():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    if DB_PATH.exists():
-        return
-    supabase_download_db_if_any()
+    if SUPABASE_DB_SYNC_ENABLED:
+        if supabase_download_db_if_any():
+            return
     if DB_PATH.exists():
         return
     if SEED_SQL_PATH.exists():

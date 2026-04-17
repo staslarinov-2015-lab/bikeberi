@@ -1755,7 +1755,7 @@ function renderRepairsTable() {
 function inventoryStockTier(item) {
   const s = Number(item.stock || 0);
   if (s <= 0) return 0;
-  if (s <= 4) return 1;
+  if (s <= 1) return 1;
   return 2;
 }
 
@@ -1778,7 +1778,7 @@ function renderInventory() {
     .map((item) => {
       const stock = Number(item.stock || 0);
       const isOut = stock <= 0;
-      const isLow = stock >= 1 && stock <= 4;
+      const isLow = stock === 1;
       const chipClass = isOut ? "stock-chip-danger" : isLow ? "stock-chip-warn" : "stock-chip-ok";
       return `
         <article class="inventory-card inventory-card-minimal ${canManage ? "is-clickable" : ""}" ${canManage ? `data-action="open-inventory-item" data-id="${item.id}"` : ""}>
