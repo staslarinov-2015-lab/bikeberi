@@ -2196,7 +2196,9 @@ function renderChatUnreadBadges() {
 }
 
 function render() {
-  loginOverlay.classList.toggle("hidden", Boolean(state.user));
+  const isAuthorized = Boolean(state.user);
+  loginOverlay.classList.toggle("hidden", isAuthorized);
+  document.body.classList.toggle("is-auth-locked", !isAuthorized);
   if (globalSearch) globalSearch.value = state.search;
   if (statusFilter) statusFilter.value = state.statusFilter;
   if (settingsForm) {

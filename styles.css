@@ -1921,6 +1921,21 @@ tbody tr:hover {
   overflow: auto;
 }
 
+body.is-auth-locked {
+  overflow: hidden;
+}
+
+body.is-auth-locked .page-shell,
+body.is-auth-locked .mobile-tabbar {
+  filter: blur(8px);
+  pointer-events: none;
+  user-select: none;
+}
+
+body.is-auth-locked #login-overlay {
+  backdrop-filter: blur(4px);
+}
+
 .auth-card,
 .modal-card {
   width: min(100%, 560px);
