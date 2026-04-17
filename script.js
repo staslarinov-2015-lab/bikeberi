@@ -432,6 +432,8 @@ const teamChatForm = document.getElementById("team-chat-form");
 const teamChatList = document.getElementById("team-chat-list");
 const currentUser = document.getElementById("current-user");
 const sidebarRoleTitle = document.getElementById("sidebar-role-title");
+const topbarRolePill = document.getElementById("topbar-role-pill");
+const openChatButton = document.getElementById("open-chat-button");
 const accountButton = document.getElementById("account-button");
 const accountOverlay = document.getElementById("account-overlay");
 const closeAccountButton = document.getElementById("close-account-button");
@@ -711,6 +713,10 @@ async function api(path, options = {}) {
 
 function getRole() {
   return state.user?.role || "mechanic";
+}
+
+function getRoleLabel(role = getRole()) {
+  return role === "owner" ? "Управляющий" : "Механик";
 }
 
 function getStatusClass(status) {
@@ -1086,10 +1092,13 @@ function renderSectionHeader() {
 
 function renderRoleContent() {
   const ownerMode = getRole() === "owner";
-  const roleLabel = ownerMode ? "Владелец" : "Механик";
+  const roleLabel = getRoleLabel();
 
   if (sidebarRoleTitle) {
     sidebarRoleTitle.textContent = roleLabel;
+  }
+  if (topbarRolePill) {
+    topbarRolePill.textContent = roleLabel.toLowerCase();
   }
 
   currentUser.textContent = state.user
@@ -1118,10 +1127,10 @@ function renderProfile() {
 
   profileAvatar.textContent = initials || "М";
   profileNameDisplay.textContent = state.user.full_name || "Не заполнено";
-  profileRoleDisplay.textContent = state.user.position || (getRole() === "owner" ? "Собственник" : "Механик");
+  profileRoleDisplay.textContent = getRoleLabel();
   profilePhoneDisplay.textContent = state.user.phone || "Не заполнен";
   profileTelegramDisplay.textContent = state.user.telegram || "Не заполнен";
-  profilePositionDisplay.textContent = state.user.position || "Не заполнена";
+  profilePositionDisplay.textContent = state.user.position || getRoleLabel();
 
   if (profileForm) {
     profileForm.elements.fullName.value = state.user.full_name || "";
@@ -1620,6 +1629,15 @@ function renderEventsFeed() {
 
 function renderAlerts() {
   if (!alertsList) return;
+  const loadItems = [];
+  if (getRole() === "mechanic" && String(state.kpi.mechanicFocus || "").trim()) {
+    loadItems.push({
+      title: "Цель",
+      copy: `От управляющего: ${state.kpi.mechanicFocus}`,
+      state: "ok",
+      hours: "",
+    });
+  }
   const urgentWaiting = state.workOrders
     .filter((item) => item.status === "ждет запчасти")
     .slice(0, 4)
@@ -1640,7 +1658,7 @@ function renderAlerts() {
       state: "ok",
       hours: `${item.estimated_minutes || 0} мин`,
     }));
-  const loadItems = [...urgentWaiting, ...activeRepairs];
+  loadItems.push(...urgentWaiting, ...activeRepairs);
 
   if (!loadItems.length) {
     loadItems.push({
@@ -2165,6 +2183,13 @@ currentUser?.addEventListener("click", () => {
   state.activeSection = "profile";
   closeMobileMenu();
   render();
+});
+
+openChatButton?.addEventListener("click", () => {
+  state.activeSection = "profile";
+  closeMobileMenu();
+  render();
+  teamChatList?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
 closeAccountButton.addEventListener("click", () => {

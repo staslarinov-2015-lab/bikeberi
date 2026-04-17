@@ -107,12 +107,12 @@ sudo sh /var/www/bikeberi-service/backup_db.sh
 20 3 * * * /bin/sh /var/www/bikeberi-service/backup_db.sh >> /var/log/bikeberi-backup.log 2>&1
 ```
 
-## Демо-логины
+## Рабочие логины
 
-- `mechanic / mechanic123`
-- `owner / owner123`
+- `larionov / Larionov2026!` (управляющий)
+- `mesrop / Mesrop2026!` (механик)
 
-После деплоя их лучше сменить напрямую в базе или через будущую админку.
+После первого входа обязательно смените пароли в профиле.
 
 ## Что стоит сделать следующим этапом
 

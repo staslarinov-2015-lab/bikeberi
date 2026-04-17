@@ -38,8 +38,6 @@ HOST = os.environ.get("BIKEBERI_HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", os.environ.get("BIKEBERI_PORT", "8000")))
 COOKIE_SECURE = os.environ.get("BIKEBERI_COOKIE_SECURE", "false").lower() == "true"
 APP_NAME = os.environ.get("BIKEBERI_APP_NAME", "Байк Сервис")
-GUEST_MODE = os.environ.get("BIKEBERI_GUEST_MODE", "false").lower() == "true"
-GUEST_USERNAME = os.environ.get("BIKEBERI_GUEST_USERNAME", "guest")
 DB_PATH = Path(
     os.environ.get(
         "BIKEBERI_DB_PATH",
@@ -463,36 +461,46 @@ def init_db():
 
     now = utc_now().isoformat()
 
-    users_count = cur.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    if users_count == 0:
-        cur.executemany(
-            "INSERT INTO users (username, password_hash, role, full_name, phone, telegram, position, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-                ("mechanic", hash_password("mechanic123"), "mechanic", "Механик Байк Сервис", "", "", "Механик", "", now),
-                ("owner", hash_password("owner123"), "owner", "Собственник Байк Сервис", "", "", "Собственник", "", now),
-            ],
-        )
+    # Remove demo/test users and enforce production accounts.
+    demo_usernames = ("mechanic", "owner", "Mech", "guest")
+    demo_user_ids = [
+        row["id"]
+        for row in cur.execute(
+            f"SELECT id FROM users WHERE lower(username) IN ({','.join('?' for _ in demo_usernames)})",
+            tuple(name.lower() for name in demo_usernames),
+        ).fetchall()
+    ]
+    for user_id in demo_user_ids:
+        cur.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+    cur.execute(
+        f"DELETE FROM users WHERE lower(username) IN ({','.join('?' for _ in demo_usernames)})",
+        tuple(name.lower() for name in demo_usernames),
+    )
 
-    mech_user = cur.execute(
-        "SELECT id FROM users WHERE lower(username) = lower(?)",
-        ("Mech",),
-    ).fetchone()
-    if not mech_user:
-        cur.execute(
-            "INSERT INTO users (username, password_hash, role, full_name, phone, telegram, position, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            ("Mech", hash_password("DanMech"), "mechanic", "Вяткин Даниил Антонович", "", "", "Механик", "", now),
-        )
-
-    # Upgrade legacy password hashes in place.
-    for user in cur.execute("SELECT id, password_hash FROM users").fetchall():
-        if not str(user["password_hash"]).startswith("pbkdf2_sha256$"):
-            defaults = {1: "mechanic123", 2: "owner123"}
-            password = defaults.get(user["id"])
-            if password:
-                cur.execute(
-                    "UPDATE users SET password_hash = ? WHERE id = ?",
-                    (hash_password(password), user["id"]),
-                )
+    core_users = [
+        ("larionov", "Larionov2026!", "owner", "Ларионов Станислав", "Управляющий"),
+        ("mesrop", "Mesrop2026!", "mechanic", "Месроп", "Механик"),
+    ]
+    for username, plain_password, role, full_name, position in core_users:
+        row = cur.execute("SELECT id FROM users WHERE lower(username) = lower(?)", (username,)).fetchone()
+        password_hash = hash_password(plain_password)
+        if row:
+            cur.execute(
+                """
+                UPDATE users
+                SET password_hash = ?, role = ?, full_name = ?, position = ?, notes = COALESCE(notes, '')
+                WHERE id = ?
+                """,
+                (password_hash, role, full_name, position, row["id"]),
+            )
+        else:
+            cur.execute(
+                """
+                INSERT INTO users (username, password_hash, role, full_name, phone, telegram, position, notes, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (username, password_hash, role, full_name, "", "", position, "", now),
+            )
 
     repairs_count = cur.execute("SELECT COUNT(*) FROM repairs").fetchone()[0]
     if repairs_count == 0:
@@ -752,22 +760,6 @@ def get_current_user(handler):
                     conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
                     conn.commit()
                 conn.close()
-
-    if GUEST_MODE:
-        conn = get_db()
-        now = utc_now().isoformat()
-        user_row = conn.execute("SELECT * FROM users WHERE username = ?", (GUEST_USERNAME,)).fetchone()
-        if not user_row:
-            # create guest mechanic user on first request
-            conn.execute(
-                "INSERT INTO users (username, password_hash, role, full_name, phone, telegram, position, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (GUEST_USERNAME, hash_password(secrets.token_urlsafe(24)), "mechanic", "Гость (механик)", "", "", "Механик", "Гостевой режим", now),
-            )
-            conn.commit()
-            user_row = conn.execute("SELECT * FROM users WHERE username = ?", (GUEST_USERNAME,)).fetchone()
-        user = serialize_user(user_row)
-        conn.close()
-        return user
 
     return None
 
@@ -1729,8 +1721,6 @@ class AppHandler(BaseHTTPRequestHandler):
             user = require_auth(self)
             if not user:
                 return
-            if GUEST_MODE and user.get("username") == GUEST_USERNAME:
-                return json_response(self, 400, {"error": "Смена пароля недоступна в гостевом режиме"})
             payload = read_json(self)
             current_password = str(payload.get("currentPassword", ""))
             new_password = str(payload.get("newPassword", ""))

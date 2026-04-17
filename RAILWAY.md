@@ -71,9 +71,9 @@ PORT=8000
 
 Файл базы в репозиторий не коммитится. Если нужно подтянуть записи с Railway (или восстановить после смены сервера), см. **`RAILWAY_DATA.md`** и скрипты `scripts/fetch_railway_app_db.sh`, `scripts/restore_business_from_dump.sh`.
 
-## Демо-логины
+## Рабочие логины
 
-- `mechanic / mechanic123`
-- `owner / owner123`
+- `larionov / Larionov2026!` (управляющий)
+- `mesrop / Mesrop2026!` (механик)
 
 После публикации их лучше поменять как можно раньше.
