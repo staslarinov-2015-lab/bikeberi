@@ -63,7 +63,10 @@
         <nav class="sidebar-nav" aria-label="Разделы">
           <button class="nav-link is-active" type="button" data-section="overview">Дашборд</button>
           <button class="nav-link" type="button" data-section="repairs">Очередь</button>
-          <button class="nav-link" type="button" data-section="chat">Чат</button>
+          <button class="nav-link nav-link-chat" type="button" data-section="chat">
+            Чат
+            <span class="chat-unread-badge hidden" data-chat-unread-badge>0</span>
+          </button>
           <button class="nav-link" type="button" data-section="bikes">Парк</button>
           <button class="nav-link" type="button" data-section="diagnostics">Диагностика</button>
           <button class="nav-link" type="button" data-section="inventory">Склад</button>
@@ -89,7 +92,10 @@
             <span class="topbar-app-name">Байк сервис</span>
           </div>
           <div class="topbar-right" aria-label="Контекст">
-            <button id="open-chat-button" class="ghost-btn topbar-chat-btn" type="button">Чат</button>
+            <button id="open-chat-button" class="ghost-btn topbar-chat-btn" type="button">
+              Чат
+              <span class="chat-unread-badge chat-unread-badge-topbar hidden" data-chat-unread-badge>0</span>
+            </button>
             <span id="topbar-role-pill" class="topbar-pill topbar-pill-accent">механик</span>
             <span class="topbar-pill">live</span>
           </div>
@@ -382,7 +388,7 @@
 
     <nav class="mobile-tabbar" aria-label="Навигация (мобильная)">
       <button class="mobile-tab" type="button" data-section="chat" aria-label="Чат">
-        <span class="mobile-tab-icon">💬</span>
+        <span class="mobile-tab-icon mobile-tab-icon-with-badge">💬<span class="chat-unread-badge chat-unread-badge-mobile hidden" data-chat-unread-badge>0</span></span>
         <span class="mobile-tab-label">Чат</span>
       </button>
       <button class="mobile-tab" type="button" data-section="repairs" aria-label="Очередь">

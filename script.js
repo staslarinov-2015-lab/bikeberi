@@ -343,6 +343,7 @@ const BIKE_CODE_NORMALIZE_MAP = {
 };
 
 const ISSUE_CHECKLIST_STORAGE_KEY = "bikeberi.issueChecklist.v1";
+const CHAT_LAST_READ_STORAGE_KEY = "bikeberi.teamChatLastReadAt.v1";
 const ISSUE_CHECKLIST = [
   {
     title: "Техническое состояние",
@@ -431,6 +432,7 @@ const ownerProcess = document.getElementById("owner-process");
 const ownerPriorityForm = document.getElementById("owner-priority-form");
 const teamChatForm = document.getElementById("team-chat-form");
 const teamChatList = document.getElementById("team-chat-list");
+const chatUnreadBadges = Array.from(document.querySelectorAll("[data-chat-unread-badge]"));
 const currentUser = document.getElementById("current-user");
 const sidebarRoleTitle = document.getElementById("sidebar-role-title");
 const topbarRolePill = document.getElementById("topbar-role-pill");
@@ -2097,6 +2099,60 @@ function renderTeamChat() {
   teamChatList.scrollTop = teamChatList.scrollHeight;
 }
 
+function getChatLastReadAtMs() {
+  try {
+    const raw = window.localStorage.getItem(CHAT_LAST_READ_STORAGE_KEY);
+    const value = Number(raw || 0);
+    return Number.isFinite(value) ? value : 0;
+  } catch (error) {
+    return 0;
+  }
+}
+
+function setChatLastReadAtMs(value) {
+  const safeValue = Number(value || 0);
+  if (!Number.isFinite(safeValue) || safeValue <= 0) return;
+  try {
+    window.localStorage.setItem(CHAT_LAST_READ_STORAGE_KEY, String(safeValue));
+  } catch (error) {
+    // ignore storage quota/private mode issues
+  }
+}
+
+function getMessageCreatedAtMs(item) {
+  const timestamp = Date.parse(String(item?.created_at || ""));
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function getChatUnreadCount() {
+  const myRole = getRole();
+  if (!myRole) return 0;
+  const lastReadAt = getChatLastReadAtMs();
+  return (state.teamChat || []).reduce((count, item) => {
+    if (!item || item.sender_role === myRole) return count;
+    return getMessageCreatedAtMs(item) > lastReadAt ? count + 1 : count;
+  }, 0);
+}
+
+function markChatAsRead() {
+  if (state.activeSection !== "chat") return;
+  const latestTimestamp = (state.teamChat || []).reduce(
+    (maxValue, item) => Math.max(maxValue, getMessageCreatedAtMs(item)),
+    0
+  );
+  setChatLastReadAtMs(latestTimestamp);
+}
+
+function renderChatUnreadBadges() {
+  if (!chatUnreadBadges.length) return;
+  const unreadCount = getChatUnreadCount();
+  const visibleCount = unreadCount > 99 ? "99+" : String(unreadCount);
+  chatUnreadBadges.forEach((badge) => {
+    badge.textContent = visibleCount;
+    badge.classList.toggle("hidden", unreadCount < 1);
+  });
+}
+
 function render() {
   loginOverlay.classList.toggle("hidden", Boolean(state.user));
   if (globalSearch) globalSearch.value = state.search;
@@ -2129,6 +2185,8 @@ function render() {
   renderIssueChecklist();
   renderOwnerPanel();
   renderTeamChat();
+  markChatAsRead();
+  renderChatUnreadBadges();
   renderProfile();
   renderBikeFormStatusOptions();
 }

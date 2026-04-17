@@ -204,6 +204,13 @@ textarea {
   box-shadow: none;
 }
 
+.nav-link-chat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .sidebar-footer {
   padding: 12px 12px 20px;
   display: flex;
@@ -292,6 +299,31 @@ textarea {
   padding: 7px 12px;
   border-radius: 999px;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-unread-badge {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1;
+  background: #ff5d3f;
+  color: #fff;
+}
+
+.chat-unread-badge-topbar {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 0.64rem;
 }
 
 .topbar-pill-accent {
@@ -2120,6 +2152,21 @@ textarea:focus-visible {
     line-height: 1;
     color: inherit;
   }
+
+.mobile-tab-icon-with-badge {
+  position: relative;
+  display: inline-block;
+}
+
+.chat-unread-badge-mobile {
+  position: absolute;
+  top: -7px;
+  right: -11px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 0.62rem;
+}
 
   .mobile-tab-icon-badge {
     width: 24px;
