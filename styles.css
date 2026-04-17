@@ -466,10 +466,15 @@ body.mobile-menu-open {
   overflow: hidden;
   background: #fff;
   box-shadow: 0 2px 8px rgba(102, 123, 155, 0.04);
+  display: grid;
+  grid-template-rows: auto auto;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .stat-card.is-expanded {
-  grid-column: 1 / -1;
+  grid-column: auto;
+  border-color: var(--border-strong);
+  box-shadow: 0 8px 20px rgba(102, 123, 155, 0.1);
 }
 
 .stat-card-trigger {
@@ -528,10 +533,13 @@ body.mobile-menu-open {
 }
 
 .stat-card-details {
-  display: none;
-  padding: 0 12px 12px;
-  border-top: 1px solid var(--border);
+  max-height: 0;
+  overflow: hidden;
+  padding: 0 12px;
+  border-top: 1px solid transparent;
   background: var(--surface);
+  opacity: 0;
+  transition: max-height 0.2s ease, padding 0.2s ease, opacity 0.15s ease, border-color 0.2s ease;
 }
 
 .stat-card.stat-accent .stat-card-icon {
@@ -555,7 +563,11 @@ body.mobile-menu-open {
 }
 
 .stat-card-details.is-open {
-  display: block;
+  max-height: 168px;
+  padding: 6px 12px 12px;
+  border-top-color: var(--border);
+  opacity: 1;
+  overflow-y: auto;
 }
 
 .stat-detail-line {
