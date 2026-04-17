@@ -584,9 +584,17 @@ def supabase_download_db_if_any() -> bool:
         _SUPABASE_ACTIVE_BUCKET = bucket
         return True
     # Nothing downloaded
-    if saw_404 and not saw_non404:
+    # If at least one bucket returned 404 for the DB object, we can treat this as first bootstrap
+    # when explicitly allowed, even if some other bucket probes returned non-404 errors.
+    if saw_404:
         _SUPABASE_LAST_DOWNLOAD_NOT_FOUND = True
-        _SUPABASE_LAST_ERROR = f"Supabase DB object not found in any bucket for {SUPABASE_DB_OBJECT}"
+        if saw_non404:
+            _SUPABASE_LAST_ERROR = (
+                f"Supabase DB object not found in some buckets for {SUPABASE_DB_OBJECT}; "
+                + "; ".join(errors[-6:])
+            )
+        else:
+            _SUPABASE_LAST_ERROR = f"Supabase DB object not found in any bucket for {SUPABASE_DB_OBJECT}"
         if SUPABASE_ALLOW_EMPTY_BOOTSTRAP:
             _SUPABASE_UPLOAD_ALLOWED = True
     else:
