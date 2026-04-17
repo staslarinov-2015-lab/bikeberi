@@ -1150,6 +1150,12 @@ tbody tr:hover {
   gap: 10px;
 }
 
+.inventory-minimal-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .inventory-minimal-head strong {
   font-size: 1rem;
   font-weight: 600;
@@ -1194,10 +1200,11 @@ tbody tr:hover {
   transform: translateY(-1px);
 }
 
-.inventory-card-actions {
-  margin-top: 8px;
-  display: flex;
-  justify-content: flex-end;
+.inventory-delete-btn {
+  min-height: 30px;
+  padding: 5px 9px;
+  font-size: 0.78rem;
+  border-radius: 10px;
 }
 
 .diagnostics-grid {

@@ -1784,15 +1784,15 @@ function renderInventory() {
         <article class="inventory-card inventory-card-minimal ${canManage ? "is-clickable" : ""}" ${canManage ? `data-action="open-inventory-item" data-id="${item.id}"` : ""}>
           <div class="inventory-minimal-head">
             <strong>${escapeHtml(item.name)}</strong>
-            <span class="stock-chip ${chipClass}">${escapeHtml(String(Math.max(stock, 0)))}</span>
+            <div class="inventory-minimal-right">
+              <span class="stock-chip ${chipClass}">${escapeHtml(String(Math.max(stock, 0)))}</span>
+              ${
+                canManage
+                  ? `<button class="danger-btn inventory-delete-btn" type="button" data-action="delete-inventory-item" data-id="${item.id}">Удалить</button>`
+                  : ""
+              }
+            </div>
           </div>
-          ${
-            canManage
-              ? `<div class="inventory-card-actions">
-                  <button class="danger-btn" type="button" data-action="delete-inventory-item" data-id="${item.id}">Удалить</button>
-                </div>`
-              : ""
-          }
         </article>
       `;
     })
