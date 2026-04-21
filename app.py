@@ -1229,7 +1229,20 @@ def parse_required_parts_text(raw_value: str):
     parts = []
     if not raw_value:
         return parts
-    for chunk in str(raw_value).split(","):
+    source = str(raw_value).strip()
+    normalized_source = re.sub(r"[\s\.\,\!\?\-_:;]+", " ", source.lower()).strip()
+    no_parts_phrases = (
+        "не нужны",
+        "запчасти не нужны",
+        "не требуется",
+        "не требуются",
+        "запчасти не требуются",
+        "без запчастей",
+        "запчасти не нужны для ремонта",
+    )
+    if any(phrase in normalized_source for phrase in no_parts_phrases):
+        return parts
+    for chunk in source.split(","):
         item = chunk.strip()
         if not item:
             continue
