@@ -1248,7 +1248,10 @@ function renderDiagnosticsTable() {
             <strong class="diagnostic-mini-bike">${escapeHtml(item.bike)}</strong>
             ${
               canManage
-                ? `<button class="icon-btn" type="button" data-action="edit-diagnostic" data-id="${item.id}">Ред.</button>`
+                ? `<div class="table-actions">
+                    <button class="icon-btn" type="button" data-action="edit-diagnostic" data-id="${item.id}">Ред.</button>
+                    <button class="danger-btn" type="button" data-action="delete-diagnostic" data-id="${item.id}">Удалить</button>
+                  </div>`
                 : ""
             }
           </div>
