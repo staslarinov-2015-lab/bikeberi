@@ -436,6 +436,7 @@ const chatUnreadBadges = Array.from(document.querySelectorAll("[data-chat-unread
 const currentUser = document.getElementById("current-user");
 const sidebarRoleTitle = document.getElementById("sidebar-role-title");
 const topbarRolePill = document.getElementById("topbar-role-pill");
+const mechanicDayFocus = document.getElementById("mechanic-day-focus");
 const openChatButton = document.getElementById("open-chat-button");
 const accountButton = document.getElementById("account-button");
 const accountOverlay = document.getElementById("account-overlay");
@@ -549,17 +550,6 @@ function updateBikeCodeHiddenInput(rootName) {
     hiddenInput.setCustomValidity("");
   }
   return complete ? bikeCode : "";
-}
-
-function showBikeCodeValidationError(rootName) {
-  const builder = getBikeBuilder(rootName);
-  const visibleInput = builder?.querySelector("[data-bike-code-input]");
-  if (visibleInput) {
-    visibleInput.dataset.touched = "true";
-    visibleInput.focus();
-    visibleInput.reportValidity();
-  }
-  window.alert("Укажи номер байка в формате РЕ123У");
 }
 
 function setBikeCodeValue(rootName, value) {
@@ -1229,6 +1219,21 @@ function renderStatusChips() {
   document.querySelectorAll("[data-status-filter]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.statusFilter === state.statusFilter);
   });
+}
+
+function renderMechanicDayFocus() {
+  if (!mechanicDayFocus) return;
+  const focus = String(state.kpi.mechanicFocus || "").trim();
+  const shouldShow = getRole() === "mechanic" && Boolean(focus);
+  mechanicDayFocus.classList.toggle("hidden", !shouldShow);
+  if (!shouldShow) {
+    mechanicDayFocus.textContent = "";
+    return;
+  }
+  mechanicDayFocus.innerHTML = `
+    <span class="mechanic-day-focus-label">Фокус на день</span>
+    <strong class="mechanic-day-focus-value">${escapeHtml(focus)}</strong>
+  `;
 }
 
 function renderDiagnosticsTable() {
@@ -2235,6 +2240,7 @@ function render() {
   }
   renderRoleContent();
   renderSectionHeader();
+  renderMechanicDayFocus();
   renderSections();
   renderStatusChips();
   renderMetrics();
@@ -2595,7 +2601,7 @@ repairForm?.addEventListener("submit", async (event) => {
   const bikeCode = updateBikeCodeHiddenInput("repair");
 
   if (!isValidBikeCode(bikeCode)) {
-    showBikeCodeValidationError("repair");
+    repairForm.reportValidity();
     return;
   }
 
@@ -2671,7 +2677,7 @@ bikeForm?.addEventListener("submit", async (event) => {
   const bikeCode = updateBikeCodeHiddenInput("bike");
 
   if (!isValidBikeCode(bikeCode)) {
-    showBikeCodeValidationError("bike");
+    bikeForm.reportValidity();
     return;
   }
 
@@ -2706,7 +2712,7 @@ diagnosticForm.addEventListener("submit", async (event) => {
   const bikeCode = updateBikeCodeHiddenInput("diagnostic");
 
   if (!isValidBikeCode(bikeCode)) {
-    showBikeCodeValidationError("diagnostic");
+    diagnosticForm.reportValidity();
     return;
   }
 

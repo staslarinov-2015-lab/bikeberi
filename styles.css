@@ -390,6 +390,32 @@ body.mobile-menu-open {
   gap: 20px;
 }
 
+.mechanic-day-focus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 138, 31, 0.28);
+  background: rgba(255, 138, 31, 0.12);
+}
+
+.mechanic-day-focus-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #9a6a2a;
+}
+
+.mechanic-day-focus-value {
+  font-size: 1rem;
+  line-height: 1.3;
+  color: #40270b;
+}
+
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
