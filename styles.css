@@ -1463,30 +1463,21 @@ tbody tr:hover {
 }
 
 .queue-mini-card.is-green {
-  border-color: rgba(22, 156, 99, 0.28);
-  background: linear-gradient(
-    180deg,
-    rgba(206, 245, 223, 0.55) 0%,
-    rgba(255, 255, 255, 0.92) 100%
-  );
+  border-color: rgba(22, 156, 99, 0.24);
+  background: var(--surface);
+  box-shadow: inset 0 3px 0 rgba(22, 156, 99, 0.14);
 }
 
 .queue-mini-card.is-yellow {
-  border-color: rgba(184, 106, 0, 0.3);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 234, 191, 0.58) 0%,
-    rgba(255, 255, 255, 0.92) 100%
-  );
+  border-color: rgba(32, 90, 164, 0.24);
+  background: var(--surface);
+  box-shadow: inset 0 3px 0 rgba(32, 90, 164, 0.16);
 }
 
 .queue-mini-card.is-red {
-  border-color: rgba(217, 60, 53, 0.32);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 222, 222, 0.62) 0%,
-    rgba(255, 255, 255, 0.92) 100%
-  );
+  border-color: rgba(217, 60, 53, 0.28);
+  background: var(--surface);
+  box-shadow: inset 0 3px 0 rgba(217, 60, 53, 0.14);
 }
 
 .queue-filter-toolbar {
