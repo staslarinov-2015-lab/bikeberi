@@ -493,7 +493,6 @@ const diagnosticStepDetails = document.getElementById("diagnostic-step-details")
 const diagnosticStepViewCategories = document.getElementById("diagnostic-step-view-categories");
 const diagnosticStepViewFaults = document.getElementById("diagnostic-step-view-faults");
 const refreshButton = document.getElementById("refresh-button");
-const priorityNextEl = document.getElementById("priority-next");
 const queueFilterChipsEl = document.getElementById("queue-filter-chips");
 const bikeCodeBuilders = Array.from(document.querySelectorAll("[data-bike-code-root]"));
 
@@ -2010,29 +2009,6 @@ function staleActiveCardClass(order) {
   return getRepairStaleness(order) ? " has-stale-warning" : "";
 }
 
-function renderPriorityNext() {
-  if (!priorityNextEl) return;
-  const rows = getPriorityNextOrders();
-  if (!rows.length) {
-    priorityNextEl.innerHTML = '<p class="muted priority-empty">Пусто.</p>';
-    return;
-  }
-  priorityNextEl.innerHTML = rows
-    .map(
-      (order) => `
-        <article class="priority-row" data-action="open-work-order" data-id="${order.id}">
-          <div class="priority-row-main">
-            <div class="priority-row-bike">${escapeHtml(order.bike_code)}</div>
-            <p class="priority-row-fault muted">${escapeHtml(order.fault || order.issue || "Поломка не указана")}</p>
-            <p class="priority-row-reason">${escapeHtml(getRepairPriorityLabel(order))}</p>
-          </div>
-          <span class="priority-row-arrow" aria-hidden="true">→</span>
-        </article>
-      `
-    )
-    .join("");
-}
-
 function renderWorkOrders() {
   if (!workOrdersBoard || !activeRepairBoard) return;
   renderQueueFilterToolbar();
@@ -2255,7 +2231,6 @@ function render() {
   syncDiagnosticWizard();
   renderInventory();
   renderBikes();
-  renderPriorityNext();
   renderWorkOrders();
   renderIssueChecklist();
   renderOwnerPanel();
