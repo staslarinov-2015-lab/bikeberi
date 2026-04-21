@@ -535,16 +535,31 @@ function updateBikeCodeHiddenInput(rootName) {
   const bikeCode = normalizeBikeCode(visibleInput ? visibleInput.value : "");
   const complete = bikeCode.length === 6;
   const valid = complete && isValidBikeCode(bikeCode);
+  const bikeValidityMessage = valid ? "" : "Укажи номер байка в формате РЕ123У";
   if (visibleInput) {
     visibleInput.value = bikeCode;
+    // Hidden inputs are excluded from constraint validation; validity must be on the visible field
+    // or reportValidity() does nothing and submit handlers return without saving (no API error).
+    visibleInput.setCustomValidity(bikeValidityMessage);
     const shouldShowError = Boolean(bikeCode) && ((visibleInput.dataset.touched === "true" && !valid) || (complete && !valid));
     builder.classList.toggle("is-invalid", shouldShowError);
   }
   if (hiddenInput) {
     hiddenInput.value = complete ? bikeCode : "";
-    hiddenInput.setCustomValidity(valid ? "" : "Укажи номер байка в формате РЕ123У");
+    hiddenInput.setCustomValidity("");
   }
   return complete ? bikeCode : "";
+}
+
+function showBikeCodeValidationError(rootName) {
+  const builder = getBikeBuilder(rootName);
+  const visibleInput = builder?.querySelector("[data-bike-code-input]");
+  if (visibleInput) {
+    visibleInput.dataset.touched = "true";
+    visibleInput.focus();
+    visibleInput.reportValidity();
+  }
+  window.alert("Укажи номер байка в формате РЕ123У");
 }
 
 function setBikeCodeValue(rootName, value) {
@@ -2580,7 +2595,7 @@ repairForm?.addEventListener("submit", async (event) => {
   const bikeCode = updateBikeCodeHiddenInput("repair");
 
   if (!isValidBikeCode(bikeCode)) {
-    repairForm.reportValidity();
+    showBikeCodeValidationError("repair");
     return;
   }
 
@@ -2656,7 +2671,7 @@ bikeForm?.addEventListener("submit", async (event) => {
   const bikeCode = updateBikeCodeHiddenInput("bike");
 
   if (!isValidBikeCode(bikeCode)) {
-    bikeForm.reportValidity();
+    showBikeCodeValidationError("bike");
     return;
   }
 
@@ -2691,7 +2706,7 @@ diagnosticForm.addEventListener("submit", async (event) => {
   const bikeCode = updateBikeCodeHiddenInput("diagnostic");
 
   if (!isValidBikeCode(bikeCode)) {
-    diagnosticForm.reportValidity();
+    showBikeCodeValidationError("diagnostic");
     return;
   }
 
