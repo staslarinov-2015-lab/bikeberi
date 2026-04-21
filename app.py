@@ -2030,6 +2030,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 ),
             )
             work_order_id = work_cursor.lastrowid
+            required_parts_text = ", ".join(f"{name}:{qty}" for name, qty in required_parts) or "-"
             for part_name, qty in required_parts:
                 conn.execute(
                     """

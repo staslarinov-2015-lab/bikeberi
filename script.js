@@ -741,6 +741,8 @@ async function api(path, options = {}) {
     const message =
       typeof payload === "object" && payload && payload.error
         ? payload.error
+        : typeof payload === "string" && payload.trim()
+          ? payload.trim()
         : "Ошибка запроса";
     if (notifyError) window.alert(message);
     throw new Error(message);
