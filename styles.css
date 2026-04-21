@@ -1139,6 +1139,12 @@ tbody tr:hover {
   gap: 8px;
 }
 
+.inventory-minimal-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
 .inventory-minimal-head strong {
   font-size: 1rem;
   font-weight: 600;

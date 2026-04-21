@@ -1835,13 +1835,15 @@ function renderInventory() {
             <strong>${escapeHtml(item.name)}</strong>
             <div class="inventory-minimal-right">
               <span class="stock-chip ${chipClass}">${escapeHtml(String(Math.max(stock, 0)))}</span>
-              ${
-                canManage
-                  ? `<button class="danger-btn inventory-delete-btn" type="button" data-action="delete-inventory-item" data-id="${item.id}">Удалить</button>`
-                  : ""
-              }
             </div>
           </div>
+          ${
+            canManage
+              ? `<div class="inventory-minimal-footer">
+                  <button class="danger-btn inventory-delete-btn" type="button" data-action="delete-inventory-item" data-id="${item.id}">Удалить</button>
+                </div>`
+              : ""
+          }
         </article>
       `;
     })
