@@ -647,7 +647,12 @@ class SyncedConnection:
 
     def commit(self):
         self._conn.commit()
-        supabase_upload_db_snapshot()
+        # Never block API response on external storage sync.
+        # If Supabase is slow/unavailable, requests must still succeed.
+        try:
+            threading.Thread(target=supabase_upload_db_snapshot, daemon=True).start()
+        except Exception:
+            pass
 
     def close(self):
         return self._conn.close()
