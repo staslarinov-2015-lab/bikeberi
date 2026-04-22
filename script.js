@@ -40,6 +40,8 @@ const state = {
     fault: "",
     criticality: "",
     selectedParts: [],
+    decision: "",
+    queueReason: "",
   },
 };
 
@@ -507,7 +509,6 @@ const diagnosticQuickSummaryCard = document.getElementById("diagnostic-quick-sum
 const diagnosticQuickBack = document.getElementById("diagnostic-quick-back");
 const diagnosticQuickNext = document.getElementById("diagnostic-quick-next");
 const diagnosticQuickSaveOpen = document.getElementById("diagnostic-quick-save-open");
-const diagnosticQuickMechanicInput = document.getElementById("diagnostic-quick-mechanic-input");
 const refreshButton = document.getElementById("refresh-button");
 const queueFilterChipsEl = document.getElementById("queue-filter-chips");
 const bikeCodeBuilders = Array.from(document.querySelectorAll("[data-bike-code-root]"));
@@ -1218,6 +1219,10 @@ function renderSections() {
   });
 
   document.querySelectorAll(".mobile-tab").forEach((button) => {
+    if (button.classList.contains("mobile-tab-cta")) {
+      button.classList.remove("is-active");
+      return;
+    }
     const allowed = !button.classList.contains("owner-only") || getRole() === "owner";
     button.classList.toggle("hidden", !allowed);
     button.classList.toggle("is-active", button.dataset.section === state.activeSection);
@@ -1628,16 +1633,28 @@ function buildQuickSymptomsText() {
 }
 
 function buildQuickConclusionText() {
+  const decisionText =
+    state.diagnosticQuickFlow.decision === "take_repair"
+      ? "Вариант: взять в ремонт."
+      : state.diagnosticQuickFlow.decision === "queue"
+        ? `Вариант: поставить в очередь. Причина: ${state.diagnosticQuickFlow.queueReason || "не указана"}.`
+        : "Вариант развития событий не выбран.";
   return [
     `Предварительный диагноз: ${buildQuickFaultTitle()}.`,
     `Критичность: ${state.diagnosticQuickFlow.criticality}.`,
-    `Рекомендация: ${getQuickRecommendation()}.`,
+    decisionText,
   ].join(" ");
 }
 
 function canGoNextQuickStep() {
   const step = state.diagnosticQuickFlow.step;
-  if (step === DIAGNOSTIC_QUICK_TOTAL_STEPS) return true;
+  if (step === DIAGNOSTIC_QUICK_TOTAL_STEPS) {
+    if (!state.diagnosticQuickFlow.decision) return false;
+    if (state.diagnosticQuickFlow.decision === "queue") {
+      return Boolean(String(state.diagnosticQuickFlow.queueReason || "").trim());
+    }
+    return true;
+  }
   const cfg = DIAGNOSTIC_QUICK_STEPS[step];
   if (!cfg) return false;
   const value = state.diagnosticQuickFlow[cfg.key];
@@ -1648,6 +1665,8 @@ function canGoNextQuickStep() {
 function renderQuickSummaryCard() {
   if (!diagnosticQuickSummaryCard) return;
   const selectedParts = new Set(state.diagnosticQuickFlow.selectedParts || []);
+  const decision = state.diagnosticQuickFlow.decision || "";
+  const queueReason = state.diagnosticQuickFlow.queueReason || "";
   const inventoryButtons = getQuickInventoryOptions().map((partName) => {
     const active = selectedParts.has(partName);
     return `
@@ -1667,11 +1686,27 @@ function renderQuickSummaryCard() {
     <div class="diagnostic-quick-summary-row"><strong>Поломка:</strong> ${escapeHtml(buildQuickFaultTitle())}</div>
     <div class="diagnostic-quick-summary-row"><strong>Приоритет:</strong> ${escapeHtml(state.diagnosticQuickFlow.criticality)}</div>
     <div class="diagnostic-scenario-block">
+      <div class="diagnostic-quick-summary-row"><strong>Варианты развития событий:</strong></div>
+      <div class="diagnostic-scenario-grid">
+        <button class="diagnostic-scenario-card ${decision === "take_repair" ? "is-active" : ""}" type="button" data-action="diagnostic-decision" data-decision="take_repair">
+          <strong>Взять в ремонт</strong>
+          <span>Работы начинаем сразу</span>
+        </button>
+        <button class="diagnostic-scenario-card ${decision === "queue" ? "is-active" : ""}" type="button" data-action="diagnostic-decision" data-decision="queue">
+          <strong>Поставить в очередь</strong>
+          <span>Нужно указать причину</span>
+        </button>
+      </div>
+      <label class="${decision === "queue" ? "" : "hidden"}">
+        <span>Причина, почему не можем взять в ремонт сейчас</span>
+        <textarea id="diagnostic-queue-reason" rows="3" placeholder="Например: нет места в ремзоне до 18:00, ожидаем поставку ключевой запчасти">${escapeHtml(queueReason)}</textarea>
+      </label>
+    </div>
+    <div class="diagnostic-scenario-block">
       <div class="diagnostic-quick-summary-row"><strong>Выбор запчастей со склада:</strong></div>
       <div class="diagnostic-scenario-grid">${inventoryButtons}</div>
     </div>
     <div class="diagnostic-quick-summary-row"><strong>Запчасти:</strong> ${escapeHtml(getQuickRequiredPartsText())}</div>
-    <div class="diagnostic-quick-summary-row"><strong>Почему:</strong> ${escapeHtml(getQuickRecommendation())}</div>
   `;
 }
 
@@ -1722,7 +1757,7 @@ function syncDiagnosticWizard() {
   if (diagnosticQuickBack) diagnosticQuickBack.classList.toggle("hidden", progress === 1);
   if (diagnosticQuickSaveOpen) {
     diagnosticQuickSaveOpen.classList.toggle("hidden", !isSummary);
-    diagnosticQuickSaveOpen.disabled = !canProceed;
+    diagnosticQuickSaveOpen.disabled = !canProceed || state.diagnosticQuickFlow.decision !== "take_repair";
   }
   if (diagnosticQuickNext) {
     diagnosticQuickNext.textContent = isSummary ? "Сохранить диагностику" : "Далее";
@@ -1759,14 +1794,13 @@ function resetDiagnosticFlow() {
     fault: "",
     criticality: "",
     selectedParts: [],
+    decision: "",
+    queueReason: "",
   };
   diagnosticForm.reset();
   resetBikeCodeValue("diagnostic");
   delete diagnosticForm.dataset.editId;
   diagnosticForm.elements.date.value = new Date().toISOString().slice(0, 10);
-  if (diagnosticQuickMechanicInput) {
-    diagnosticQuickMechanicInput.value = state.user?.full_name || "";
-  }
   diagnosticForm.elements.mechanicName.value = state.user?.full_name || "";
   diagnosticForm.elements.category.value = "";
   diagnosticForm.elements.fault.value = "";
@@ -2159,6 +2193,40 @@ function inventoryStockTier(item) {
   return 2;
 }
 
+const INVENTORY_GROUPS = [
+  {
+    key: "plastic",
+    title: "Пластик",
+    keywords: ["пластик", "сабля", "щиток", "корпус", "дека", "порог", "сиден", "клипс", "крепеж пластика"],
+  },
+  {
+    key: "brakes",
+    title: "Тормоза",
+    keywords: ["тормоз", "суппорт", "колодк", "шланг", "диск", "рычаг тормоза"],
+  },
+  {
+    key: "electrics",
+    title: "Электрика",
+    keywords: ["фара", "фонар", "поворот", "контроллер", "провод", "разъем", "панел", "сигнал", "зарядн", "bms"],
+  },
+  {
+    key: "motor",
+    title: "Мотор",
+    keywords: ["мотор", "мотор-колес", "обмотк", "холл", "ротор", "статор"],
+  },
+  {
+    key: "suspension",
+    title: "Подвеска",
+    keywords: ["подшип", "амортиз", "вилка", "сальник", "втулк подвеск"],
+  },
+];
+
+function getInventoryGroupForName(rawName) {
+  const name = String(rawName || "").toLowerCase();
+  const match = INVENTORY_GROUPS.find((group) => group.keywords.some((keyword) => name.includes(keyword)));
+  return match?.key || "other";
+}
+
 function renderInventory() {
   const canManage = getRole() === "mechanic" || getRole() === "owner";
   if (inventorySearchInput) {
@@ -2174,35 +2242,57 @@ function renderInventory() {
       return String(a.name || "").localeCompare(String(b.name || ""), "ru", { sensitivity: "base" });
     });
 
-  inventoryGrid.innerHTML = rows
-    .map((item) => {
-      const stock = Number(item.stock || 0);
-      const isOut = stock <= 0;
-      const isLow = stock === 1;
-      const chipClass = isOut ? "stock-chip-danger" : isLow ? "stock-chip-warn" : "stock-chip-ok";
-      return `
-        <article class="inventory-card inventory-card-minimal ${canManage ? "is-clickable" : ""}" ${canManage ? `data-action="open-inventory-item" data-id="${item.id}"` : ""}>
-          <div class="inventory-minimal-head">
-            <strong>${escapeHtml(item.name)}</strong>
-            <div class="inventory-minimal-right">
-              <span class="stock-chip ${chipClass}">${escapeHtml(String(Math.max(stock, 0)))}</span>
-            </div>
-          </div>
-          ${
-            canManage
-              ? `<div class="inventory-minimal-footer">
-                  <button class="danger-btn inventory-delete-btn" type="button" data-action="delete-inventory-item" data-id="${item.id}">Удалить</button>
-                </div>`
-              : ""
-          }
-        </article>
-      `;
-    })
-    .join("");
-
   if (!rows.length) {
     inventoryGrid.innerHTML = '<article class="inventory-card"><p class="muted">Запчасти не найдены.</p></article>';
+    return;
   }
+
+  const grouped = new Map();
+  [...INVENTORY_GROUPS.map((g) => g.key), "other"].forEach((key) => grouped.set(key, []));
+  rows.forEach((item) => {
+    grouped.get(getInventoryGroupForName(item.name)).push(item);
+  });
+
+  const titleByKey = new Map(INVENTORY_GROUPS.map((g) => [g.key, g.title]));
+  titleByKey.set("other", "Прочее");
+
+  const cardHtml = (item) => {
+    const stock = Number(item.stock || 0);
+    const isOut = stock <= 0;
+    const isLow = stock === 1;
+    const chipClass = isOut ? "stock-chip-danger" : isLow ? "stock-chip-warn" : "stock-chip-ok";
+    return `
+      <article class="inventory-card inventory-card-minimal ${canManage ? "is-clickable" : ""}" ${canManage ? `data-action="open-inventory-item" data-id="${item.id}"` : ""}>
+        <div class="inventory-minimal-head">
+          <strong>${escapeHtml(item.name)}</strong>
+          <div class="inventory-minimal-right">
+            <span class="stock-chip ${chipClass}">${escapeHtml(String(Math.max(stock, 0)))}</span>
+          </div>
+        </div>
+        ${
+          canManage
+            ? `<div class="inventory-minimal-footer">
+                <button class="danger-btn inventory-delete-btn" type="button" data-action="delete-inventory-item" data-id="${item.id}">Удалить</button>
+              </div>`
+            : ""
+        }
+      </article>
+    `;
+  };
+
+  inventoryGrid.innerHTML = Array.from(grouped.entries())
+    .filter(([, items]) => items.length > 0)
+    .map(
+      ([groupKey, items]) => `
+        <section class="inventory-group">
+          <h3 class="inventory-group-title">${escapeHtml(titleByKey.get(groupKey) || "Прочее")} <span>(${items.length})</span></h3>
+          <div class="inventory-group-grid">
+            ${items.map(cardHtml).join("")}
+          </div>
+        </section>
+      `
+    )
+    .join("");
 }
 
 function getBikeStatusChipList() {
@@ -2841,6 +2931,15 @@ diagnosticQuickOptions?.addEventListener("click", (event) => {
 });
 
 diagnosticQuickSummaryCard?.addEventListener("click", (event) => {
+  const decisionButton = event.target.closest('[data-action="diagnostic-decision"]');
+  if (decisionButton) {
+    state.diagnosticQuickFlow.decision = decisionButton.dataset.decision || "";
+    if (state.diagnosticQuickFlow.decision !== "queue") {
+      state.diagnosticQuickFlow.queueReason = "";
+    }
+    syncDiagnosticWizard();
+    return;
+  }
   const button = event.target.closest('[data-action="diagnostic-quick-part"]');
   if (!button) return;
   const partName = String(button.dataset.part || "").trim();
@@ -2852,6 +2951,13 @@ diagnosticQuickSummaryCard?.addEventListener("click", (event) => {
     current.add(partName);
   }
   state.diagnosticQuickFlow.selectedParts = Array.from(current);
+  syncDiagnosticWizard();
+});
+
+diagnosticQuickSummaryCard?.addEventListener("input", (event) => {
+  const textarea = event.target.closest("#diagnostic-queue-reason");
+  if (!textarea) return;
+  state.diagnosticQuickFlow.queueReason = textarea.value || "";
   syncDiagnosticWizard();
 });
 
@@ -2886,6 +2992,15 @@ document.querySelectorAll(".nav-link").forEach((button) => {
 
 document.querySelectorAll(".mobile-tab").forEach((button) => {
   button.addEventListener("click", () => {
+    if (button.dataset.action === "start-diagnostic") {
+      closeAllModals();
+      resetDiagnosticFlow();
+      state.activeSection = "diagnostics";
+      openDiagnosticOverlay();
+      closeMobileMenu();
+      render();
+      return;
+    }
     closeAllModals();
     state.activeSection = button.dataset.section;
     closeMobileMenu();
@@ -3104,7 +3219,7 @@ diagnosticForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const bikeCode = updateBikeCodeHiddenInput("diagnostic");
-  const mechanicName = String(diagnosticQuickMechanicInput?.value || state.user?.full_name || "").trim();
+  const mechanicName = String(state.user?.full_name || "").trim();
   diagnosticForm.elements.bike.value = bikeCode;
   diagnosticForm.elements.mechanicName.value = mechanicName;
   diagnosticForm.elements.date.value = new Date().toISOString().slice(0, 10);
@@ -3135,7 +3250,10 @@ diagnosticForm.addEventListener("submit", async (event) => {
         symptoms: String(formData.get("symptoms")).trim(),
         conclusion: String(formData.get("conclusion")).trim(),
         severity: getQuickSeverity(),
-        recommendation: getQuickRecommendation(),
+        recommendation:
+          state.diagnosticQuickFlow.decision === "queue"
+            ? `Поставить в очередь: ${String(state.diagnosticQuickFlow.queueReason || "").trim()}`
+            : "Взять в ремонт",
         required_parts_text: String(formData.get("requiredParts")).trim(),
       }),
       notifyError: true,
@@ -3364,6 +3482,10 @@ document.addEventListener("click", async (event) => {
           : "Нужен ремонт";
     state.diagnosticQuickFlow.fault = item.fault || "";
     state.diagnosticQuickFlow.selectedParts = [];
+    state.diagnosticQuickFlow.decision = String(item.recommendation || "").toLowerCase().includes("очеред")
+      ? "queue"
+      : "take_repair";
+    state.diagnosticQuickFlow.queueReason = state.diagnosticQuickFlow.decision === "queue" ? String(item.recommendation || "") : "";
     state.diagnosticQuickFlow.step = DIAGNOSTIC_QUICK_TOTAL_STEPS;
     setBikeCodeValue("diagnostic", item.bike);
     if (diagnosticQuickMechanicInput) diagnosticQuickMechanicInput.value = item.mechanic_name || "";

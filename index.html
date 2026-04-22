@@ -387,30 +387,26 @@
       </main>
     </div>
 
-    <nav class="mobile-tabbar" aria-label="Навигация (мобильная)">
-      <button class="mobile-tab" type="button" data-section="chat" aria-label="Чат">
-        <span class="mobile-tab-icon mobile-tab-icon-with-badge">💬<span class="chat-unread-badge chat-unread-badge-mobile hidden" data-chat-unread-badge>0</span></span>
-        <span class="mobile-tab-label">Чат</span>
+    <nav class="mobile-tabbar" aria-label="Навигация">
+      <button class="mobile-tab is-active" type="button" data-section="overview" aria-label="Дашборд">
+        <span class="mobile-tab-icon">📊</span>
+        <span class="mobile-tab-label">Дашборд</span>
       </button>
       <button class="mobile-tab" type="button" data-section="repairs" aria-label="Очередь">
         <span class="mobile-tab-icon">📋</span>
         <span class="mobile-tab-label">Очередь</span>
       </button>
-      <button class="mobile-tab is-active" type="button" data-section="overview" aria-label="Дашборд">
-        <span class="mobile-tab-icon">📊</span>
-        <span class="mobile-tab-label">Дашборд</span>
-      </button>
-      <button class="mobile-tab" type="button" data-section="diagnostics" aria-label="Диаг">
-        <span class="mobile-tab-icon mobile-tab-icon-badge">🩺</span>
-        <span class="mobile-tab-label">Диаг</span>
+      <button id="quick-diagnostic-tab" class="mobile-tab mobile-tab-cta" type="button" data-action="start-diagnostic" aria-label="Начать диагностику">
+        <span class="mobile-tab-cta-icon">🔧</span>
+        <span class="mobile-tab-label">Диагностика</span>
       </button>
       <button class="mobile-tab" type="button" data-section="inventory" aria-label="Склад">
         <span class="mobile-tab-icon">📦</span>
         <span class="mobile-tab-label">Склад</span>
       </button>
-      <button class="mobile-tab" type="button" data-section="bikes" aria-label="Парк">
-        <span class="mobile-tab-icon">🚲</span>
-        <span class="mobile-tab-label">Парк</span>
+      <button class="mobile-tab mobile-tab-chat" type="button" data-section="chat" aria-label="Чат">
+        <span class="mobile-tab-icon mobile-tab-icon-with-badge">💬<span class="chat-unread-badge chat-unread-badge-mobile hidden" data-chat-unread-badge>0</span></span>
+        <span class="mobile-tab-label">Чат</span>
       </button>
     </nav>
 
@@ -650,10 +646,6 @@
                     id="diagnostic-quick-bike-input"
                   />
                 </div>
-              </label>
-              <label>
-                <span>Кто проверял</span>
-                <input id="diagnostic-quick-mechanic-input" type="text" placeholder="Имя механика" required />
               </label>
             </div>
           </section>

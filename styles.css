@@ -1107,6 +1107,28 @@ tbody tr:hover {
 
 .inventory-grid {
   display: grid;
+  gap: 16px;
+}
+
+.inventory-group {
+  display: grid;
+  gap: 10px;
+}
+
+.inventory-group-title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.inventory-group-title span {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.inventory-group-grid {
+  display: grid;
   gap: 12px;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 }
@@ -1819,6 +1841,79 @@ tbody tr:hover {
 
 .diagnostic-quick-final-grid {
   margin-top: 6px;
+}
+
+/* LOOMIX-like simplified navigation on all screens */
+.sidebar,
+.mobile-menu-toggle,
+.mobile-nav-overlay {
+  display: none !important;
+}
+
+.page-shell {
+  grid-template-columns: 1fr;
+}
+
+.mobile-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 95;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.94);
+  border-top: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+  align-items: end;
+}
+
+.mobile-tab {
+  border: 0;
+  background: transparent;
+  color: #6f7f97;
+  padding: 8px 4px;
+  border-radius: 12px;
+  display: grid;
+  grid-template-rows: 22px minmax(0, 1fr);
+  align-items: center;
+  justify-items: center;
+  gap: 4px;
+  font-weight: 700;
+  min-height: 56px;
+}
+
+.mobile-tab.is-active {
+  background: var(--accent-faint);
+  color: var(--accent);
+}
+
+.mobile-tab-cta {
+  color: var(--accent);
+}
+
+.mobile-tab-cta .mobile-tab-label {
+  color: #5f6f88;
+}
+
+.mobile-tab-cta-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(10, 43, 255, 0.28);
+  transform: translateY(-12px);
+}
+
+body:not(.is-auth-locked) .screen-section {
+  padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
 }
 
 .severity-pill {
