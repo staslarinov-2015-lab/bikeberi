@@ -926,19 +926,99 @@ function animateSectionTransition(direction) {
 // Back button click
 document.getElementById("topbar-back-btn")?.addEventListener("click", navigateBack);
 
-// iOS-style swipe from left edge to go back
+// iOS-style interactive swipe-from-left-edge to go back
 (function initSwipeBack() {
+  const EDGE_ZONE = 22;        // px from left edge to start gesture
+  const COMMIT_RATIO = 0.38;   // fraction of screen width to commit
+  const CANCEL_VERTICAL = 12;  // vertical drift before cancelling
+
   let startX = 0;
   let startY = 0;
   let tracking = false;
+  let committed = false;
+  let overlay = null;
+
+  function getActiveSection() {
+    return document.querySelector(".screen-section:not(.hidden)");
+  }
+
+  function createOverlay() {
+    let el = document.getElementById("swipe-back-overlay");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "swipe-back-overlay";
+      el.style.cssText = [
+        "position:fixed", "inset:0", "z-index:999",
+        "background:rgba(0,0,0,0.18)", "pointer-events:none",
+        "opacity:0", "transition:none",
+      ].join(";");
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  function applyDrag(dx) {
+    const w = window.innerWidth;
+    const clamped = Math.max(0, dx);
+    const section = getActiveSection();
+    if (section) {
+      section.style.transition = "none";
+      section.style.transform = `translateX(${clamped}px)`;
+      section.style.boxShadow = clamped > 2 ? "-8px 0 24px rgba(0,0,0,0.12)" : "";
+    }
+    if (overlay) overlay.style.opacity = String(Math.max(0, 0.18 - (clamped / w) * 0.18));
+  }
+
+  function commitBack(section) {
+    const w = window.innerWidth;
+    committed = true;
+    if (section) {
+      section.style.transition = "transform 0.25s cubic-bezier(0.32,0.72,0,1)";
+      section.style.transform = `translateX(${w}px)`;
+    }
+    if (overlay) {
+      overlay.style.transition = "opacity 0.25s ease";
+      overlay.style.opacity = "0";
+    }
+    setTimeout(() => {
+      if (section) {
+        section.style.transition = "";
+        section.style.transform = "";
+        section.style.boxShadow = "";
+      }
+      navigateBack();
+    }, 230);
+  }
+
+  function snapBack(section) {
+    if (section) {
+      section.style.transition = "transform 0.32s cubic-bezier(0.32,0.72,0,1)";
+      section.style.transform = "translateX(0)";
+      section.style.boxShadow = "";
+      section.addEventListener("transitionend", () => {
+        section.style.transition = "";
+        section.style.transform = "";
+      }, { once: true });
+    }
+    if (overlay) {
+      overlay.style.transition = "opacity 0.32s ease";
+      overlay.style.opacity = "0";
+    }
+  }
 
   document.addEventListener("touchstart", (e) => {
+    if (committed) return;
+    // Only open modals should block the gesture (any visible overlay)
+    if (document.querySelector(".overlay:not(.hidden)")) return;
     const touch = e.touches[0];
-    if (touch.clientX < 30) {
-      startX = touch.clientX;
-      startY = touch.clientY;
-      tracking = true;
-    }
+    if (touch.clientX > EDGE_ZONE) return;
+    if (!state.navHistory.length) return;
+    startX = touch.clientX;
+    startY = touch.clientY;
+    tracking = true;
+    overlay = createOverlay();
+    overlay.style.transition = "none";
+    overlay.style.opacity = "0.18";
   }, { passive: true });
 
   document.addEventListener("touchmove", (e) => {
@@ -946,8 +1026,15 @@ document.getElementById("topbar-back-btn")?.addEventListener("click", navigateBa
     const touch = e.touches[0];
     const dx = touch.clientX - startX;
     const dy = Math.abs(touch.clientY - startY);
-    // cancel if mostly vertical
-    if (dy > dx) tracking = false;
+
+    // Cancel if clearly vertical
+    if (dy > CANCEL_VERTICAL && dy > dx) {
+      tracking = false;
+      snapBack(getActiveSection());
+      return;
+    }
+
+    applyDrag(dx);
   }, { passive: true });
 
   document.addEventListener("touchend", (e) => {
@@ -955,9 +1042,19 @@ document.getElementById("topbar-back-btn")?.addEventListener("click", navigateBa
     tracking = false;
     const touch = e.changedTouches[0];
     const dx = touch.clientX - startX;
-    if (dx > 70 && state.navHistory.length > 0) {
-      navigateBack();
+    const section = getActiveSection();
+
+    if (dx > window.innerWidth * COMMIT_RATIO && state.navHistory.length > 0) {
+      commitBack(section);
+    } else {
+      snapBack(section);
     }
+  }, { passive: true });
+
+  document.addEventListener("touchcancel", () => {
+    if (!tracking) return;
+    tracking = false;
+    snapBack(getActiveSection());
   }, { passive: true });
 })();
 
