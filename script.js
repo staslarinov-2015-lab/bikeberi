@@ -929,117 +929,140 @@ function animateSectionTransition(direction) {
 // Back button click
 document.getElementById("topbar-back-btn")?.addEventListener("click", navigateBack);
 
-// iOS-style interactive swipe-from-left-edge to go back
-// Works for ANY section transition — stores prevSection separately from navHistory
+// iOS-style context-aware swipe-from-left-edge to go back.
+// Handles: overlays (work order, diagnostic), inventory sub-categories, section navigation.
 (function initSwipeBack() {
-  const EDGE_ZONE = 28;        // px from left edge to start gesture
-  const COMMIT_RATIO = 0.35;   // fraction of screen width to commit the back
-  const MIN_DX_TO_TRACK = 6;  // px of horizontal movement before we lock in
+  const EDGE_ZONE = 28;
+  const COMMIT_RATIO = 0.35;
+  const MIN_DX = 6;
 
   let startX = 0, startY = 0;
-  let tracking = false;   // touch started in edge zone, waiting to confirm direction
-  let dragging = false;   // confirmed horizontal gesture, applying drag
-  let animating = false;  // completion animation running
-  let savedSection = null;
+  let tracking = false;
+  let dragging = false;
+  let animating = false;
+  let ctx = null; // { el, action }
 
-  // _prevSection is stored in state.prevSection — updated on every navigateTo call
+  // Determine what "back" means right now
+  function resolveContext() {
+    // 1. Swipeable overlays (work order, diagnostic)
+    const woOverlay = document.getElementById("work-order-overlay");
+    if (woOverlay && !woOverlay.classList.contains("hidden")) {
+      return {
+        el: woOverlay,
+        action() { woOverlay.classList.add("hidden"); },
+      };
+    }
+    const diagOverlay = document.getElementById("diagnostic-overlay");
+    if (diagOverlay && !diagOverlay.classList.contains("hidden")) {
+      return {
+        el: diagOverlay,
+        action() { document.getElementById("close-diagnostic-modal")?.click(); },
+      };
+    }
+    // Block other overlays (modals we don't want swipeable)
+    if (document.querySelector(".overlay:not(.hidden)")) return null;
 
-  function getShell() {
-    return document.getElementById("main-layout") ||
-           document.querySelector(".app-shell") ||
-           document.getElementById("content-area") ||
-           document.querySelector("main") ||
-           document.body;
+    // 2. Inventory sub-category open → back to categories
+    if (state.activeSection === "inventory" && state.inventoryActiveGroup) {
+      const invSection = document.getElementById("inventory-section") ||
+                         document.querySelector(".screen-section:not(.hidden)");
+      return {
+        el: invSection,
+        action() { state.inventoryActiveGroup = ""; renderInventory(); },
+      };
+    }
+
+    // 3. Normal section navigation
+    if (state.prevSection && state.prevSection !== state.activeSection) {
+      return {
+        el: document.querySelector(".screen-section:not(.hidden)"),
+        action() { navigateTo(state.prevSection, { direction: "back" }); },
+      };
+    }
+    if (state.navHistory.length) {
+      return {
+        el: document.querySelector(".screen-section:not(.hidden)"),
+        action() { navigateBack(); },
+      };
+    }
+
+    return null; // nothing to go back to
   }
 
-  function getActiveSection() {
-    return document.querySelector(".screen-section:not(.hidden)");
-  }
-
-  function getDimOverlay() {
+  function getDim() {
     let el = document.getElementById("swipe-back-overlay");
     if (!el) {
       el = document.createElement("div");
       el.id = "swipe-back-overlay";
       Object.assign(el.style, {
-        position: "fixed", inset: "0", zIndex: "2000",
+        position: "fixed", inset: "0", zIndex: "9998",
         background: "rgba(0,0,0,0.15)", pointerEvents: "none",
-        opacity: "0", willChange: "opacity",
+        opacity: "0",
       });
       document.body.appendChild(el);
     }
     return el;
   }
 
-  function setDrag(dx) {
-    const clamped = Math.max(0, dx);
-    const section = getActiveSection();
-    if (section) {
-      section.style.cssText += `transform:translateX(${clamped}px);transition:none;will-change:transform;`;
-    }
-    const ratio = clamped / window.innerWidth;
-    const dim = getDimOverlay();
-    dim.style.opacity = String(Math.max(0, 0.15 * (1 - ratio)));
+  function clearStyle(el) {
+    if (!el) return;
+    el.style.transform = "";
+    el.style.transition = "";
+    el.style.willChange = "";
+    el.style.boxShadow = "";
   }
 
-  function commit(section) {
+  function applyDrag(el, dx) {
+    const clamped = Math.max(0, dx);
+    if (el) {
+      el.style.transition = "none";
+      el.style.willChange = "transform";
+      el.style.transform = `translateX(${clamped}px)`;
+      el.style.boxShadow = clamped > 4 ? "-6px 0 20px rgba(0,0,0,0.10)" : "";
+    }
+    getDim().style.opacity = String(0.15 * Math.max(0, 1 - clamped / window.innerWidth));
+  }
+
+  function commit(el, action) {
     animating = true;
     const w = window.innerWidth;
-    if (section) {
-      section.style.transition = "transform 0.26s cubic-bezier(0.32,0.72,0,1)";
-      section.style.transform = `translateX(${w}px)`;
+    const dim = getDim();
+    if (el) {
+      el.style.transition = "transform 0.26s cubic-bezier(0.32,0.72,0,1)";
+      el.style.transform = `translateX(${w}px)`;
     }
-    getDimOverlay().style.cssText += "opacity:0;transition:opacity 0.26s ease;";
+    dim.style.transition = "opacity 0.26s ease";
+    dim.style.opacity = "0";
     setTimeout(() => {
-      if (section) {
-        section.style.cssText = section.style.cssText
-          .replace(/transform:[^;]+;?/g, "")
-          .replace(/transition:[^;]+;?/g, "")
-          .replace(/will-change:[^;]+;?/g, "");
-      }
+      clearStyle(el);
       animating = false;
-      // Navigate back to previous section
-      if (state.prevSection && state.prevSection !== state.activeSection) {
-        navigateTo(state.prevSection, { direction: "back" });
-      } else {
-        navigateBack();
-      }
-    }, 250);
+      action();
+    }, 260);
   }
 
-  function snapBack(section) {
-    if (section) {
-      section.style.transition = "transform 0.3s cubic-bezier(0.32,0.72,0,1)";
-      section.style.transform = "translateX(0)";
-      const onEnd = () => {
-        section.style.cssText = section.style.cssText
-          .replace(/transform:[^;]+;?/g, "")
-          .replace(/transition:[^;]+;?/g, "")
-          .replace(/will-change:[^;]+;?/g, "");
-      };
-      section.addEventListener("transitionend", onEnd, { once: true });
+  function snapBack(el) {
+    if (el) {
+      el.style.transition = "transform 0.28s cubic-bezier(0.32,0.72,0,1)";
+      el.style.transform = "translateX(0)";
+      el.addEventListener("transitionend", () => clearStyle(el), { once: true });
     }
-    const dim = getDimOverlay();
-    dim.style.transition = "opacity 0.3s ease";
+    const dim = getDim();
+    dim.style.transition = "opacity 0.28s ease";
     dim.style.opacity = "0";
   }
 
-  function reset() {
-    tracking = false;
-    dragging = false;
-    savedSection = null;
-  }
+  function reset() { tracking = false; dragging = false; ctx = null; }
 
   document.addEventListener("touchstart", (e) => {
     if (animating) return;
-    if (document.querySelector(".overlay:not(.hidden)")) return; // modal open
     const touch = e.touches[0];
     if (touch.clientX > EDGE_ZONE) return;
-    if (!state.prevSection && !state.navHistory.length) return; // nothing to go back to
+    const resolved = resolveContext();
+    if (!resolved) return;
     startX = touch.clientX;
     startY = touch.clientY;
     tracking = true;
-    savedSection = getActiveSection();
+    ctx = resolved;
   }, { passive: true });
 
   document.addEventListener("touchmove", (e) => {
@@ -1049,22 +1072,19 @@ document.getElementById("topbar-back-btn")?.addEventListener("click", navigateBa
     const dy = Math.abs(touch.clientY - startY);
 
     if (tracking && !dragging) {
-      if (dy > dx * 1.5 && dy > 8) { reset(); return; } // vertical scroll wins
-      if (dx > MIN_DX_TO_TRACK) {
+      if (dy > dx * 1.5 && dy > 8) { reset(); return; } // vertical wins
+      if (dx > MIN_DX) {
         tracking = false;
         dragging = true;
-        // Dim overlay
-        const dim = getDimOverlay();
+        const dim = getDim();
         dim.style.transition = "none";
         dim.style.opacity = "0.15";
-      } else {
-        return;
-      }
+      } else return;
     }
 
     if (dragging) {
       e.preventDefault();
-      setDrag(dx);
+      applyDrag(ctx?.el, dx);
     }
   }, { passive: false });
 
@@ -1072,23 +1092,20 @@ document.getElementById("topbar-back-btn")?.addEventListener("click", navigateBa
     if (!dragging) { reset(); return; }
     const touch = e.changedTouches[0];
     const dx = touch.clientX - startX;
-    const section = savedSection || getActiveSection();
-    dragging = false;
-    tracking = false;
-    savedSection = null;
-
+    const saved = ctx;
+    reset();
+    if (!saved) return;
     if (dx > window.innerWidth * COMMIT_RATIO) {
-      commit(section);
+      commit(saved.el, saved.action);
     } else {
-      snapBack(section);
+      snapBack(saved.el);
     }
   }, { passive: true });
 
   document.addEventListener("touchcancel", () => {
     if (!dragging && !tracking) return;
-    snapBack(savedSection || getActiveSection());
+    snapBack(ctx?.el);
     reset();
-    snapBack(getActiveSection());
   }, { passive: true });
 })();
 
