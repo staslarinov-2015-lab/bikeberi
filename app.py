@@ -439,8 +439,8 @@ def chat_display_name(raw_name: str, role: str = "") -> str:
     source = str(raw_name or "").strip()
     if source:
         parts = [part for part in source.split() if part]
-        # Users often store "Фамилия Имя"; for chat we need a friendly first-name display.
-        return parts[-1]
+        # Names are stored as "Firstname Lastname"; return the first word as the given name.
+        return parts[0]
     return "Управляющий" if role == "owner" else "Механик"
 
 
@@ -546,6 +546,8 @@ def build_telegram_transport_payload(config: dict | None = None) -> dict:
         last_ok = _TELEGRAM_TRANSPORT_LAST_OK_AT
         last_error = _TELEGRAM_TRANSPORT_LAST_ERROR
         last_error_at = _TELEGRAM_TRANSPORT_LAST_ERROR_AT
+    if not last_ok and not last_error_at:
+        return {"state": "checking", "label": "Telegram: ...", "lastOkAt": "", "lastErrorAt": "", "lastError": ""}
     status = "ok"
     if last_error_at:
         error_dt = parse_iso_datetime(last_error_at)
@@ -1861,7 +1863,10 @@ class AppHandler(BaseHTTPRequestHandler):
             user = require_role(self, {"mechanic", "owner"})
             if not user:
                 return
-            return json_response(self, 200, {"teamChat": fetch_recent_team_chat(limit=60)})
+            return json_response(self, 200, {
+                "teamChat": fetch_recent_team_chat(limit=60),
+                "telegramTransport": build_telegram_transport_payload(),
+            })
         if parsed.path == "/api/system/storage-health":
             user = require_role(self, {"owner"})
             if not user:

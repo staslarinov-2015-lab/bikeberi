@@ -362,6 +362,12 @@ textarea {
   color: #97a3b6;
 }
 
+.topbar-pill-telegram.is-checking {
+  border-color: var(--border);
+  background: #f6f8fb;
+  color: #b0bac8;
+}
+
 button.topbar-pill {
   margin: 0;
   font: inherit;
@@ -2645,8 +2651,13 @@ textarea:focus-visible {
     justify-content: flex-end;
   }
 
-  .topbar-right > :not(#topbar-role-pill) {
+  .topbar-right > :not(#topbar-role-pill):not(#telegram-transport-pill) {
     display: none;
+  }
+
+  #telegram-transport-pill {
+    font-size: 0.72rem;
+    padding: 5px 8px;
   }
 
   #topbar-role-pill {

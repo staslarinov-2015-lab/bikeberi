@@ -1262,10 +1262,16 @@ function renderTelegramTransport() {
   const transportState = String(transport.state || "disabled").trim() || "disabled";
   const label = String(transport.label || "Telegram: off").trim() || "Telegram: off";
   telegramTransportPill.textContent = label;
-  telegramTransportPill.classList.remove("is-ok", "is-degraded", "is-disabled");
-  telegramTransportPill.classList.add(
-    transportState === "ok" ? "is-ok" : transportState === "degraded" ? "is-degraded" : "is-disabled"
-  );
+  telegramTransportPill.classList.remove("is-ok", "is-degraded", "is-disabled", "is-checking");
+  const cls =
+    transportState === "ok"
+      ? "is-ok"
+      : transportState === "degraded"
+        ? "is-degraded"
+        : transportState === "checking"
+          ? "is-checking"
+          : "is-disabled";
+  telegramTransportPill.classList.add(cls);
 }
 
 function renderProfile() {
@@ -2879,6 +2885,10 @@ async function refreshTeamChat() {
   try {
     const payload = await api("/api/team-chat", { method: "GET", headers: {}, notifyError: false });
     state.teamChat = payload.teamChat || [];
+    if (payload.telegramTransport) {
+      state.telegramTransport = payload.telegramTransport;
+      renderTelegramTransport();
+    }
     renderTeamChat();
     markChatAsRead();
     renderChatUnreadBadges();
@@ -3178,10 +3188,14 @@ diagnosticQuickOptions?.addEventListener("click", (event) => {
       state.diagnosticQuickFlow.selectedParts = [];
       state.diagnosticQuickFlow.selectedPartsCategory = "";
       state.diagnosticQuickFlow.criticality = "";
+      state.diagnosticQuickFlow.decision = "";
+      state.diagnosticQuickFlow.queueReason = "";
     }
     if (cfg.key === "fault") {
       state.diagnosticQuickFlow.selectedParts = [];
       state.diagnosticQuickFlow.selectedPartsCategory = "";
+      state.diagnosticQuickFlow.decision = "";
+      state.diagnosticQuickFlow.queueReason = "";
     }
   }
   showDiagnosticQuickErrors([]);
@@ -3378,6 +3392,7 @@ window.addEventListener("resize", () => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     closeMobileMenu();
+    closeAllModals();
   }
 });
 
@@ -3660,18 +3675,22 @@ if (teamChatForm) {
   teamChatForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(teamChatForm);
+    const message = String(formData.get("message") || "").trim();
+    if (!message) return;
+    const submitBtn = teamChatForm.querySelector('button[type="submit"]');
     try {
+      if (submitBtn) submitBtn.disabled = true;
       await api("/api/team-chat", {
         method: "POST",
-        body: JSON.stringify({
-          message: String(formData.get("message") || "").trim(),
-        }),
+        body: JSON.stringify({ message }),
         notifyError: true,
       });
       teamChatForm.reset();
-      await bootstrap();
+      await refreshTeamChat();
     } catch {
       // Ошибка уже показана через notifyError в api()
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
     }
   });
 }
