@@ -3795,7 +3795,7 @@ function renderMechanicEfficiency() {
       <div class="roi-divider"></div>
       <div class="roi-summary">
         <span class="roi-summary-label">Выплачено на данный момент</span>
-        <span class="roi-summary-rate">${fmt₽(Math.round(ratePerHour))}/ч · ${Math.round(ratePerMin)} ₽/мин</span>
+        <span class="roi-summary-rate">${fmt₽(Math.round(ratePerHour))}/ч · ${ratePerMin.toFixed(1)} ₽/мин</span>
         <span class="roi-summary-value">${fmt₽(paidSoFar)}</span>
       </div>
       <div class="roi-return-bar">
