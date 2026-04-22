@@ -959,6 +959,7 @@ function getDashboardJumpPayload(jump) {
       .map((item) => ({
         bike: item.bike || "-",
         text: [item.category, item.fault].filter(Boolean).join(" · ") || "Поломка не указана",
+        bikeId: (state.bikes || []).find((bike) => String(bike.code || "").trim() === String(item.bike || "").trim())?.id || "",
       }));
     return { title: "Диагностика за период", rows };
   }
@@ -969,6 +970,7 @@ function getDashboardJumpPayload(jump) {
       .map((item) => ({
         bike: item.bike_code || "-",
         text: item.fault || item.issue || "Проверка",
+        bikeId: (state.bikes || []).find((bike) => String(bike.code || "").trim() === String(item.bike_code || "").trim())?.id || "",
       }));
     return { title: "ТО / проверка", rows };
   }
@@ -979,6 +981,7 @@ function getDashboardJumpPayload(jump) {
       .map((item) => ({
         bike: item.bike_code || "-",
         text: item.fault || item.issue || "Ремонт",
+        bikeId: (state.bikes || []).find((bike) => String(bike.code || "").trim() === String(item.bike_code || "").trim())?.id || "",
       }));
     return { title: "В ремонте сейчас", rows };
   }
@@ -991,6 +994,7 @@ function getDashboardJumpPayload(jump) {
         item.missing_parts?.length
           ? item.missing_parts.map((part) => `${part.name} x${part.missing}`).join(", ")
           : "Ожидает комплектность",
+      bikeId: (state.bikes || []).find((bike) => String(bike.code || "").trim() === String(item.bike_code || "").trim())?.id || "",
     }));
   return { title: "Ждут запчасти", rows };
 }
@@ -1003,7 +1007,7 @@ function openDashboardJumpModal(jump) {
     ? payload.rows
         .map(
           (row) => `
-            <article class="stack-item">
+            <article class="stack-item ${row.bikeId ? "bike-row-clickable" : ""}" ${row.bikeId ? `data-action="open-dashboard-bike" data-id="${row.bikeId}"` : ""}>
               <strong>${escapeHtml(row.bike)}</strong>
               <p class="muted">${escapeHtml(row.text)}</p>
             </article>
@@ -3928,6 +3932,20 @@ document.addEventListener("click", async (event) => {
     bikeForm.elements.status.value = bike.status || (getRole() === "owner" ? "в аренде" : "на диагностике");
     bikeForm.elements.notes.value = bike.notes || "";
     bikeOverlay?.classList.remove("hidden");
+  }
+
+  if (action === "open-dashboard-bike") {
+    const bike = state.bikes.find((entry) => String(entry.id) === id);
+    if (!bike || !bikeForm) return;
+    dashboardJumpOverlay?.classList.add("hidden");
+    bikeForm.dataset.editId = String(bike.id);
+    if (bikeModalTitle) bikeModalTitle.textContent = "Редактирование байка";
+    setBikeCodeValue("bike", bike.code);
+    bikeForm.elements.model.value = bike.model || "Wenbox U2";
+    bikeForm.elements.status.value = bike.status || (getRole() === "owner" ? "в аренде" : "на диагностике");
+    bikeForm.elements.notes.value = bike.notes || "";
+    bikeOverlay?.classList.remove("hidden");
+    return;
   }
 
   if (action === "save-bike-status") {
