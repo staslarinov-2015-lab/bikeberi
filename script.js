@@ -2570,6 +2570,7 @@ function staleActiveCardClass(order) {
 
 function renderWorkOrders() {
   if (!workOrdersBoard || !activeRepairBoard) return;
+  const canManage = getRole() === "mechanic" || getRole() === "owner";
   renderQueueFilterToolbar();
   const filtered = (state.workOrders || []).filter(matchesQueueFilter);
   const activeOrders = filtered.filter((order) => order.status === "в ремонте");
@@ -2625,6 +2626,8 @@ function renderWorkOrders() {
             ${getTimeMetaLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getTimeMetaLine(order))}</p>` : ""}
             ${getPriorityBadge(order)}
             <div class="table-actions">
+              ${canManage ? `<button class="icon-btn" type="button" data-action="edit-work-order-diagnostic" data-id="${order.id}">Ред. диагн.</button>` : ""}
+              ${canManage ? `<button class="icon-btn" type="button" data-action="edit-work-order-repair" data-id="${order.id}">Ред. ремонт</button>` : ""}
               ${order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">На выдачу</button>` : ""}
             </div>
           </article>
@@ -2653,6 +2656,8 @@ function renderWorkOrders() {
           ${getTimeMetaLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getTimeMetaLine(order))}</p>` : ""}
           ${getPriorityBadge(order)}
           <div class="table-actions">
+            ${canManage ? `<button class="icon-btn" type="button" data-action="edit-work-order-diagnostic" data-id="${order.id}">Ред. диагн.</button>` : ""}
+            ${canManage ? `<button class="icon-btn" type="button" data-action="edit-work-order-repair" data-id="${order.id}">Ред. ремонт</button>` : ""}
             ${order.can_start ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-start" data-id="${order.id}">Начать ремонт</button>` : ""}
           </div>
         </article>
@@ -3670,8 +3675,66 @@ document.addEventListener("click", async (event) => {
     state.diagnosticQuickFlow.queueReason = state.diagnosticQuickFlow.decision === "queue" ? String(item.recommendation || "") : "";
     state.diagnosticQuickFlow.step = DIAGNOSTIC_QUICK_TOTAL_STEPS;
     setBikeCodeValue("diagnostic", item.bike);
-    if (diagnosticQuickMechanicInput) diagnosticQuickMechanicInput.value = item.mechanic_name || "";
     openDiagnosticOverlay();
+  }
+
+  if (action === "edit-work-order-diagnostic") {
+    const order = state.workOrders.find((entry) => String(entry.id) === id);
+    if (!order || !order.diagnostic_id) {
+      notify("Для этой заявки не найдена диагностика");
+      return;
+    }
+    const diagnostic = state.diagnostics.find((entry) => String(entry.id) === String(order.diagnostic_id));
+    if (!diagnostic) {
+      notify("Диагностическая запись не найдена");
+      return;
+    }
+    resetDiagnosticFlow();
+    diagnosticForm.dataset.editId = String(diagnostic.id);
+    diagnosticForm.elements.date.value = diagnostic.date;
+    state.diagnosticQuickFlow.category = diagnostic.category || "";
+    state.diagnosticQuickFlow.criticality =
+      String(diagnostic.severity || "").trim() === "Критичная"
+        ? "Стоп-эксплуатация"
+        : String(diagnostic.severity || "").trim() === "Низкая"
+          ? "Можно ездить"
+          : "Нужен ремонт";
+    state.diagnosticQuickFlow.fault = diagnostic.fault || "";
+    state.diagnosticQuickFlow.selectedParts = [];
+    state.diagnosticQuickFlow.decision = String(diagnostic.recommendation || "").toLowerCase().includes("очеред")
+      ? "queue"
+      : "take_repair";
+    state.diagnosticQuickFlow.queueReason = state.diagnosticQuickFlow.decision === "queue" ? String(diagnostic.recommendation || "") : "";
+    state.diagnosticQuickFlow.step = DIAGNOSTIC_QUICK_TOTAL_STEPS;
+    setBikeCodeValue("diagnostic", diagnostic.bike);
+    openDiagnosticOverlay();
+    return;
+  }
+
+  if (action === "edit-work-order-repair") {
+    const order = state.workOrders.find((entry) => String(entry.id) === id);
+    if (!order || !repairForm) return;
+    const inventoryParts = (order.parts || [])
+      .map((part) => `${part.part_name} x${part.qty_required}`)
+      .join(", ");
+    const fallbackParts = String(order.required_parts_text || "").trim() || "-";
+    const mappedStatus =
+      order.status === "в ремонте"
+        ? "В ремонте"
+        : order.status === "проверка" || order.status === "готов"
+          ? "Готов"
+          : "Ожидает запчасти";
+    state.repairDraftFromDiagnostic = null;
+    delete repairForm.dataset.editId;
+    repairForm.elements.date.value = String(order.intake_date || "").slice(0, 10) || new Date().toISOString().slice(0, 10);
+    setBikeCodeValue("repair", order.bike_code || "");
+    repairForm.elements.issue.value = order.fault || order.issue || "";
+    repairForm.elements.work.value = order.planned_work && order.planned_work !== "-" ? order.planned_work : "Работы уточняются";
+    repairForm.elements.partsUsed.value = "-";
+    repairForm.elements.neededParts.value = inventoryParts || fallbackParts;
+    repairForm.elements.status.value = mappedStatus;
+    repairOverlay.classList.remove("hidden");
+    return;
   }
 
   if (action === "delete-diagnostic") {
