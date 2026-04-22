@@ -1883,11 +1883,40 @@ tbody tr:hover {
   gap: 4px;
   font-weight: 700;
   min-height: 56px;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .mobile-tab.is-active {
   background: var(--accent-faint);
   color: var(--accent);
+}
+
+.mobile-tab:focus {
+  outline: none;
+}
+
+.mobile-tab:focus-visible {
+  box-shadow: 0 0 0 2px rgba(10, 43, 255, 0.24);
+}
+
+.mobile-tab-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+  color: inherit;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-tab-label {
+  font-size: 0.74rem;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  text-align: center;
 }
 
 .mobile-tab-cta {
@@ -2398,7 +2427,7 @@ textarea:focus-visible {
     bottom: 0;
     z-index: 95;
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 4px;
     padding: 8px 6px 10px;
     background: rgba(25, 25, 25, 0.92);
@@ -2414,12 +2443,12 @@ textarea:focus-visible {
     padding: 7px 4px;
     border-radius: 14px;
     display: grid;
-    grid-template-rows: 20px minmax(0, 1fr);
+    grid-template-rows: 24px minmax(0, 1fr);
     align-items: center;
     justify-items: center;
-    gap: 4px;
+    gap: 6px;
     font-weight: 800;
-    min-height: 56px;
+    min-height: 60px;
     height: 100%;
   }
 
@@ -2429,11 +2458,11 @@ textarea:focus-visible {
   }
 
   .mobile-tab-icon {
-    font-size: 0.96rem;
+    font-size: 1.15rem;
     line-height: 1;
     color: inherit;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2465,7 +2494,7 @@ textarea:focus-visible {
   }
 
   .mobile-tab-label {
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     line-height: 1.15;
     letter-spacing: 0.01em;
     text-align: center;
