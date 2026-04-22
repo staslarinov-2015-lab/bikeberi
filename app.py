@@ -76,6 +76,10 @@ ALLOW_DEMO_SEED = os.environ.get("BIKEBERI_ALLOW_DEMO_SEED", "false").strip().lo
 TELEGRAM_POLL_INTERVAL_SEC = max(3, int(os.environ.get("BIKEBERI_TELEGRAM_POLL_INTERVAL_SEC", "6") or 6))
 _TELEGRAM_POLL_STARTED = False
 _TELEGRAM_POLL_LOCK = threading.Lock()
+_TELEGRAM_TRANSPORT_LOCK = threading.Lock()
+_TELEGRAM_TRANSPORT_LAST_OK_AT = ""
+_TELEGRAM_TRANSPORT_LAST_ERROR = ""
+_TELEGRAM_TRANSPORT_LAST_ERROR_AT = ""
 
 BIKE_STATUSES = {
     "в аренде",
@@ -410,10 +414,12 @@ def telegram_send_message(chat_id_raw: str, text: str, config: dict | None = Non
     for attempt in range(3):
         try:
             with urlopen(request, timeout=8):
+                mark_telegram_transport_ok()
                 return
         except Exception:
             if attempt >= 2:
                 # Telegram transport is best-effort and must not break core app flow.
+                mark_telegram_transport_error("send_message_failed")
                 return
             time.sleep(0.35 * (attempt + 1))
 
@@ -503,7 +509,58 @@ def process_telegram_inbound_payload(message_obj: dict, config: dict | None = No
     )
     conn.commit()
     conn.close()
+    mark_telegram_transport_ok()
     return True
+
+
+def mark_telegram_transport_ok():
+    global _TELEGRAM_TRANSPORT_LAST_OK_AT, _TELEGRAM_TRANSPORT_LAST_ERROR, _TELEGRAM_TRANSPORT_LAST_ERROR_AT
+    with _TELEGRAM_TRANSPORT_LOCK:
+        _TELEGRAM_TRANSPORT_LAST_OK_AT = utc_now().isoformat()
+        _TELEGRAM_TRANSPORT_LAST_ERROR = ""
+        _TELEGRAM_TRANSPORT_LAST_ERROR_AT = ""
+
+
+def mark_telegram_transport_error(reason: str):
+    global _TELEGRAM_TRANSPORT_LAST_ERROR, _TELEGRAM_TRANSPORT_LAST_ERROR_AT
+    with _TELEGRAM_TRANSPORT_LOCK:
+        _TELEGRAM_TRANSPORT_LAST_ERROR = str(reason or "telegram_error").strip()[:160]
+        _TELEGRAM_TRANSPORT_LAST_ERROR_AT = utc_now().isoformat()
+
+
+def parse_iso_datetime(raw_value: str) -> datetime | None:
+    text = str(raw_value or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def build_telegram_transport_payload(config: dict | None = None) -> dict:
+    cfg = config or get_telegram_config()
+    if not telegram_is_enabled(cfg):
+        return {"state": "disabled", "label": "Telegram: off", "lastOkAt": "", "lastErrorAt": "", "lastError": ""}
+    with _TELEGRAM_TRANSPORT_LOCK:
+        last_ok = _TELEGRAM_TRANSPORT_LAST_OK_AT
+        last_error = _TELEGRAM_TRANSPORT_LAST_ERROR
+        last_error_at = _TELEGRAM_TRANSPORT_LAST_ERROR_AT
+    status = "ok"
+    if last_error_at:
+        error_dt = parse_iso_datetime(last_error_at)
+        ok_dt = parse_iso_datetime(last_ok)
+        is_recent_error = bool(error_dt and (utc_now() - error_dt).total_seconds() <= 900)
+        if is_recent_error and (not ok_dt or error_dt > ok_dt):
+            status = "degraded"
+    label = "Telegram: ok" if status == "ok" else "Telegram: degraded"
+    return {
+        "state": status,
+        "label": label,
+        "lastOkAt": last_ok,
+        "lastErrorAt": last_error_at,
+        "lastError": last_error,
+    }
 
 
 def telegram_poll_loop():
@@ -537,6 +594,7 @@ def telegram_poll_loop():
             max_update_id = offset
             with urlopen(req, timeout=15) as response:
                 data = json.loads(response.read().decode("utf-8"))
+            mark_telegram_transport_ok()
             for item in data.get("result", []) or []:
                 update_id = int(item.get("update_id") or 0)
                 max_update_id = max(max_update_id, update_id)
@@ -547,6 +605,7 @@ def telegram_poll_loop():
                 conn.commit()
                 conn.close()
         except Exception:
+            mark_telegram_transport_error("get_updates_failed")
             time.sleep(1.0)
         time.sleep(TELEGRAM_POLL_INTERVAL_SEC)
 
@@ -1701,6 +1760,7 @@ def fetch_bootstrap_payload(user):
                     "created_at": utc_now().isoformat(),
                 }
             )
+    telegram_config = get_telegram_config()
     conn.close()
 
     return {
@@ -1717,6 +1777,7 @@ def fetch_bootstrap_payload(user):
         "workOrders": work_orders,
         "teamChat": team_chat,
         "ownerNotifications": owner_notifications[:80],
+        "telegramTransport": build_telegram_transport_payload(telegram_config),
     }
 
 

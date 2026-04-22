@@ -344,6 +344,24 @@ textarea {
   color: var(--accent);
 }
 
+.topbar-pill-telegram.is-ok {
+  border-color: rgba(38, 164, 83, 0.28);
+  background: rgba(38, 164, 83, 0.12);
+  color: #1b7a3d;
+}
+
+.topbar-pill-telegram.is-degraded {
+  border-color: rgba(217, 146, 28, 0.32);
+  background: rgba(217, 146, 28, 0.12);
+  color: #9b5b07;
+}
+
+.topbar-pill-telegram.is-disabled {
+  border-color: var(--border);
+  background: #fff;
+  color: #97a3b6;
+}
+
 button.topbar-pill {
   margin: 0;
   font: inherit;

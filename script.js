@@ -11,6 +11,7 @@ const state = {
   inventorySearch: "",
   inventoryActiveGroup: "",
   teamChat: [],
+  telegramTransport: { state: "disabled", label: "Telegram: off" },
   ownerNotifications: [],
   kpi: {
     totalBikes: 0,
@@ -444,6 +445,7 @@ const chatUnreadBadges = Array.from(document.querySelectorAll("[data-chat-unread
 const currentUser = document.getElementById("current-user");
 const sidebarRoleTitle = document.getElementById("sidebar-role-title");
 const topbarRolePill = document.getElementById("topbar-role-pill");
+const telegramTransportPill = document.getElementById("telegram-transport-pill");
 const mechanicDayFocus = document.getElementById("mechanic-day-focus");
 const openChatButton = document.getElementById("open-chat-button");
 const accountButton = document.getElementById("account-button");
@@ -1252,6 +1254,18 @@ function renderRoleContent() {
   document.querySelectorAll(".owner-only").forEach((node) => {
     node.classList.toggle("hidden", !ownerMode);
   });
+}
+
+function renderTelegramTransport() {
+  if (!telegramTransportPill) return;
+  const transport = state.telegramTransport || {};
+  const transportState = String(transport.state || "disabled").trim() || "disabled";
+  const label = String(transport.label || "Telegram: off").trim() || "Telegram: off";
+  telegramTransportPill.textContent = label;
+  telegramTransportPill.classList.remove("is-ok", "is-degraded", "is-disabled");
+  telegramTransportPill.classList.add(
+    transportState === "ok" ? "is-ok" : transportState === "degraded" ? "is-degraded" : "is-disabled"
+  );
 }
 
 function renderProfile() {
@@ -2892,6 +2906,7 @@ function render() {
     }
   }
   renderRoleContent();
+  renderTelegramTransport();
   renderSectionHeader();
   renderMechanicDayFocus();
   renderSections();
@@ -2929,6 +2944,7 @@ async function bootstrap() {
     state.diagnostics = payload.diagnostics || [];
     state.workOrders = payload.workOrders || [];
     state.teamChat = payload.teamChat || [];
+    state.telegramTransport = payload.telegramTransport || { state: "disabled", label: "Telegram: off" };
     state.ownerNotifications = payload.ownerNotifications || [];
     if (state.issueChecklist.pendingWorkOrderId) {
       const pendingOrder = state.workOrders.find((item) => String(item.id) === String(state.issueChecklist.pendingWorkOrderId));
