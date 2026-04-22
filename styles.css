@@ -42,10 +42,12 @@
 *::before,
 *::after {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent; /* Remove grey flash on tap (iOS) */
 }
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
@@ -53,6 +55,9 @@ body {
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  /* Prevent pinch-zoom on body but allow scroll */
+  touch-action: pan-x pan-y;
 }
 
 button,
@@ -60,6 +65,7 @@ input,
 select,
 textarea {
   font: inherit;
+  touch-action: manipulation; /* Prevents double-tap zoom on interactive elements */
 }
 
 .hidden {
@@ -77,6 +83,7 @@ textarea {
 
 .workspace {
   min-width: 0;
+  overflow-x: hidden;
   background: var(--bg);
   display: flex;
   flex-direction: column;
@@ -87,6 +94,8 @@ textarea {
   width: 100%;
   max-width: var(--content-max-width);
   margin: 0 auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 /* ─── iOS slide transitions ──────────────────────────────────────────────── */
@@ -245,6 +254,7 @@ textarea {
   font-weight: 700;
   text-align: left;
   cursor: pointer;
+  touch-action: manipulation;
   transition: background 0.12s ease, color 0.12s ease;
 }
 
@@ -1023,7 +1033,7 @@ textarea {
   background: var(--surface);
   color: var(--text);
   outline: none;
-  font-size: 0.92rem;
+  font-size: 16px; /* ≥16px prevents iOS Safari auto-zoom on focus */
 }
 
 input:focus,
@@ -1064,6 +1074,7 @@ label span {
   font-weight: 600;
   font-size: 1.05rem;
   cursor: pointer;
+  touch-action: manipulation;
   transition: background 0.15s ease, transform 0.1s ease;
 }
 
@@ -1086,15 +1097,13 @@ label span {
   font-weight: 600;
   font-size: 1.05rem;
   cursor: pointer;
-  transition: background 0.15s ease;
+  touch-action: manipulation;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .ghost-btn:hover {
   background: var(--accent-faint);
-}
-
-.ghost-btn:hover {
-  border-color: var(--text);
+  border-color: rgba(0, 122, 255, 0.3);
 }
 
 .icon-refresh {
@@ -1118,6 +1127,7 @@ label span {
   font-weight: 500;
   font-size: 0.85rem;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .danger-btn:hover {
@@ -2339,13 +2349,14 @@ tbody tr:hover {
   z-index: 95;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 6px;
-  padding: 8px 10px calc(14px + env(safe-area-inset-bottom, 0px));
-  background: rgba(255, 255, 255, 0.9);
+  gap: 0;
+  padding: 6px 4px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.94);
   border-top: 1px solid rgba(31, 37, 50, 0.08);
-  box-shadow: 0 -6px 20px rgba(19, 28, 45, 0.08);
-  backdrop-filter: blur(14px);
-  align-items: end;
+  box-shadow: 0 -2px 16px rgba(19, 28, 45, 0.07);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  align-items: stretch;
 }
 
 .mobile-tab {
@@ -2364,6 +2375,7 @@ tbody tr:hover {
   outline: none;
   appearance: none;
   -webkit-appearance: none;
+  touch-action: manipulation;
 }
 
 .mobile-tab.is-active {
@@ -2943,7 +2955,8 @@ textarea:focus-visible {
   }
 
   .screen-section {
-    padding: 14px 12px calc(96px + env(safe-area-inset-bottom, 0px));
+    /* bottom = tabbar height (~70px) + safe area + breathing room */
+    padding: 14px 16px calc(84px + env(safe-area-inset-bottom, 0px));
   }
 
   .content-card,
@@ -2962,7 +2975,7 @@ textarea:focus-visible {
     min-height: 46px;
     border-radius: 14px;
     padding: 12px 14px;
-    font-size: 1rem;
+    font-size: 16px; /* Must be ≥16px to prevent iOS auto-zoom on focus */
   }
 
   .primary-btn,
@@ -2991,41 +3004,13 @@ textarea:focus-visible {
   }
 
   .mobile-tabbar {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 95;
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 6px;
-    padding: 8px 8px calc(14px + env(safe-area-inset-bottom, 0px));
-    background: rgba(255, 255, 255, 0.9);
-    border-top: 1px solid rgba(31, 37, 50, 0.08);
-    box-shadow: 0 -6px 20px rgba(19, 28, 45, 0.08);
-    backdrop-filter: blur(14px);
-    align-items: stretch;
+    gap: 0;
+    padding: 6px 4px calc(10px + env(safe-area-inset-bottom, 0px));
   }
 
   .mobile-tab {
-    border: 0;
-    background: transparent;
-    color: #8e8e93;
-    padding: 6px 2px;
-    border-radius: 0;
-    display: grid;
-    grid-template-rows: 24px minmax(0, 1fr);
-    align-items: center;
-    justify-items: center;
-    gap: 4px;
-    font-weight: 500;
-    min-height: 54px;
+    min-height: 52px;
     height: 100%;
-  }
-
-  .mobile-tab.is-active {
-    background: transparent;
-    color: var(--accent);
   }
 
   .mobile-tab-icon {
