@@ -1100,16 +1100,18 @@ function getDashboardJumpPayload(jump) {
     return { title: "⏸ Приостановленные ремонты", rows };
   }
 
-  // fallback: generic diagnostics period
-  const rows = (state.diagnostics || [])
-    .filter((item) => isDateInDashboardPeriod(item.date))
-    .slice(0, 80)
-    .map((item) => ({
-      bike: item.bike || "-",
-      text: [item.category, item.fault].filter(Boolean).join(" · ") || "Поломка не указана",
-      bikeId: bikeIdByCode(item.bike),
-    }));
-  return { title: "Диагностика за период", rows };
+  // diagnostics: all recent, newest first
+  const periodLabel = { today: "сегодня", yesterday: "вчера", week: "7 дней", month: "30 дней" }[state.dashboardPeriod] || "период";
+  const allDiags = [...(state.diagnostics || [])]
+    .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+    .slice(0, 80);
+  const inPeriod = allDiags.filter((item) => isDateInDashboardPeriod(item.date));
+  const rows = (inPeriod.length ? inPeriod : allDiags.slice(0, 20)).map((item) => ({
+    bike: item.bike || "-",
+    text: [item.category, item.fault].filter(Boolean).join(" · ") || "Поломка не указана",
+    bikeId: bikeIdByCode(item.bike),
+  }));
+  return { title: inPeriod.length ? `Диагностика за ${periodLabel}` : "Все диагностики", rows };
 }
 
 function openDashboardJumpModal(jump) {
@@ -2216,7 +2218,7 @@ function renderMetrics() {
       tint: "stat-warn",
       label: "Ждут запчасти",
       value: String(stats.waitingPartsNow),
-      jump: "waiting",
+      jump: "waiting-parts",
     },
   ];
 
