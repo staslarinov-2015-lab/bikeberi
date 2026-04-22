@@ -3498,6 +3498,7 @@ function renderWorkOrders() {
 }
 
 function renderOwnerPanel() {
+  renderMechanicEfficiency();
   const stats = getDashboardStats();
   const orders = state.workOrders || [];
 
@@ -3617,6 +3618,145 @@ function renderOwnerPanel() {
         }).join("")
       : `<div class="urgent-item-empty">Готовых байков пока нет</div>`;
   }
+}
+
+// ─── MECHANIC EFFICIENCY ──────────────────────────────────────────────────────
+
+const WORKDAY_START_H  = 10; // 10:00
+const WORKDAY_END_H    = 19; // 19:00
+const WORKDAY_TOTAL    = 480; // net minutes after 1h lunch (9h total - 1h)
+const LUNCH_START_H    = 13;
+const LUNCH_END_H      = 14;
+
+/** Minutes elapsed in the workday so far (net of lunch), capped at WORKDAY_TOTAL */
+function getElapsedWorkMinutes() {
+  const now = new Date();
+  const startMs = new Date(now).setHours(WORKDAY_START_H, 0, 0, 0);
+  const endMs   = new Date(now).setHours(WORKDAY_END_H,   0, 0, 0);
+  const lunchS  = new Date(now).setHours(LUNCH_START_H,   0, 0, 0);
+  const lunchE  = new Date(now).setHours(LUNCH_END_H,     0, 0, 0);
+
+  const ts = now.getTime();
+  if (ts <= startMs) return 0;
+  if (ts >= endMs)   return WORKDAY_TOTAL;
+
+  let elapsed = Math.floor((ts - startMs) / 60000);
+  // Subtract lunch if we're past it
+  if (ts > lunchE)        elapsed -= 60;
+  else if (ts > lunchS)   elapsed -= Math.floor((ts - lunchS) / 60000);
+  return Math.max(0, elapsed);
+}
+
+/** Format minutes to "Xч Yм" or "Yм" */
+function fmtMin(m) {
+  m = Math.round(m);
+  if (m <= 0) return "0м";
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  if (h && min) return `${h}ч ${min}м`;
+  if (h)        return `${h}ч`;
+  return `${min}м`;
+}
+
+function getMechanicEfficiencyData() {
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  // Diagnostic minutes today
+  const diagMin = (state.diagnostics || [])
+    .filter((d) => (d.date || d.created_at || "").slice(0, 10) === todayStr)
+    .reduce((s, d) => s + (Number(d.diagnostic_minutes) || 0), 0);
+
+  // Repair minutes today — completed work orders + currently active ones
+  const orders = state.workOrders || [];
+  let repairMin = 0;
+  orders.forEach((o) => {
+    const startedToday = (o.started_at || "").slice(0, 10) === todayStr;
+    const completedToday = (o.completed_at || "").slice(0, 10) === todayStr;
+
+    if (o.status === "в ремонте" && o.started_at) {
+      // Active repair: add elapsed time since start (or from start of today if started earlier)
+      const startMs = new Date(o.started_at).getTime();
+      const todayStart = new Date(todayStr + "T00:00:00").getTime();
+      const effectiveStart = Math.max(startMs, todayStart);
+      repairMin += Math.floor((Date.now() - effectiveStart) / 60000);
+    } else if (o.actual_minutes && (startedToday || completedToday)) {
+      repairMin += Number(o.actual_minutes) || 0;
+    }
+  });
+
+  const elapsedMin  = getElapsedWorkMinutes();
+  const productive  = Math.min(diagMin + repairMin, elapsedMin);
+  const idleMin     = Math.max(0, elapsedMin - productive);
+  const effPct      = elapsedMin > 0 ? Math.min(100, Math.round((productive / elapsedMin) * 100)) : 0;
+  const dayPct      = Math.min(100, Math.round((elapsedMin / WORKDAY_TOTAL) * 100));
+
+  return { diagMin, repairMin, idleMin, productive, elapsedMin, effPct, dayPct };
+}
+
+function renderMechanicEfficiency() {
+  const card = document.getElementById("mechanic-efficiency-card");
+  if (!card) return;
+
+  const { diagMin, repairMin, idleMin, effPct, elapsedMin, dayPct } = getMechanicEfficiencyData();
+
+  // SVG ring: r=38, circumference ≈ 238.8
+  const R  = 38;
+  const C  = +(2 * Math.PI * R).toFixed(1);
+  const offset = +(C * (1 - effPct / 100)).toFixed(1);
+  const ringColor = effPct >= 70 ? "#22a85a" : effPct >= 40 ? "#f59e0b" : "#e05c5c";
+
+  const barRow = (icon, label, minutes, total, color) => {
+    const pct = total > 0 ? Math.min(100, Math.round((minutes / total) * 100)) : 0;
+    return `
+      <div class="eff-bar-row">
+        <span class="eff-bar-icon">${icon}</span>
+        <span class="eff-bar-label">${label}</span>
+        <div class="eff-bar-track">
+          <div class="eff-bar-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <span class="eff-bar-time">${fmtMin(minutes)}</span>
+      </div>
+    `;
+  };
+
+  const statusText = effPct >= 70 ? "Отличный темп" : effPct >= 40 ? "Средняя активность" : effPct === 0 && elapsedMin === 0 ? "Смена ещё не началась" : "Низкая активность";
+  const statusColor = effPct >= 70 ? "#22a85a" : effPct >= 40 ? "#f59e0b" : "#e05c5c";
+
+  card.innerHTML = `
+    <div class="eff-title-row">
+      <span class="eff-title">Механик сегодня</span>
+      <span class="eff-workday">10:00 — 19:00</span>
+    </div>
+    <div class="eff-body">
+      <div class="eff-ring-wrap">
+        <svg class="eff-ring-svg" viewBox="0 0 100 100" width="96" height="96">
+          <circle cx="50" cy="50" r="${R}" fill="none" stroke="#eef3fb" stroke-width="10"/>
+          <circle cx="50" cy="50" r="${R}" fill="none" stroke="${ringColor}" stroke-width="10"
+            stroke-linecap="round"
+            stroke-dasharray="${C}"
+            stroke-dashoffset="${offset}"
+            transform="rotate(-90 50 50)"/>
+        </svg>
+        <div class="eff-ring-inner">
+          <span class="eff-pct" style="color:${ringColor}">${effPct}%</span>
+          <span class="eff-pct-label">КПД</span>
+        </div>
+      </div>
+      <div class="eff-bars">
+        ${barRow("🔧", "Ремонты",      repairMin, WORKDAY_TOTAL, "#007aff")}
+        ${barRow("🔍", "Диагностика",  diagMin,   WORKDAY_TOTAL, "#8a5cf6")}
+        ${barRow("💤", "Простой",      idleMin,   WORKDAY_TOTAL, "#e05c5c")}
+      </div>
+    </div>
+    <div class="eff-footer">
+      <span class="eff-status-dot" style="background:${statusColor}"></span>
+      <span class="eff-status-text" style="color:${statusColor}">${statusText}</span>
+      <span class="eff-day-progress">
+        <span class="eff-day-bar-track"><span class="eff-day-bar-fill" style="width:${dayPct}%"></span></span>
+        <span class="eff-day-time">${fmtMin(elapsedMin)} / 8ч</span>
+      </span>
+    </div>
+  `;
 }
 
 function renderTeamChat() {
@@ -5940,5 +6080,11 @@ if (!("kbSearch" in state)) state.kbSearch = "";
 syncBikeCodeBuilders();
 window.setInterval(refreshRepairTimers, 1000);
 window.setInterval(refreshTeamChat, TEAM_CHAT_POLL_INTERVAL_MS);
+// Refresh mechanic efficiency card every minute (active repair time ticks up)
+window.setInterval(() => {
+  if (getRole() === "owner" && state.activeSection === "owner") {
+    renderMechanicEfficiency();
+  }
+}, 60_000);
 loadIssueChecklistDraft();
 bootstrap();
