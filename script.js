@@ -37,11 +37,9 @@ const state = {
   diagnosticQuickFlow: {
     step: 1,
     category: "",
+    fault: "",
     criticality: "",
-    symptoms: [],
-    context: "",
-    proof: "",
-    scenario: "",
+    selectedParts: [],
   },
 };
 
@@ -1352,7 +1350,48 @@ function renderDiagnosticFaultGrid() {
     .join("");
 }
 
-const DIAGNOSTIC_QUICK_TOTAL_STEPS = 6;
+const DIAGNOSTIC_QUICK_TOTAL_STEPS = 4;
+const DIAGNOSTIC_QUICK_FAULT_CATALOG = {
+  "Электрика": [
+    { label: "Не включается / пропадает питание", parts: ["Предохранитель", "Комплект проводки"] },
+    { label: "Ошибка контроллера / датчиков", parts: ["Контроллер"] },
+    { label: "Проблема ручки газа", parts: ["Ручка газа"] },
+    { label: "Проблема зарядки", parts: ["Зарядный порт", "Зарядное устройство"] },
+  ],
+  "Колеса": [
+    { label: "Спускает колесо", parts: ["Камера"] },
+    { label: "Прокол / порез покрышки", parts: ["Камера", "Покрышка"] },
+    { label: "Люфт переднего колеса", parts: ["Подшипник колеса"] },
+    { label: "Люфт заднего колеса", parts: ["Подшипник колеса"] },
+    { label: "Биение / деформация колеса", parts: [] },
+  ],
+  "Тормоза": [
+    { label: "Скрип тормозов", parts: ["Колодки"] },
+    { label: "Слабое торможение", parts: ["Колодки"] },
+    { label: "Подклинивание суппорта", parts: ["Суппорт"] },
+    { label: "Не возвращается ручка тормоза", parts: ["Рычаг тормоза"] },
+  ],
+  "Руль": [
+    { label: "Люфт рулевой колонки", parts: ["Подшипник рулевой"] },
+    { label: "Тугой поворот руля", parts: ["Подшипник рулевой"] },
+    { label: "Руль стоит криво", parts: [] },
+    { label: "Стук в руле", parts: ["Крепеж рулевой"] },
+  ],
+  "Мотор": [
+    { label: "Не тянет мотор", parts: ["Контроллер"] },
+    { label: "Рывки при разгоне", parts: ["Контроллер"] },
+    { label: "Посторонний шум мотора", parts: ["Подшипник мотора"] },
+    { label: "Перегрев мотора", parts: [] },
+    { label: "Повышенная вибрация мотора", parts: ["Подшипник мотора"] },
+  ],
+  "Пластик": [
+    { label: "Трещина пластика", parts: ["Крепеж пластика"] },
+    { label: "Сломаны крепления / клипсы", parts: ["Крепеж пластика", "Клипса"] },
+    { label: "Отсутствует элемент пластика", parts: ["Крепеж пластика"] },
+    { label: "Дребезг пластика", parts: ["Крепеж пластика"] },
+    { label: "Порез сиденья", parts: ["Чехол сиденья"] },
+  ],
+};
 const DIAGNOSTIC_SCENARIO_OPTIONS = [
   {
     id: "fast",
@@ -1511,34 +1550,27 @@ const DIAGNOSTIC_QUICK_STEPS = {
     options: ["Электрика", "Тормоза", "Колеса", "Руль", "Пластик", "Мотор"],
   },
   2: {
+    title: "Какая поломка?",
+    subtitle: "Выбери одну из типовых поломок",
+    key: "fault",
+    multi: false,
+    options: [],
+  },
+  3: {
     title: "Насколько критично?",
     subtitle: "Выбери уровень срочности",
     key: "criticality",
     multi: false,
     options: ["Можно ездить", "Нужен ремонт", "Стоп-эксплуатация"],
   },
-  3: {
-    title: "Как проявляется?",
-    subtitle: "Выбери 1-3 симптома",
-    key: "symptoms",
-    multi: true,
-    min: 1,
-    max: 3,
-    options: ["шум", "люфт", "не включается", "ошибка на экране", "спускает"],
-  },
   4: {
-    title: "В каком контексте проявляется?",
-    subtitle: "Один контекст",
-    key: "context",
-    multi: false,
-    options: ["под нагрузкой", "после мойки", "на холодную", "после удара", "постоянно"],
-  },
-  5: {
-    title: "Подтверждающие признаки",
-    subtitle: "Один короткий тег",
-    key: "proof",
-    multi: false,
-    options: ["визуально видно", "диагностикой подтверждено", "нужна разборка"],
+    title: "Какие запчасти нужны?",
+    subtitle: "Выбери нужные запчасти со склада",
+    key: "selectedParts",
+    multi: true,
+    min: 0,
+    max: 50,
+    options: [],
   },
 };
 
@@ -1551,89 +1583,48 @@ function getQuickSeverity() {
   return map[state.diagnosticQuickFlow.criticality] || "Средняя";
 }
 
-function getQuickScenarioMeta() {
-  return DIAGNOSTIC_SCENARIO_OPTIONS.find((item) => item.id === state.diagnosticQuickFlow.scenario) || null;
+function getQuickFaultOptionsByCategory() {
+  return (DIAGNOSTIC_QUICK_FAULT_CATALOG[state.diagnosticQuickFlow.category] || []).map((item) => item.label);
 }
 
-function getKnowledgeRecipe() {
-  const categoryCfg = DIAGNOSTIC_KNOWLEDGE_BASE[state.diagnosticQuickFlow.category] || {};
-  const symptom = state.diagnosticQuickFlow.symptoms[0] || "default";
-  const scenario = state.diagnosticQuickFlow.scenario || "balanced";
-  const symptomCfg = categoryCfg[symptom] || categoryCfg.default || {};
-  const scenarioCfg = symptomCfg[scenario] || symptomCfg.balanced || null;
-  return scenarioCfg;
+function getQuickDefaultPartsByFault() {
+  const categoryItems = DIAGNOSTIC_QUICK_FAULT_CATALOG[state.diagnosticQuickFlow.category] || [];
+  const selected = categoryItems.find((item) => item.label === state.diagnosticQuickFlow.fault);
+  return selected?.parts || [];
+}
+
+function getQuickInventoryOptions() {
+  return (state.inventory || [])
+    .map((item) => String(item.name || "").trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "ru"));
 }
 
 function getQuickRecommendation() {
-  const recipe = getKnowledgeRecipe();
-  if (recipe?.title) return recipe.title;
-  const severity = getQuickSeverity();
-  const scenario = state.diagnosticQuickFlow.scenario || "balanced";
-  if (scenario === "fast") {
-    if (severity === "Критичная") return "Срочно остановить эксплуатацию, выполнить минимально достаточный ремонт и вернуть в работу";
-    if (severity === "Средняя") return "Сделать быстрый ремонт и закрыть критичные риски в ближайшее окно";
-    return "Локальная настройка и контрольная проверка без долгого простоя";
+  if (state.diagnosticQuickFlow.criticality === "Можно ездить") {
+    return "Можно ездить: требуемые запчасти автоматически добавлены в заказ.";
   }
-  if (scenario === "reliable") {
-    if (severity === "Критичная") return "Полная разборка узла, замена ключевых элементов и расширенная проверка";
-    if (severity === "Средняя") return "Комплексный ремонт с заменой изношенных деталей по узлу";
-    return "Усиленная профилактика с запасом по надежности";
+  if (state.diagnosticQuickFlow.criticality === "Нужен ремонт") {
+    return "Нужен ремонт: проверяем наличие выбранных запчастей на складе.";
   }
-  if (severity === "Критичная") return "Срочно остановить эксплуатацию и оформить ремонт";
-  if (severity === "Средняя") return "Запланировать ремонт в ближайшее окно";
-  return "Наблюдать и выполнить плановую проверку";
+  if (state.diagnosticQuickFlow.criticality === "Стоп-эксплуатация") {
+    return "Стоп-эксплуатация: срочный ремонт и приоритетная комплектация.";
+  }
+  return "Определи приоритет, чтобы сформировать план работ.";
 }
 
 function getQuickRequiredPartsText() {
-  const byCategory = {
-    "Электрика": {
-      fast: "Разъем:1",
-      balanced: "Проводка:1, Разъем:1",
-      reliable: "Проводка:1, Разъем:2, Предохранитель:1",
-    },
-    "Тормоза": {
-      fast: "Колодки:1",
-      balanced: "Колодки:1, Регулировка контура:1",
-      reliable: "Колодки:1, Трос/гидролиния:1",
-    },
-    "Колеса": {
-      fast: "Камера:1",
-      balanced: "Камера:1, Проверка покрышки:1",
-      reliable: "Камера:1, Покрышка:1",
-    },
-    "Руль": {
-      fast: "Подтяжка рулевой:1",
-      balanced: "Подшипник рулевой:1",
-      reliable: "Подшипник рулевой:1, Крепеж:1",
-    },
-    "Пластик": {
-      fast: "Крепеж пластика:1",
-      balanced: "Крепеж пластика:1, Клипса:2",
-      reliable: "Крепеж пластика:1, Клипса:4, Элемент пластика:1",
-    },
-    "Мотор": {
-      fast: "Диагностика мотора:1",
-      balanced: "Подшипник мотора:1",
-      reliable: "Подшипник мотора:1, Сальник:1",
-    },
-  };
-  const scenario = state.diagnosticQuickFlow.scenario || "balanced";
-  return byCategory[state.diagnosticQuickFlow.category]?.[scenario] || "-";
+  const selectedParts = state.diagnosticQuickFlow.selectedParts || [];
+  if (!selectedParts.length) return "-";
+  return selectedParts.map((name) => `${name}:1`).join(", ");
 }
 
 function buildQuickFaultTitle() {
-  const symptom = state.diagnosticQuickFlow.symptoms[0] || "неисправность";
-  return `${state.diagnosticQuickFlow.category} · ${symptom}`;
+  return state.diagnosticQuickFlow.fault || "неисправность";
 }
 
 function buildQuickSymptomsText() {
-  const symptoms = state.diagnosticQuickFlow.symptoms.join(", ");
-  return [
-    `Категория: ${state.diagnosticQuickFlow.category}.`,
-    `Симптомы: ${symptoms}.`,
-    `Контекст: ${state.diagnosticQuickFlow.context}.`,
-    `Подтверждение: ${state.diagnosticQuickFlow.proof}.`,
-  ].join(" ");
+  return `Категория: ${state.diagnosticQuickFlow.category}. Поломка: ${state.diagnosticQuickFlow.fault}.`;
 }
 
 function buildQuickConclusionText() {
@@ -1646,7 +1637,7 @@ function buildQuickConclusionText() {
 
 function canGoNextQuickStep() {
   const step = state.diagnosticQuickFlow.step;
-  if (step === 6) return Boolean(state.diagnosticQuickFlow.scenario);
+  if (step === DIAGNOSTIC_QUICK_TOTAL_STEPS) return true;
   const cfg = DIAGNOSTIC_QUICK_STEPS[step];
   if (!cfg) return false;
   const value = state.diagnosticQuickFlow[cfg.key];
@@ -1656,49 +1647,31 @@ function canGoNextQuickStep() {
 
 function renderQuickSummaryCard() {
   if (!diagnosticQuickSummaryCard) return;
-  const selectedScenario = getQuickScenarioMeta();
-  const recipe = getKnowledgeRecipe();
-  const scenarioButtons = DIAGNOSTIC_SCENARIO_OPTIONS.map((scenario) => {
-    const active = scenario.id === state.diagnosticQuickFlow.scenario;
+  const selectedParts = new Set(state.diagnosticQuickFlow.selectedParts || []);
+  const inventoryButtons = getQuickInventoryOptions().map((partName) => {
+    const active = selectedParts.has(partName);
     return `
       <button
         class="diagnostic-scenario-card ${active ? "is-active" : ""}"
         type="button"
-        data-action="diagnostic-quick-scenario"
-        data-scenario="${escapeHtml(scenario.id)}"
+        data-action="diagnostic-quick-part"
+        data-part="${escapeHtml(partName)}"
       >
-        <strong>${escapeHtml(scenario.title)}</strong>
-        <span>${escapeHtml(scenario.hint)}</span>
+        <strong>${escapeHtml(partName)}</strong>
+        <span>Добавить в необходимые запчасти</span>
       </button>
     `;
   }).join("");
   diagnosticQuickSummaryCard.innerHTML = `
-    <div class="diagnostic-quick-summary-row"><strong>Диагноз:</strong> ${escapeHtml(buildQuickFaultTitle())}</div>
+    <div class="diagnostic-quick-summary-row"><strong>Узел:</strong> ${escapeHtml(state.diagnosticQuickFlow.category || "-")}</div>
+    <div class="diagnostic-quick-summary-row"><strong>Поломка:</strong> ${escapeHtml(buildQuickFaultTitle())}</div>
     <div class="diagnostic-quick-summary-row"><strong>Приоритет:</strong> ${escapeHtml(state.diagnosticQuickFlow.criticality)}</div>
     <div class="diagnostic-scenario-block">
-      <div class="diagnostic-quick-summary-row"><strong>Вариант развития событий:</strong></div>
-      <div class="diagnostic-scenario-grid">${scenarioButtons}</div>
+      <div class="diagnostic-quick-summary-row"><strong>Выбор запчастей со склада:</strong></div>
+      <div class="diagnostic-scenario-grid">${inventoryButtons}</div>
     </div>
-    ${
-      selectedScenario
-        ? `<div class="diagnostic-quick-summary-row"><strong>Выбранный путь:</strong> ${escapeHtml(selectedScenario.title)}</div>`
-        : '<div class="diagnostic-quick-summary-row muted">Выбери один вариант развития событий.</div>'
-    }
     <div class="diagnostic-quick-summary-row"><strong>Запчасти:</strong> ${escapeHtml(getQuickRequiredPartsText())}</div>
     <div class="diagnostic-quick-summary-row"><strong>Почему:</strong> ${escapeHtml(getQuickRecommendation())}</div>
-    ${
-      recipe
-        ? `
-      <div class="diagnostic-scenario-block">
-        <div class="diagnostic-quick-summary-row"><strong>Как решить:</strong></div>
-        <ol class="diagnostic-knowledge-steps">
-          ${recipe.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}
-        </ol>
-        <div class="diagnostic-quick-summary-row"><strong>Контроль:</strong> ${escapeHtml(recipe.check || "-")}</div>
-      </div>
-    `
-        : ""
-    }
   `;
 }
 
@@ -1711,7 +1684,13 @@ function renderQuickStepOptions() {
     return;
   }
   const selected = state.diagnosticQuickFlow[cfg.key];
-  diagnosticQuickOptions.innerHTML = cfg.options
+  const options =
+    state.diagnosticQuickFlow.step === 2
+      ? getQuickFaultOptionsByCategory()
+      : state.diagnosticQuickFlow.step === 4
+        ? []
+        : cfg.options;
+  diagnosticQuickOptions.innerHTML = options
     .map((option) => {
       const active = cfg.multi ? selected.includes(option) : selected === option;
       return `
@@ -1736,7 +1715,7 @@ function syncDiagnosticWizard() {
   if (diagnosticQuickProgressCounter) diagnosticQuickProgressCounter.textContent = `${progress}/${DIAGNOSTIC_QUICK_TOTAL_STEPS}`;
   if (diagnosticQuickProgressFill) diagnosticQuickProgressFill.style.width = `${percent}%`;
 
-  const isSummary = step === 6;
+  const isSummary = step === DIAGNOSTIC_QUICK_TOTAL_STEPS;
   const canProceed = canGoNextQuickStep();
   diagnosticQuickStepQuestion?.classList.toggle("hidden", isSummary);
   diagnosticQuickStepSummary?.classList.toggle("hidden", !isSummary);
@@ -1758,7 +1737,12 @@ function syncDiagnosticWizard() {
   const cfg = DIAGNOSTIC_QUICK_STEPS[step];
   if (!cfg) return;
   if (diagnosticQuickTitle) diagnosticQuickTitle.textContent = cfg.title;
-  if (diagnosticQuickSubtitle) diagnosticQuickSubtitle.textContent = cfg.subtitle;
+  if (diagnosticQuickSubtitle) {
+    diagnosticQuickSubtitle.textContent =
+      step === 2 && state.diagnosticQuickFlow.category
+        ? `Поломки для категории: ${state.diagnosticQuickFlow.category}`
+        : cfg.subtitle;
+  }
   renderQuickStepOptions();
 }
 
@@ -1772,11 +1756,9 @@ function resetDiagnosticFlow() {
   state.diagnosticQuickFlow = {
     step: 1,
     category: "",
+    fault: "",
     criticality: "",
-    symptoms: [],
-    context: "",
-    proof: "",
-    scenario: "",
+    selectedParts: [],
   };
   diagnosticForm.reset();
   resetBikeCodeValue("diagnostic");
@@ -2842,14 +2824,34 @@ diagnosticQuickOptions?.addEventListener("click", (event) => {
     state.diagnosticQuickFlow[cfg.key] = Array.from(current);
   } else {
     state.diagnosticQuickFlow[cfg.key] = value;
+    if (cfg.key === "category") {
+      state.diagnosticQuickFlow.fault = "";
+      state.diagnosticQuickFlow.selectedParts = [];
+      state.diagnosticQuickFlow.criticality = "";
+    }
+    if (cfg.key === "fault") {
+      state.diagnosticQuickFlow.selectedParts = [];
+    }
+    if (cfg.key === "criticality" && value === "Можно ездить") {
+      const defaults = getQuickDefaultPartsByFault();
+      state.diagnosticQuickFlow.selectedParts = Array.from(new Set([...(state.diagnosticQuickFlow.selectedParts || []), ...defaults]));
+    }
   }
   syncDiagnosticWizard();
 });
 
 diagnosticQuickSummaryCard?.addEventListener("click", (event) => {
-  const button = event.target.closest('[data-action="diagnostic-quick-scenario"]');
+  const button = event.target.closest('[data-action="diagnostic-quick-part"]');
   if (!button) return;
-  state.diagnosticQuickFlow.scenario = button.dataset.scenario || "";
+  const partName = String(button.dataset.part || "").trim();
+  if (!partName) return;
+  const current = new Set(state.diagnosticQuickFlow.selectedParts || []);
+  if (current.has(partName)) {
+    current.delete(partName);
+  } else {
+    current.add(partName);
+  }
+  state.diagnosticQuickFlow.selectedParts = Array.from(current);
   syncDiagnosticWizard();
 });
 
@@ -3360,11 +3362,9 @@ document.addEventListener("click", async (event) => {
         : String(item.severity || "").trim() === "Низкая"
           ? "Можно ездить"
           : "Нужен ремонт";
-    state.diagnosticQuickFlow.symptoms = ["шум"];
-    state.diagnosticQuickFlow.context = "постоянно";
-    state.diagnosticQuickFlow.proof = "диагностикой подтверждено";
-    state.diagnosticQuickFlow.scenario = "balanced";
-    state.diagnosticQuickFlow.step = 6;
+    state.diagnosticQuickFlow.fault = item.fault || "";
+    state.diagnosticQuickFlow.selectedParts = [];
+    state.diagnosticQuickFlow.step = DIAGNOSTIC_QUICK_TOTAL_STEPS;
     setBikeCodeValue("diagnostic", item.bike);
     if (diagnosticQuickMechanicInput) diagnosticQuickMechanicInput.value = item.mechanic_name || "";
     openDiagnosticOverlay();
