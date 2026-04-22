@@ -1442,6 +1442,7 @@ def init_db():
                 ("target_rate", "95"),
                 ("mechanic_focus", "оперативка"),
                 ("mechanic_daily_cost", "3500"),
+                ("daily_goal", ""),
                 ("telegram_bot_token", ""),
                 ("telegram_webhook_secret", ""),
                 ("telegram_owner_chat_id", ""),
@@ -1452,6 +1453,7 @@ def init_db():
         for key, value in [
             ("mechanic_focus", "оперативка"),
             ("mechanic_daily_cost", "3500"),
+            ("daily_goal", ""),
             ("telegram_bot_token", ""),
             ("telegram_webhook_secret", ""),
             ("telegram_owner_chat_id", ""),
@@ -1938,8 +1940,9 @@ def fetch_bootstrap_payload(user):
         "kpi": {
             "totalBikes": int(settings.get("total_bikes", "40")),
             "targetRate": int(settings.get("target_rate", "95")),
-            "mechanicFocus": str(settings.get("mechanic_focus", "оперативка")),
+            "mechanicFocus": str(settings.get("mechanic_focus", "")),
             "mechanicDailyCost": int(settings.get("mechanic_daily_cost", "3500")),
+            "dailyGoal": str(settings.get("daily_goal", "")),
         },
         "bikes": bikes,
         "repairs": repairs,
@@ -3258,9 +3261,12 @@ class AppHandler(BaseHTTPRequestHandler):
                 return json_response(self, 400, {"error": "Количество байков должно быть больше нуля"})
             if not 1 <= target_rate <= 100:
                 return json_response(self, 400, {"error": "Цель KPI должна быть от 1 до 100"})
-            mechanic_focus = str(payload.get("mechanicFocus", "оперативка")).strip() or "оперативка"
-            if len(mechanic_focus) > 80:
-                return json_response(self, 400, {"error": "Фокус механика должен быть до 80 символов"})
+            mechanic_focus = str(payload.get("mechanicFocus", "")).strip()
+            if len(mechanic_focus) > 160:
+                return json_response(self, 400, {"error": "Цель на неделю должна быть до 160 символов"})
+            daily_goal = str(payload.get("dailyGoal", "")).strip()
+            if len(daily_goal) > 160:
+                return json_response(self, 400, {"error": "Цель на день должна быть до 160 символов"})
             mechanic_daily_cost_raw = payload.get("mechanicDailyCost", 3500)
             try:
                 mechanic_daily_cost = max(0, int(mechanic_daily_cost_raw))
@@ -3272,6 +3278,7 @@ class AppHandler(BaseHTTPRequestHandler):
             conn.execute("UPDATE settings SET value = ? WHERE key = 'target_rate'", (str(target_rate),))
             conn.execute("UPDATE settings SET value = ? WHERE key = 'mechanic_focus'", (mechanic_focus,))
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('mechanic_daily_cost', ?)", (str(mechanic_daily_cost),))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('daily_goal', ?)", (daily_goal,))
             conn.commit()
             conn.close()
             return json_response(self, 200, {"ok": True})

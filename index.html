@@ -417,8 +417,32 @@
               <div id="owner-process" class="stack-list"></div>
             </article>
 
+            <!-- Цели механику -->
             <article class="content-card owner-card owner-card-wide">
-              <h3 class="panel-title">Приоритет механику</h3>
+              <h3 class="panel-title">🎯 Цели механику</h3>
+              <form id="owner-goals-form" class="goals-form">
+                <div class="goal-field">
+                  <div class="goal-field-header">
+                    <span class="goal-period-badge goal-period-badge--day">Сегодня</span>
+                    <span class="goal-field-hint">Видит механик в начале смены</span>
+                  </div>
+                  <textarea name="dailyGoal" rows="2" maxlength="160"
+                    placeholder="Например: починить 5163 до 14:00, принять новые запчасти"></textarea>
+                </div>
+                <div class="goal-field">
+                  <div class="goal-field-header">
+                    <span class="goal-period-badge goal-period-badge--week">Неделя</span>
+                    <span class="goal-field-hint">Стратегическая задача</span>
+                  </div>
+                  <textarea name="mechanicFocus" rows="2" maxlength="160"
+                    placeholder="Например: подготовить весь парк к сезону, ревизия склада"></textarea>
+                </div>
+                <button class="primary-btn wide" type="submit">Сохранить цели</button>
+              </form>
+            </article>
+
+            <article class="content-card owner-card owner-card-wide">
+              <h3 class="panel-title">Приоритет байку</h3>
               <form id="owner-priority-form" class="form-grid">
                 <label>
                   <span>Байк</span>
@@ -454,10 +478,6 @@
                 <label>
                   <span>Ставка механика, ₽/день</span>
                   <input name="mechanicDailyCost" type="number" min="0" placeholder="3500" />
-                </label>
-                <label class="wide">
-                  <span>Фокус механика</span>
-                  <input name="mechanicFocus" type="text" placeholder="Например: срочные ремонты и контроль склада" maxlength="80" />
                 </label>
                 <button class="primary-btn wide" type="submit">Сохранить</button>
               </form>

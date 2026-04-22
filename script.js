@@ -19,8 +19,9 @@ const state = {
   kpi: {
     totalBikes: 0,
     targetRate: 95,
-    mechanicFocus: "оперативка",
+    mechanicFocus: "",
     mechanicDailyCost: 3500,
+    dailyGoal: "",
   },
   repairs: [],
   inventory: [],
@@ -1814,16 +1815,35 @@ function renderStatusChips() {
 
 function renderMechanicDayFocus() {
   if (!mechanicDayFocus) return;
-  const focus = String(state.kpi.mechanicFocus || "").trim();
-  const shouldShow = getRole() === "mechanic" && Boolean(focus);
-  mechanicDayFocus.classList.toggle("hidden", !shouldShow);
-  if (!shouldShow) {
-    mechanicDayFocus.textContent = "";
-    return;
-  }
+  const isMechanic = getRole() === "mechanic";
+  const dailyGoal  = String(state.kpi.dailyGoal   || "").trim();
+  const weeklyGoal = String(state.kpi.mechanicFocus || "").trim();
+  const hasAny = isMechanic && (dailyGoal || weeklyGoal);
+
+  mechanicDayFocus.classList.toggle("hidden", !hasAny);
+  if (!hasAny) { mechanicDayFocus.innerHTML = ""; return; }
+
+  const dayCard = dailyGoal ? `
+    <div class="mdf-goal-card mdf-goal-card--day">
+      <div class="mdf-goal-header">
+        <span class="mdf-period-badge mdf-period-badge--day">Сегодня</span>
+        <span class="mdf-goal-from">от управляющего</span>
+      </div>
+      <div class="mdf-goal-text">${escapeHtml(dailyGoal)}</div>
+    </div>
+  ` : "";
+
+  const weekCard = weeklyGoal ? `
+    <div class="mdf-goal-card mdf-goal-card--week">
+      <div class="mdf-goal-header">
+        <span class="mdf-period-badge mdf-period-badge--week">Неделя</span>
+      </div>
+      <div class="mdf-goal-text">${escapeHtml(weeklyGoal)}</div>
+    </div>
+  ` : "";
+
   mechanicDayFocus.innerHTML = `
-    <span class="mechanic-day-focus-label">Фокус на день</span>
-    <strong class="mechanic-day-focus-value">${escapeHtml(focus)}</strong>
+    <div class="mdf-goals-row">${dayCard}${weekCard}</div>
   `;
 }
 
@@ -2963,18 +2983,9 @@ function renderEventsFeed() {
 function renderAlerts() {
   if (!alertsList) return;
 
-  const focus = String(state.kpi.mechanicFocus || "").trim();
-  const showFocus = getRole() === "mechanic" && Boolean(focus);
-
   const inRepair = (state.workOrders || []).filter((o) => o.status === "в ремонте");
   const waitingParts = (state.workOrders || []).filter((o) => o.status === "ждет запчасти");
-
-  const goalHtml = showFocus ? `
-    <div class="focus-goal-card">
-      <div class="focus-goal-label">Цель на неделю</div>
-      <div class="focus-goal-text">${escapeHtml(focus)}</div>
-    </div>
-  ` : "";
+  const goalHtml = ""; // Goals now rendered by renderMechanicDayFocus above the dashboard
 
   const repairSection = inRepair.length ? `
     <div class="focus-section-title">В ремонте сейчас</div>
@@ -4509,9 +4520,10 @@ function render() {
       settingsForm.elements.mechanicDailyCost.value = state.kpi.mechanicDailyCost ?? 3500;
     }
     if (settingsForm.elements.mechanicFocus) {
-      settingsForm.elements.mechanicFocus.value = state.kpi.mechanicFocus || "оперативка";
+      settingsForm.elements.mechanicFocus.value = state.kpi.mechanicFocus || "";
     }
   }
+  populateGoalsForm();
   renderRoleContent();
   renderTelegramTransport();
   renderSectionHeader();
@@ -5305,7 +5317,8 @@ if (settingsForm) {
           totalBikes: Number(formData.get("totalBikes")),
           targetRate: Number(formData.get("targetRate")),
           mechanicDailyCost: Number(formData.get("mechanicDailyCost") || 3500),
-          mechanicFocus: String(formData.get("mechanicFocus") || "").trim(),
+          mechanicFocus: state.kpi.mechanicFocus || "",
+          dailyGoal: state.kpi.dailyGoal || "",
         }),
         notifyError: true,
       });
@@ -5313,6 +5326,39 @@ if (settingsForm) {
     } catch {
       // Ошибка уже показана через notifyError в api()
     }
+  });
+}
+
+// ── Owner goals form ──────────────────────────────────────────
+const ownerGoalsForm = document.getElementById("owner-goals-form");
+
+function populateGoalsForm() {
+  if (!ownerGoalsForm) return;
+  if (ownerGoalsForm.elements.dailyGoal)
+    ownerGoalsForm.elements.dailyGoal.value = state.kpi.dailyGoal || "";
+  if (ownerGoalsForm.elements.mechanicFocus)
+    ownerGoalsForm.elements.mechanicFocus.value = state.kpi.mechanicFocus || "";
+}
+
+if (ownerGoalsForm) {
+  ownerGoalsForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(ownerGoalsForm);
+    try {
+      await api("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          totalBikes: state.kpi.totalBikes || 40,
+          targetRate: state.kpi.targetRate || 95,
+          mechanicDailyCost: state.kpi.mechanicDailyCost || 3500,
+          mechanicFocus: String(formData.get("mechanicFocus") || "").trim(),
+          dailyGoal: String(formData.get("dailyGoal") || "").trim(),
+        }),
+        notifyError: true,
+      });
+      notify("Цели сохранены");
+      await bootstrap();
+    } catch { /* shown */ }
   });
 }
 
