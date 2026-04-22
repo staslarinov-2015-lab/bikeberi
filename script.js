@@ -2403,13 +2403,9 @@ function renderQuickSummaryCard() {
     </div>
     <div class="diagnostic-quick-summary-row"><strong>Запчасти:</strong> ${escapeHtml(getQuickRequiredPartsText())}</div>
     <div class="diagnostic-scenario-block">
-      <div class="diagnostic-quick-summary-row"><strong>Фото байка (обязательно при взятии в ремонт):</strong></div>
-      <label class="diag-photo-btn" for="diagnostic-photo-input">
-        <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-        Сфотографировать
-      </label>
-      <input type="file" id="diagnostic-photo-input" accept="image/*" capture="environment" multiple style="display:none" />
-      <div id="diagnostic-photo-preview" class="diag-photo-grid"></div>
+      <div class="diagnostic-quick-summary-row"><strong>Фотоконтроль байка (4 стороны):</strong></div>
+      <p class="handover-photo-hint muted">Сделай фото байка с 4 сторон перед взятием в ремонт</p>
+      ${renderDiagPhotoGrid()}
     </div>
     <button class="ghost-btn" type="button" data-action="save-as-template" style="margin-top:8px">Сохранить как шаблон</button>
   `;
@@ -2575,7 +2571,7 @@ function resetDiagnosticFlow() {
     selectedPartsCategory: "",
     decision: "",
     queueReason: "",
-    photos: [],
+    photos: { front: null, left: null, right: null, back: null },
   };
   state.diagnosticStartedAt = null;
   diagnosticForm.reset();
@@ -2699,10 +2695,12 @@ async function openDiagnosticViewForOwner(item) {
     if (!photos.length) {
       photosEl.innerHTML = '<span class="muted" style="font-size:0.85rem">Фотографии не прикреплены</span>';
     } else {
+      const sideLabels = { front: "Спереди", left: "Слева", right: "Справа", back: "Сзади" };
       photosEl.innerHTML = photos
         .map((p) => `
           <div class="diag-view-photo-thumb">
-            <img src="${p.photoData}" alt="Фотоконтроль" loading="lazy" />
+            <img src="${p.photoData}" alt="${sideLabels[p.side] || "Фото"}" loading="lazy" />
+            ${p.side ? `<div class="handover-thumb-label">${sideLabels[p.side] || p.side}</div>` : ""}
           </div>
         `)
         .join("");
@@ -3710,37 +3708,89 @@ async function resizePhotoToBase64(file, maxPx = 1024, quality = 0.82) {
   });
 }
 
-async function uploadDiagnosticPhoto(diagnosticId, photoData) {
+async function uploadDiagnosticPhoto(diagnosticId, photoData, side) {
   return api(`/api/diagnostics/${diagnosticId}/photos`, {
     method: "POST",
-    body: JSON.stringify({ photoData }),
+    body: JSON.stringify({ photoData, side: side || null }),
     notifyError: true,
   });
 }
 
 async function uploadAllDiagnosticPhotos(diagnosticId) {
-  const photos = state.diagnosticQuickFlow.photos || [];
-  for (const photoData of photos) {
+  const photos = state.diagnosticQuickFlow.photos || {};
+  for (const { key } of DIAG_PHOTO_SIDES) {
+    if (!photos[key]) continue;
     try {
-      await uploadDiagnosticPhoto(diagnosticId, photoData);
+      await uploadDiagnosticPhoto(diagnosticId, photos[key], key);
     } catch { /* best-effort */ }
   }
 }
 
+const DIAG_PHOTO_SIDES = [
+  { key: "front", label: "Спереди" },
+  { key: "left",  label: "Слева" },
+  { key: "right", label: "Справа" },
+  { key: "back",  label: "Сзади" },
+];
+
+function renderDiagPhotoGrid() {
+  const photos = state.diagnosticQuickFlow.photos || {};
+  return `
+    <div class="diag-photo-slot-grid">
+      ${DIAG_PHOTO_SIDES.map(({ key, label }) => {
+        const dataUrl = photos[key];
+        return `
+          <div class="diag-photo-slot ${dataUrl ? "has-photo" : ""}" data-side="${key}">
+            ${dataUrl
+              ? `<img src="${dataUrl}" alt="${label}" class="diag-photo-slot-img" />`
+              : `<svg viewBox="0 0 24 24" fill="none" width="22" height="22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`
+            }
+            <label class="diag-photo-slot-label" for="diag-photo-input-${key}">${label}${dataUrl ? " ✓" : ""}</label>
+            <input type="file" id="diag-photo-input-${key}" accept="image/*" capture="environment"
+              class="diag-photo-slot-input" data-side="${key}" style="display:none" />
+          </div>
+        `;
+      }).join("")}
+    </div>
+    <p class="diag-photo-slot-status muted" style="margin-top:8px;font-size:0.8rem">
+      ${(() => {
+        const done = DIAG_PHOTO_SIDES.filter(({ key }) => photos[key]).length;
+        return done === 4 ? "✅ Все 4 фото сделаны" : `Осталось: ${4 - done} из 4`;
+      })()}
+    </p>
+  `;
+}
+
+function refreshDiagPhotoGrid() {
+  // Re-render only the photo grid portion inside the already-rendered summary
+  const wrapper = document.querySelector(".diag-photo-slot-grid")?.closest(".diagnostic-scenario-block");
+  if (!wrapper) return;
+  const slotGrid = wrapper.querySelector(".diag-photo-slot-grid");
+  const statusEl = wrapper.querySelector(".diag-photo-slot-status");
+  const photos = state.diagnosticQuickFlow.photos || {};
+  if (slotGrid) {
+    slotGrid.outerHTML; // just check it exists
+    wrapper.innerHTML = `
+      <div class="diagnostic-quick-summary-row"><strong>Фотоконтроль байка (4 стороны):</strong></div>
+      <p class="handover-photo-hint muted">Сделай фото байка с 4 сторон перед взятием в ремонт</p>
+      ${renderDiagPhotoGrid()}
+    `;
+    // re-attach click listeners
+    attachDiagPhotoSlotListeners();
+  }
+}
+
+function attachDiagPhotoSlotListeners() {
+  document.querySelectorAll(".diag-photo-slot").forEach((slot) => {
+    slot.addEventListener("click", () => {
+      const input = slot.querySelector(".diag-photo-slot-input");
+      if (input) input.click();
+    });
+  });
+}
+
 function renderPhotoPreview() {
-  const container = document.getElementById("diagnostic-photo-preview");
-  if (!container) return;
-  const photos = state.diagnosticQuickFlow.photos || [];
-  container.innerHTML = photos
-    .map(
-      (dataUrl, idx) => `
-        <div class="diag-photo-thumb">
-          <img src="${dataUrl}" alt="Фото ${idx + 1}" />
-          <button class="diag-photo-delete" type="button" data-action="remove-diagnostic-photo" data-idx="${idx}" aria-label="Удалить фото">×</button>
-        </div>
-      `
-    )
-    .join("");
+  // Legacy — no longer used; kept to avoid reference errors
 }
 
 // ─── REPAIR TEMPLATES ────────────────────────────────────────────────────────
@@ -4906,10 +4956,14 @@ diagnosticForm.addEventListener("submit", async (event) => {
   }
   showDiagnosticQuickErrors([]);
 
-  // Validate photo requirement when taking for repair
-  if (!editingId && state.diagnosticQuickFlow.decision === "take_repair" && !(state.diagnosticQuickFlow.photos || []).length) {
-    showDiagnosticQuickErrors(["Сделай хотя бы 1 фото байка при взятии в ремонт — это обязательный фотоконтроль."]);
-    return;
+  // Validate photo requirement when taking for repair — all 4 sides required
+  if (!editingId && state.diagnosticQuickFlow.decision === "take_repair") {
+    const photos = state.diagnosticQuickFlow.photos || {};
+    const missingPhotos = DIAG_PHOTO_SIDES.filter(({ key }) => !photos[key]).map(({ label }) => label);
+    if (missingPhotos.length) {
+      showDiagnosticQuickErrors([`Обязательный фотоконтроль: нужны фото с 4 сторон. Не хватает: ${missingPhotos.join(", ")}.`]);
+      return;
+    }
   }
 
   try {
@@ -4939,10 +4993,14 @@ diagnosticForm.addEventListener("submit", async (event) => {
     });
 
     // Upload photos for new diagnostics
-    if (!editingId && (state.diagnosticQuickFlow.photos || []).length) {
-      const diagnosticId = response?.id || response?.diagnosticId;
-      if (diagnosticId) {
-        await uploadAllDiagnosticPhotos(diagnosticId);
+    if (!editingId) {
+      const photos = state.diagnosticQuickFlow.photos || {};
+      const hasAny = DIAG_PHOTO_SIDES.some(({ key }) => photos[key]);
+      if (hasAny) {
+        const diagnosticId = response?.id || response?.diagnosticId;
+        if (diagnosticId) {
+          await uploadAllDiagnosticPhotos(diagnosticId);
+        }
       }
     }
 
@@ -5466,12 +5524,12 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  // Photo actions
-  if (action === "remove-diagnostic-photo") {
-    const idx = parseInt(target.dataset.idx, 10);
-    if (!isNaN(idx)) {
-      state.diagnosticQuickFlow.photos.splice(idx, 1);
-      renderPhotoPreview();
+  // Diagnostic photo slot — retake (clear side to allow re-shooting)
+  if (action === "retake-diag-photo") {
+    const side = target.dataset.side;
+    if (side && state.diagnosticQuickFlow.photos) {
+      state.diagnosticQuickFlow.photos[side] = null;
+      refreshDiagPhotoGrid();
     }
     return;
   }
@@ -5725,25 +5783,39 @@ document.addEventListener("click", async (event) => {
   } catch { /* shown */ }
 });
 
-// Photo capture input — delegated because the input is rendered dynamically
+// Diagnostic 4-side photo slots — delegated because inputs are rendered dynamically
 document.addEventListener("change", async (event) => {
-  const input = event.target.closest("#diagnostic-photo-input");
+  const input = event.target.closest(".diag-photo-slot-input");
   if (!input) return;
-  const files = Array.from(input.files || []);
-  for (const file of files) {
-    const dataUrl = await resizePhotoToBase64(file);
-    if (dataUrl) {
-      state.diagnosticQuickFlow.photos.push(dataUrl);
+  const side = input.dataset.side;
+  if (!side) return;
+  const file = input.files?.[0];
+  if (!file) return;
+  const dataUrl = await resizePhotoToBase64(file);
+  if (dataUrl) {
+    if (!state.diagnosticQuickFlow.photos || Array.isArray(state.diagnosticQuickFlow.photos)) {
+      state.diagnosticQuickFlow.photos = { front: null, left: null, right: null, back: null };
     }
+    state.diagnosticQuickFlow.photos[side] = dataUrl;
+    refreshDiagPhotoGrid();
   }
   input.value = "";
-  renderPhotoPreview();
 });
 
 // Queue sort select
 document.getElementById("queue-sort-select")?.addEventListener("change", (event) => {
   state.queueSort = event.target.value || "default";
   renderWorkOrders();
+});
+
+// Diagnostic photo slot click — delegated
+document.addEventListener("click", (event) => {
+  const slot = event.target.closest(".diag-photo-slot");
+  if (!slot) return;
+  // Don't trigger if user clicked directly on the hidden input
+  if (event.target.classList.contains("diag-photo-slot-input")) return;
+  const input = slot.querySelector(".diag-photo-slot-input");
+  if (input) input.click();
 });
 
 // Handover photo capture — delegated

@@ -780,9 +780,9 @@ def notify_parts_arrived_for_waiting_orders(conn, part_name: str, new_stock: int
 
 def fetch_diagnostic_photos(conn, diagnostic_id: int) -> list:
     return [
-        {"id": row["id"], "photoData": row["photo_data"], "createdAt": row["created_at"]}
+        {"id": row["id"], "photoData": row["photo_data"], "side": row["side"], "createdAt": row["created_at"]}
         for row in conn.execute(
-            "SELECT id, photo_data, created_at FROM diagnostic_photos WHERE diagnostic_id = ? ORDER BY id",
+            "SELECT id, photo_data, side, created_at FROM diagnostic_photos WHERE diagnostic_id = ? ORDER BY id",
             (diagnostic_id,),
         ).fetchall()
     ]
@@ -1175,6 +1175,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             diagnostic_id INTEGER NOT NULL,
             photo_data TEXT NOT NULL,
+            side TEXT,
             created_at TEXT NOT NULL
         );
 
@@ -1226,6 +1227,7 @@ def init_db():
     # Track repair time per fault for statistics
     ensure_column(cur, "repairs", "actual_minutes", "INTEGER")
     ensure_column(cur, "repairs", "fault_category", "TEXT NOT NULL DEFAULT ''")
+    ensure_column(cur, "diagnostic_photos", "side", "TEXT")
 
     now = utc_now().isoformat()
 
@@ -2655,6 +2657,9 @@ class AppHandler(BaseHTTPRequestHandler):
             diagnostic_id = parsed.path.split("/")[3]
             payload = read_json(self)
             photo_data = str(payload.get("photoData", "")).strip()
+            side = str(payload.get("side", "") or "").strip() or None
+            if side and side not in ("front", "left", "right", "back"):
+                side = None
             if not photo_data or not photo_data.startswith("data:image/"):
                 return json_response(self, 400, {"error": "Некорректные данные фото"})
             if len(photo_data) > 3_000_000:
@@ -2667,8 +2672,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 conn.close()
                 return json_response(self, 400, {"error": "Максимум 8 фото на диагностику"})
             conn.execute(
-                "INSERT INTO diagnostic_photos (diagnostic_id, photo_data, created_at) VALUES (?, ?, ?)",
-                (diagnostic_id, photo_data, utc_now().isoformat()),
+                "INSERT INTO diagnostic_photos (diagnostic_id, photo_data, side, created_at) VALUES (?, ?, ?, ?)",
+                (diagnostic_id, photo_data, side, utc_now().isoformat()),
             )
             conn.commit()
             conn.close()
