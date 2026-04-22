@@ -982,51 +982,102 @@ function openWorkOrderDetail(order) {
 }
 
 function getDashboardJumpPayload(jump) {
-  if (jump === "diagnostics") {
-    const rows = (state.diagnostics || [])
-      .filter((item) => isDateInDashboardPeriod(item.date))
-      .slice(0, 80)
-      .map((item) => ({
-        bike: item.bike || "-",
-        text: [item.category, item.fault].filter(Boolean).join(" · ") || "Поломка не указана",
-        bikeId: (state.bikes || []).find((bike) => String(bike.code || "").trim() === String(item.bike || "").trim())?.id || "",
-      }));
-    return { title: "Диагностика за период", rows };
+  const bikeIdByCode = (code) =>
+    (state.bikes || []).find((b) => String(b.code || "").trim() === String(code || "").trim())?.id || "";
+
+  if (jump === "ready") {
+    const rows = (state.bikes || [])
+      .filter((b) => b.status === "готов")
+      .map((b) => {
+        const lastOrder = (state.workOrders || [])
+          .filter((o) => String(o.bike_code || "").trim() === String(b.code || "").trim())
+          .sort((a, z) => (z.completed_at || z.created_at || "").localeCompare(a.completed_at || a.created_at || ""))[0];
+        const detail = lastOrder ? (lastOrder.fault || lastOrder.issue || "Ремонт завершён") : "Готов к выдаче";
+        const completedAt = lastOrder?.completed_at ? new Date(lastOrder.completed_at).toLocaleDateString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+        return { bike: b.code, text: completedAt ? `${detail} · ${completedAt}` : detail, bikeId: b.id };
+      });
+    return { title: "✅ Готовы к выдаче", rows };
   }
-  if (jump === "inspection") {
-    const rows = (state.workOrders || [])
-      .filter((item) => item.status === "проверка" || item.status === "диагностика")
-      .slice(0, 80)
-      .map((item) => ({
-        bike: item.bike_code || "-",
-        text: item.fault || item.issue || "Проверка",
-        bikeId: (state.bikes || []).find((bike) => String(bike.code || "").trim() === String(item.bike_code || "").trim())?.id || "",
-      }));
-    return { title: "ТО / проверка", rows };
-  }
+
   if (jump === "repair") {
     const rows = (state.workOrders || [])
-      .filter((item) => item.status === "в ремонте")
-      .slice(0, 80)
-      .map((item) => ({
-        bike: item.bike_code || "-",
-        text: item.fault || item.issue || "Ремонт",
-        bikeId: (state.bikes || []).find((bike) => String(bike.code || "").trim() === String(item.bike_code || "").trim())?.id || "",
-      }));
-    return { title: "В ремонте сейчас", rows };
+      .filter((o) => o.status === "в ремонте")
+      .map((o) => {
+        const startedAt = o.started_at ? new Date(o.started_at).toLocaleDateString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+        return {
+          bike: o.bike_code || "-",
+          text: [o.fault || o.issue, startedAt ? `с ${startedAt}` : ""].filter(Boolean).join(" · "),
+          bikeId: bikeIdByCode(o.bike_code),
+        };
+      });
+    return { title: "🔧 В ремонте сейчас", rows };
   }
-  const rows = (state.workOrders || [])
-    .filter((item) => item.status === "ждет запчасти")
+
+  if (jump === "diagnostics" || jump === "in-diagnostics") {
+    const rows = (state.bikes || [])
+      .filter((b) => b.status === "на диагностике")
+      .map((b) => {
+        const lastDiag = (state.diagnostics || [])
+          .filter((d) => String(d.bike || "").trim() === String(b.code || "").trim())
+          .sort((a, z) => (z.date || "").localeCompare(a.date || ""))[0];
+        const detail = lastDiag ? [lastDiag.category, lastDiag.fault].filter(Boolean).join(" · ") || "Диагностика" : "На диагностике";
+        return { bike: b.code, text: detail, bikeId: b.id };
+      });
+    return { title: "🔍 На диагностике", rows };
+  }
+
+  if (jump === "accepted") {
+    const rows = (state.workOrders || [])
+      .filter((o) => o.status === "принят")
+      .map((o) => ({
+        bike: o.bike_code || "-",
+        text: [o.fault || o.issue, o.priority !== "обычный" ? `⚡ ${o.priority}` : ""].filter(Boolean).join(" · "),
+        bikeId: bikeIdByCode(o.bike_code),
+      }));
+    return { title: "📋 Принят в работу", rows };
+  }
+
+  if (jump === "inspection") {
+    const rows = (state.workOrders || [])
+      .filter((o) => o.status === "проверка")
+      .map((o) => ({
+        bike: o.bike_code || "-",
+        text: o.fault || o.issue || "Финальная проверка",
+        bikeId: bikeIdByCode(o.bike_code),
+      }));
+    return { title: "🔎 На проверке", rows };
+  }
+
+  if (jump === "waiting-parts") {
+    const rows = (state.workOrders || [])
+      .filter((o) => o.status === "ждет запчасти")
+      .map((o) => ({
+        bike: o.bike_code || "-",
+        text: o.missing_parts?.length
+          ? "Нет: " + o.missing_parts.map((p) => p.name).join(", ")
+          : "Ожидает комплектность",
+        bikeId: bikeIdByCode(o.bike_code),
+      }));
+    return { title: "⏳ Ждут запчасти", rows };
+  }
+
+  if (jump === "rented") {
+    const rows = (state.bikes || [])
+      .filter((b) => b.status === "в аренде")
+      .map((b) => ({ bike: b.code, text: b.model || "Wenbox U2", bikeId: b.id }));
+    return { title: "🛴 В аренде", rows };
+  }
+
+  // fallback: generic diagnostics period
+  const rows = (state.diagnostics || [])
+    .filter((item) => isDateInDashboardPeriod(item.date))
     .slice(0, 80)
     .map((item) => ({
-      bike: item.bike_code || "-",
-      text:
-        item.missing_parts?.length
-          ? item.missing_parts.map((part) => `${part.name} x${part.missing}`).join(", ")
-          : "Ожидает комплектность",
-      bikeId: (state.bikes || []).find((bike) => String(bike.code || "").trim() === String(item.bike_code || "").trim())?.id || "",
+      bike: item.bike || "-",
+      text: [item.category, item.fault].filter(Boolean).join(" · ") || "Поломка не указана",
+      bikeId: bikeIdByCode(item.bike),
     }));
-  return { title: "Ждут запчасти", rows };
+  return { title: "Диагностика за период", rows };
 }
 
 function openDashboardJumpModal(jump) {
@@ -1037,14 +1088,15 @@ function openDashboardJumpModal(jump) {
     ? payload.rows
         .map(
           (row) => `
-            <article class="stack-item ${row.bikeId ? "bike-row-clickable" : ""}" ${row.bikeId ? `data-action="open-dashboard-bike" data-id="${row.bikeId}"` : ""}>
-              <strong>${escapeHtml(row.bike)}</strong>
-              <p class="muted">${escapeHtml(row.text)}</p>
+            <article class="jump-list-row ${row.bikeId ? "jump-list-row-clickable" : ""}" ${row.bikeId ? `data-action="open-dashboard-bike" data-id="${row.bikeId}"` : ""}>
+              <div class="jump-list-row-code">${escapeHtml(row.bike)}</div>
+              <div class="jump-list-row-text muted">${escapeHtml(row.text)}</div>
+              ${row.bikeId ? `<span class="jump-list-row-arrow">›</span>` : ""}
             </article>
           `
         )
         .join("")
-    : '<article class="stack-item"><p class="muted">Нет байков в этом статусе.</p></article>';
+    : '<p class="muted" style="padding:20px 16px">Нет байков в этом статусе.</p>';
   dashboardJumpOverlay.classList.remove("hidden");
 }
 
@@ -2181,6 +2233,16 @@ function getBikeStatusRows() {
   return [...known, ...unknown];
 }
 
+const BIKE_STATUS_JUMP_MAP = {
+  "готов":          { jump: "ready",         icon: "✅", accent: "#22a85a" },
+  "в ремонте":      { jump: "repair",        icon: "🔧", accent: "#e07c2e" },
+  "на диагностике": { jump: "in-diagnostics",icon: "🔍", accent: "#4f5fcf" },
+  "принят":         { jump: "accepted",      icon: "📋", accent: "#4f5fcf" },
+  "проверка":       { jump: "inspection",    icon: "🔎", accent: "#8a5cf6" },
+  "ждет запчасти":  { jump: "waiting-parts", icon: "⏳", accent: "#e05c5c" },
+  "в аренде":       { jump: "rented",        icon: "🛴", accent: "#2ebbc1" },
+};
+
 function renderBikeStatuses() {
   if (!bikeStatuses) return;
   const rows = getBikeStatusRows();
@@ -2190,18 +2252,21 @@ function renderBikeStatuses() {
   }
 
   bikeStatuses.innerHTML = rows
-    .slice(0, 8)
+    .slice(0, 10)
     .map((row) => {
+      const meta = BIKE_STATUS_JUMP_MAP[row.key];
       const label = row.key === "ждет запчасти" ? "ждут запчасти" : row.key;
+      const icon = meta?.icon || "🏍";
+      const accent = meta?.accent || "var(--accent)";
+      const jumpAttr = meta ? `data-dashboard-jump="${meta.jump}"` : "";
+      const clickable = meta ? "status-row-clickable" : "";
+
       return `
-        <div class="status-bar">
-          <div class="status-bar-head">
-            <span class="status-bar-label">${escapeHtml(label)}</span>
-            <span class="status-bar-value">${escapeHtml(String(row.count))} · ${escapeHtml(String(row.percent))}%</span>
-          </div>
-          <div class="status-bar-track">
-            <span class="status-bar-fill" style="width:${Math.min(100, Math.max(0, row.percent))}%"></span>
-          </div>
+        <div class="status-row ${clickable}" ${jumpAttr} style="--row-accent:${accent}">
+          <span class="status-row-icon">${icon}</span>
+          <span class="status-row-label">${escapeHtml(label)}</span>
+          <span class="status-row-count">${row.count}</span>
+          ${meta ? `<span class="status-row-arrow">›</span>` : ""}
         </div>
       `;
     })

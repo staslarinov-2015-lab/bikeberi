@@ -3182,6 +3182,118 @@ textarea:focus-visible {
   }
 }
 
+/* ─── DASHBOARD STATUS ROWS ────────────────────────────────────────────────── */
+
+.status-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  background: var(--surface-elevated);
+  border: 1.5px solid transparent;
+  transition: background 0.14s, border-color 0.14s, transform 0.1s;
+}
+
+.status-row-clickable {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.status-row-clickable:hover {
+  background: color-mix(in srgb, var(--row-accent, var(--accent)) 8%, var(--surface));
+  border-color: color-mix(in srgb, var(--row-accent, var(--accent)) 30%, transparent);
+  transform: translateX(2px);
+}
+
+.status-row-clickable:active {
+  transform: scale(0.98);
+}
+
+.status-row-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+}
+
+.status-row-label {
+  flex: 1;
+  font-size: 0.88rem;
+  color: var(--text);
+  text-transform: capitalize;
+}
+
+.status-row-count {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--row-accent, var(--accent));
+  min-width: 20px;
+  text-align: right;
+}
+
+.status-row-arrow {
+  font-size: 1.2rem;
+  color: var(--muted);
+  margin-left: 2px;
+  opacity: 0.5;
+}
+
+/* ─── DASHBOARD JUMP LIST ────────────────────────────────────────────────────  */
+
+.jump-list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.12s;
+}
+
+.jump-list-row:last-child {
+  border-bottom: none;
+}
+
+.jump-list-row-clickable {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.jump-list-row-clickable:hover {
+  background: var(--accent-faint);
+}
+
+.jump-list-row-code {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 68px;
+  letter-spacing: 0.02em;
+}
+
+.jump-list-row-text {
+  flex: 1;
+  font-size: 0.84rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jump-list-row-arrow {
+  font-size: 1.2rem;
+  color: var(--accent);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
 /* ─── REPAIR TIMER ─────────────────────────────────────────────────────────── */
 
 .repair-timer-block {
