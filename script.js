@@ -1917,7 +1917,7 @@ function syncDiagnosticWizard() {
   }
   if (diagnosticQuickSaveOpen) {
     diagnosticQuickSaveOpen.classList.toggle("hidden", !isSummary);
-    diagnosticQuickSaveOpen.disabled = state.diagnosticQuickFlow.decision !== "take_repair";
+    diagnosticQuickSaveOpen.disabled = false;
   }
   if (diagnosticQuickNext) {
     diagnosticQuickNext.classList.toggle("hidden", !isSummary);
@@ -3200,7 +3200,12 @@ diagnosticQuickSummaryCard?.addEventListener("input", (event) => {
 
 diagnosticQuickNext?.addEventListener("click", () => {
   diagnosticForm.dataset.afterSubmit = "";
-  if (!canGoNextQuickStep()) return;
+  if (!canGoNextQuickStep()) {
+    const bikeCode = updateBikeCodeHiddenInput("diagnostic");
+    const mechanicName = String(state.user?.full_name || "").trim();
+    showDiagnosticQuickErrors(getDiagnosticSubmitErrors(bikeCode, mechanicName));
+    return;
+  }
   if (state.diagnosticQuickFlow.step < DIAGNOSTIC_QUICK_TOTAL_STEPS) {
     state.diagnosticQuickFlow.step += 1;
     showDiagnosticQuickErrors([]);
@@ -3211,6 +3216,21 @@ diagnosticQuickNext?.addEventListener("click", () => {
 });
 
 diagnosticQuickSaveOpen?.addEventListener("click", () => {
+  const bikeCode = updateBikeCodeHiddenInput("diagnostic");
+  const mechanicName = String(state.user?.full_name || "").trim();
+  if (state.diagnosticQuickFlow.decision !== "take_repair") {
+    showDiagnosticQuickErrors([
+      "Для этой кнопки выбери вариант «Взять в ремонт».",
+      ...getDiagnosticSubmitErrors(bikeCode, mechanicName),
+    ]);
+    return;
+  }
+  const validationErrors = getDiagnosticSubmitErrors(bikeCode, mechanicName);
+  if (validationErrors.length) {
+    showDiagnosticQuickErrors(validationErrors);
+    return;
+  }
+  showDiagnosticQuickErrors([]);
   diagnosticForm.dataset.afterSubmit = "open-repairs";
   diagnosticForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 });
