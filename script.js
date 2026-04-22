@@ -513,6 +513,7 @@ const diagnosticQuickStepQuestion = document.getElementById("diagnostic-quick-st
 const diagnosticQuickStepSummary = document.getElementById("diagnostic-quick-step-summary");
 const diagnosticQuickSummaryCard = document.getElementById("diagnostic-quick-summary-card");
 const diagnosticQuickBack = document.getElementById("diagnostic-quick-back");
+const diagnosticQuickDelete = document.getElementById("diagnostic-quick-delete");
 const diagnosticQuickNext = document.getElementById("diagnostic-quick-next");
 const diagnosticQuickSaveOpen = document.getElementById("diagnostic-quick-save-open");
 const diagnosticQuickError = document.getElementById("diagnostic-quick-error");
@@ -1274,14 +1275,6 @@ function renderDiagnosticsTable() {
         <article class="diagnostic-mini-card ${canManage ? "is-clickable" : ""}" ${canManage ? `data-action="edit-diagnostic" data-id="${item.id}"` : ""}>
           <strong class="diagnostic-mini-bike">${escapeHtml(item.bike)}</strong>
           <p class="muted diagnostic-mini-fault">${escapeHtml(item.fault || "Поломка не указана")}</p>
-          ${
-            canManage
-              ? `<div class="table-actions diagnostic-mini-actions">
-                  <button class="icon-btn" type="button" data-action="edit-diagnostic" data-id="${item.id}">Ред.</button>
-                  <button class="danger-btn" type="button" data-action="delete-diagnostic" data-id="${item.id}">Удалить</button>
-                </div>`
-              : ""
-          }
         </article>
       `
     )
@@ -1851,6 +1844,10 @@ function syncDiagnosticWizard() {
   diagnosticQuickStepQuestion?.classList.toggle("hidden", isSummary);
   diagnosticQuickStepSummary?.classList.toggle("hidden", !isSummary);
   if (diagnosticQuickBack) diagnosticQuickBack.classList.toggle("hidden", progress === 1);
+  if (diagnosticQuickDelete) {
+    const editingId = String(diagnosticForm?.dataset?.editId || "").trim();
+    diagnosticQuickDelete.classList.toggle("hidden", !(isSummary && editingId));
+  }
   if (diagnosticQuickSaveOpen) {
     diagnosticQuickSaveOpen.classList.toggle("hidden", !isSummary);
     diagnosticQuickSaveOpen.disabled = state.diagnosticQuickFlow.decision !== "take_repair";
@@ -3168,6 +3165,20 @@ diagnosticQuickNext?.addEventListener("click", () => {
 diagnosticQuickSaveOpen?.addEventListener("click", () => {
   diagnosticForm.dataset.afterSubmit = "open-repairs";
   diagnosticForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+});
+
+diagnosticQuickDelete?.addEventListener("click", async () => {
+  const editingId = String(diagnosticForm?.dataset?.editId || "").trim();
+  if (!editingId) return;
+  if (!window.confirm("Удалить эту диагностическую запись?")) return;
+  try {
+    await api(`/api/diagnostics/${editingId}`, { method: "DELETE", headers: {}, notifyError: true });
+    diagnosticOverlay.classList.add("hidden");
+    resetDiagnosticFlow();
+    await bootstrap();
+  } catch {
+    // Ошибка уже показана через notifyError в api()
+  }
 });
 
 refreshButton?.addEventListener("click", async () => {
