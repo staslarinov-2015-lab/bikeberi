@@ -81,6 +81,11 @@ _TELEGRAM_TRANSPORT_LAST_OK_AT = ""
 _TELEGRAM_TRANSPORT_LAST_ERROR = ""
 _TELEGRAM_TRANSPORT_LAST_ERROR_AT = ""
 
+# Tracks when we last sent a pause reminder per work_order_id
+_PAUSE_REMINDER_AT: dict[int, float] = {}
+_PAUSE_REMINDER_LOCK = threading.Lock()
+_PAUSE_REMINDER_STARTED = False
+
 BIKE_STATUSES = {
     "в аренде",
     "на диагностике",
@@ -614,12 +619,65 @@ def telegram_poll_loop():
         time.sleep(TELEGRAM_POLL_INTERVAL_SEC)
 
 
+def pause_reminder_loop():
+    """Every 60 s: send Telegram reminder to mechanic for each paused work order (every 5 min)."""
+    REMIND_INTERVAL_SEC = 5 * 60  # 5 minutes
+    while True:
+        try:
+            config = get_telegram_config()
+            if telegram_is_enabled(config):
+                conn = get_db()
+                try:
+                    paused_orders = conn.execute(
+                        """
+                        SELECT work_orders.id, work_orders.fault, work_orders.issue,
+                               work_orders.actual_minutes, work_orders.pause_reason,
+                               bikes.code AS bike_code
+                        FROM work_orders
+                        JOIN bikes ON bikes.id = work_orders.bike_id
+                        WHERE work_orders.status = 'приостановлен'
+                        """
+                    ).fetchall()
+                finally:
+                    conn.close()
+
+                now = time.time()
+                active_ids = set()
+                for o in paused_orders:
+                    oid = int(o["id"])
+                    active_ids.add(oid)
+                    with _PAUSE_REMINDER_LOCK:
+                        last_sent = _PAUSE_REMINDER_AT.get(oid, 0)
+                    if now - last_sent >= REMIND_INTERVAL_SEC:
+                        mins = int(o["actual_minutes"] or 0)
+                        reason = o["pause_reason"] or "не указана"
+                        msg = (
+                            f"⏸ Ремонт приостановлен — не забудь продолжить!\n"
+                            f"Байк: {o['bike_code']} · {o['fault'] or o['issue'] or '—'}\n"
+                            f"Затрачено: {mins} мин\n"
+                            f"Причина паузы: {reason}"
+                        )
+                        telegram_notify_role("mechanic", msg, config)
+                        with _PAUSE_REMINDER_LOCK:
+                            _PAUSE_REMINDER_AT[oid] = now
+
+                # Clean up resolved orders
+                with _PAUSE_REMINDER_LOCK:
+                    for oid in list(_PAUSE_REMINDER_AT.keys()):
+                        if oid not in active_ids:
+                            del _PAUSE_REMINDER_AT[oid]
+        except Exception:
+            pass
+        time.sleep(60)
+
+
 def ensure_telegram_polling_started():
-    global _TELEGRAM_POLL_STARTED
+    global _TELEGRAM_POLL_STARTED, _PAUSE_REMINDER_STARTED
     with _TELEGRAM_POLL_LOCK:
         if _TELEGRAM_POLL_STARTED:
             return
         threading.Thread(target=telegram_poll_loop, daemon=True).start()
+        threading.Thread(target=pause_reminder_loop, daemon=True).start()
         _TELEGRAM_POLL_STARTED = True
 
 
@@ -2589,7 +2647,8 @@ class AppHandler(BaseHTTPRequestHandler):
             order = conn.execute(
                 """
                 SELECT id, bike_id, status, issue, category, fault, mechanic_name, intake_date,
-                       estimated_minutes, required_parts_text, planned_work, completed_repair_id, started_at
+                       estimated_minutes, required_parts_text, planned_work, completed_repair_id,
+                       started_at, actual_minutes
                 FROM work_orders
                 WHERE id = ?
                 """,
@@ -2786,13 +2845,14 @@ class AppHandler(BaseHTTPRequestHandler):
                     conn.close()
                     return json_response(self, 400, {"error": "Сначала завершите ремонт и переведите байк на выдачу"})
                 next_status = "готов"
+                finished_at = utc_now()
                 conn.execute(
                     "UPDATE work_orders SET status = ?, completed_at = ?, parts_ready = 1 WHERE id = ?",
-                    (next_status, utc_now().isoformat(), work_order_id),
+                    (next_status, finished_at.isoformat(), work_order_id),
                 )
                 conn.execute(
                     "UPDATE bikes SET status = ?, last_service_at = ?, updated_at = ? WHERE id = ?",
-                    ("готов", utc_now().date().isoformat(), utc_now().isoformat(), order["bike_id"]),
+                    ("готов", finished_at.date().isoformat(), finished_at.isoformat(), order["bike_id"]),
                 )
                 add_work_order_history(
                     conn,
@@ -2801,6 +2861,39 @@ class AppHandler(BaseHTTPRequestHandler):
                     "issue_checklist",
                     "Чек-лист выдачи пройден, байк готов к выдаче",
                 )
+                # Telegram notification with timing details
+                config = get_telegram_config()
+                if telegram_is_enabled(config):
+                    bike_code_row = conn.execute(
+                        "SELECT code FROM bikes WHERE id = ?", (order["bike_id"],)
+                    ).fetchone()
+                    bike_code = bike_code_row["code"] if bike_code_row else "?"
+                    tz_msk = timezone(timedelta(hours=3))
+                    finished_local = finished_at.astimezone(tz_msk)
+                    finished_str = finished_local.strftime("%d.%m %H:%M")
+                    started_str = "—"
+                    total_minutes = int(order["actual_minutes"] or 0)
+                    if order["started_at"]:
+                        try:
+                            started_dt = datetime.fromisoformat(str(order["started_at"])).astimezone(tz_msk)
+                            started_str = started_dt.strftime("%d.%m %H:%M")
+                            # Add remaining active session time if not already saved
+                            extra = max(0, int((finished_at - datetime.fromisoformat(str(order["started_at"])).replace(tzinfo=timezone.utc)).total_seconds() / 60))
+                            total_minutes += extra
+                        except Exception:
+                            pass
+                    hours, mins = divmod(total_minutes, 60)
+                    elapsed_str = f"{hours} ч {mins} мин" if hours else f"{mins} мин"
+                    msg = (
+                        f"✅ Байк готов к выдаче\n"
+                        f"Байк: {bike_code} · {order['fault'] or order['issue'] or '—'}\n"
+                        f"Механик: {user['full_name']}\n"
+                        f"Начало ремонта: {started_str}\n"
+                        f"Выдача: {finished_str}\n"
+                        f"Затрачено: {elapsed_str}"
+                    )
+                    telegram_notify_role("owner", msg, config)
+                    telegram_notify_role("mechanic", msg, config)
             else:
                 conn.close()
                 return json_response(self, 400, {"error": "Неизвестное действие"})
