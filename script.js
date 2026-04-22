@@ -9,6 +9,7 @@ const state = {
   bikeStatusFilter: "all",
   queueFilter: "all",
   inventorySearch: "",
+  inventoryActiveGroup: "",
   teamChat: [],
   ownerNotifications: [],
   kpi: {
@@ -2220,6 +2221,8 @@ const INVENTORY_GROUPS = [
     keywords: ["подшип", "амортиз", "вилка", "сальник", "втулк подвеск"],
   },
 ];
+const INVENTORY_GROUP_TITLE = new Map(INVENTORY_GROUPS.map((group) => [group.key, group.title]));
+INVENTORY_GROUP_TITLE.set("other", "Прочее");
 
 function getInventoryGroupForName(rawName) {
   const name = String(rawName || "").toLowerCase();
@@ -2243,6 +2246,7 @@ function renderInventory() {
     });
 
   if (!rows.length) {
+    state.inventoryActiveGroup = "";
     inventoryGrid.innerHTML = '<article class="inventory-card"><p class="muted">Запчасти не найдены.</p></article>';
     return;
   }
@@ -2253,8 +2257,27 @@ function renderInventory() {
     grouped.get(getInventoryGroupForName(item.name)).push(item);
   });
 
-  const titleByKey = new Map(INVENTORY_GROUPS.map((g) => [g.key, g.title]));
-  titleByKey.set("other", "Прочее");
+  const nonEmptyGroups = Array.from(grouped.entries()).filter(([, items]) => items.length > 0);
+  const hasActiveGroup = state.inventoryActiveGroup && grouped.has(state.inventoryActiveGroup) && grouped.get(state.inventoryActiveGroup).length > 0;
+
+  if (!hasActiveGroup) {
+    state.inventoryActiveGroup = "";
+    inventoryGrid.innerHTML = `
+      <div class="inventory-category-grid">
+        ${nonEmptyGroups
+          .map(
+            ([groupKey, items]) => `
+              <button class="inventory-category-card" type="button" data-action="open-inventory-group" data-group="${escapeHtml(groupKey)}">
+                <span class="inventory-category-title">${escapeHtml(INVENTORY_GROUP_TITLE.get(groupKey) || "Прочее")}</span>
+                <span class="inventory-category-count">${items.length}</span>
+              </button>
+            `
+          )
+          .join("")}
+      </div>
+    `;
+    return;
+  }
 
   const cardHtml = (item) => {
     const stock = Number(item.stock || 0);
@@ -2280,19 +2303,18 @@ function renderInventory() {
     `;
   };
 
-  inventoryGrid.innerHTML = Array.from(grouped.entries())
-    .filter(([, items]) => items.length > 0)
-    .map(
-      ([groupKey, items]) => `
-        <section class="inventory-group">
-          <h3 class="inventory-group-title">${escapeHtml(titleByKey.get(groupKey) || "Прочее")} <span>(${items.length})</span></h3>
-          <div class="inventory-group-grid">
-            ${items.map(cardHtml).join("")}
-          </div>
-        </section>
-      `
-    )
-    .join("");
+  const groupItems = grouped.get(state.inventoryActiveGroup) || [];
+  inventoryGrid.innerHTML = `
+    <section class="inventory-group">
+      <div class="inventory-group-toolbar">
+        <button class="ghost-btn inventory-group-back" type="button" data-action="close-inventory-group">Назад к категориям</button>
+        <h3 class="inventory-group-title">${escapeHtml(INVENTORY_GROUP_TITLE.get(state.inventoryActiveGroup) || "Прочее")} <span>(${groupItems.length})</span></h3>
+      </div>
+      <div class="inventory-group-grid">
+        ${groupItems.map(cardHtml).join("")}
+      </div>
+    </section>
+  `;
 }
 
 function getBikeStatusChipList() {
@@ -3455,6 +3477,18 @@ document.addEventListener("click", async (event) => {
     inventoryForm.elements.name.value = item.name;
     inventoryForm.elements.stock.value = item.stock;
     inventoryOverlay.classList.remove("hidden");
+  }
+
+  if (action === "open-inventory-group") {
+    state.inventoryActiveGroup = target.dataset.group || "";
+    renderInventory();
+    return;
+  }
+
+  if (action === "close-inventory-group") {
+    state.inventoryActiveGroup = "";
+    renderInventory();
+    return;
   }
 
   if (action === "delete-inventory-item") {
