@@ -45,7 +45,10 @@ const state = {
     selectedPartsCategory: "",
     decision: "",
     queueReason: "",
+    photos: [],
   },
+  repairTemplates: [],
+  repairTimerInterval: null,
 };
 
 const repairDeadlineNotifications = new Set();
@@ -953,6 +956,28 @@ function openWorkOrderDetail(order) {
     const plan = String(order.planned_work ?? "").trim();
     workOrderDetailHint.textContent = plan || "—";
   }
+
+  // Repair timer
+  const timerBlock = document.getElementById("repair-timer-block");
+  if (timerBlock) {
+    const isActive = order.status === "в ремонте" && order.started_at;
+    timerBlock.classList.toggle("hidden", !isActive);
+    if (isActive) {
+      timerBlock.dataset.orderId = order.id;
+      timerBlock.dataset.startedAt = order.started_at;
+      const actualEl = timerBlock.querySelector(".repair-timer-actual");
+      if (actualEl && order.actual_minutes) {
+        actualEl.textContent = `Сохранено: ${order.actual_minutes} мин`;
+        actualEl.classList.remove("hidden");
+      } else if (actualEl) {
+        actualEl.classList.add("hidden");
+      }
+      startRepairTimer(order.id, order.started_at);
+    } else {
+      stopRepairTimer();
+    }
+  }
+
   workOrderOverlay.classList.remove("hidden");
 }
 
@@ -1227,6 +1252,7 @@ function renderSectionHeader() {
     "issue-checklist": { title: "Выдача" },
     inventory: { title: "Склад" },
     owner: { title: "Показатели" },
+    "knowledge-base": { title: "Учебник — Wenbox U2" },
   };
   const meta = sectionMeta[state.activeSection] || sectionMeta.overview;
   pageTitle.textContent = meta.title;
@@ -1890,6 +1916,16 @@ function renderQuickSummaryCard() {
       }
     </div>
     <div class="diagnostic-quick-summary-row"><strong>Запчасти:</strong> ${escapeHtml(getQuickRequiredPartsText())}</div>
+    <div class="diagnostic-scenario-block">
+      <div class="diagnostic-quick-summary-row"><strong>Фото байка (обязательно при взятии в ремонт):</strong></div>
+      <label class="diag-photo-btn" for="diagnostic-photo-input">
+        <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Сфотографировать
+      </label>
+      <input type="file" id="diagnostic-photo-input" accept="image/*" capture="environment" multiple style="display:none" />
+      <div id="diagnostic-photo-preview" class="diag-photo-grid"></div>
+    </div>
+    <button class="ghost-btn" type="button" data-action="save-as-template" style="margin-top:8px">Сохранить как шаблон</button>
   `;
 }
 
@@ -2885,6 +2921,7 @@ async function refreshTeamChat() {
   try {
     const payload = await api("/api/team-chat", { method: "GET", headers: {}, notifyError: false });
     state.teamChat = payload.teamChat || [];
+    state.repairTemplates = payload.repairTemplates || [];
     if (payload.telegramTransport) {
       state.telegramTransport = payload.telegramTransport;
       renderTelegramTransport();
@@ -2901,6 +2938,532 @@ async function refreshTeamChat() {
     teamChatPollInFlight = false;
   }
 }
+
+// ─── REPAIR TIMER ────────────────────────────────────────────────────────────
+
+let _timerCurrentOrderId = null;
+
+function formatElapsedTime(startedAtIso) {
+  if (!startedAtIso) return "00:00:00";
+  const elapsed = Math.max(0, Date.now() - new Date(startedAtIso).getTime());
+  const h = Math.floor(elapsed / 3600000);
+  const m = Math.floor((elapsed % 3600000) / 60000);
+  const s = Math.floor((elapsed % 60000) / 1000);
+  return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
+}
+
+function startRepairTimer(orderId, startedAtIso) {
+  stopRepairTimer();
+  _timerCurrentOrderId = orderId;
+  const el = document.getElementById("repair-timer-display");
+  if (!el) return;
+  const update = () => {
+    if (el) el.textContent = formatElapsedTime(startedAtIso);
+  };
+  update();
+  state.repairTimerInterval = setInterval(update, 1000);
+}
+
+function stopRepairTimer() {
+  if (state.repairTimerInterval) {
+    clearInterval(state.repairTimerInterval);
+    state.repairTimerInterval = null;
+  }
+  _timerCurrentOrderId = null;
+}
+
+// ─── PHOTO CAPTURE ───────────────────────────────────────────────────────────
+
+async function resizePhotoToBase64(file, maxPx = 1024, quality = 0.82) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    img.src = url;
+  });
+}
+
+async function uploadDiagnosticPhoto(diagnosticId, photoData) {
+  return api(`/api/diagnostics/${diagnosticId}/photos`, {
+    method: "POST",
+    body: JSON.stringify({ photoData }),
+    notifyError: true,
+  });
+}
+
+async function uploadAllDiagnosticPhotos(diagnosticId) {
+  const photos = state.diagnosticQuickFlow.photos || [];
+  for (const photoData of photos) {
+    try {
+      await uploadDiagnosticPhoto(diagnosticId, photoData);
+    } catch { /* best-effort */ }
+  }
+}
+
+function renderPhotoPreview() {
+  const container = document.getElementById("diagnostic-photo-preview");
+  if (!container) return;
+  const photos = state.diagnosticQuickFlow.photos || [];
+  container.innerHTML = photos
+    .map(
+      (dataUrl, idx) => `
+        <div class="diag-photo-thumb">
+          <img src="${dataUrl}" alt="Фото ${idx + 1}" />
+          <button class="diag-photo-delete" type="button" data-action="remove-diagnostic-photo" data-idx="${idx}" aria-label="Удалить фото">×</button>
+        </div>
+      `
+    )
+    .join("");
+}
+
+// ─── REPAIR TEMPLATES ────────────────────────────────────────────────────────
+
+function renderRepairTemplates() {
+  const list = document.getElementById("repair-templates-list");
+  if (!list) return;
+  const templates = state.repairTemplates || [];
+  if (!templates.length) {
+    list.innerHTML = `<p class="muted">Шаблонов пока нет. Создайте первый после сохранения диагностики.</p>`;
+    return;
+  }
+  list.innerHTML = templates
+    .map(
+      (t) => `
+        <article class="template-card">
+          <div class="template-card-body">
+            <strong>${escapeHtml(t.name)}</strong>
+            <p class="muted">${escapeHtml([t.category, t.fault].filter(Boolean).join(" · ") || "—")}</p>
+            <span class="status-pill">${escapeHtml(t.criticality || "—")}</span>
+          </div>
+          <div class="template-card-actions">
+            <button class="ghost-btn" type="button" data-action="apply-template" data-id="${t.id}">Применить</button>
+            <button class="danger-btn" type="button" data-action="delete-template" data-id="${t.id}">×</button>
+          </div>
+        </article>
+      `
+    )
+    .join("");
+}
+
+// ─── KNOWLEDGE BASE ──────────────────────────────────────────────────────────
+
+const WENBOX_KB = [
+  {
+    category: "Электрика",
+    icon: "⚡",
+    faults: [
+      {
+        title: "Не включается байк",
+        symptoms: ["Тишина при нажатии кнопки", "Дисплей не загорается", "Нет реакции ни на что"],
+        causes: ["Разряженная АКБ", "Повреждён предохранитель", "Окисление контактов батареи", "Неисправен контроллер"],
+        steps: [
+          "Зарядить АКБ полностью (3–4 ч на родном зарядном)",
+          "Проверить предохранитель на блоке АКБ — заменить при необходимости",
+          "Осмотреть разъём АКБ: окисление, погнутые пины — зачистить / выпрямить",
+          "Проверить кнопку включения мультиметром в режиме прозвонки",
+          "Проверить главный провод питания от АКБ до контроллера на обрыв",
+          "Если всё выше в норме — заменить контроллер",
+        ],
+        tools: ["Мультиметр", "Отвёртки Phillips T10/T25", "Зарядное устройство"],
+        parts: ["Контроллер", "Предохранитель"],
+        minutes: 60,
+      },
+      {
+        title: "Ошибка контроллера (мигает код на дисплее)",
+        symptoms: ["На дисплее мигает буква E с цифрой", "Байк едет, но с ограничениями", "Байк не едет совсем"],
+        causes: ["Обрыв датчика Холла в моторе", "Проблема с фазными проводами", "Перегрев контроллера", "Некорректные данные датчиков"],
+        steps: [
+          "Считать код ошибки с дисплея",
+          "E01/E02 — датчик Холла: снять мотор-колесо, прозвонить датчики",
+          "E03 — проблема фаз: проверить разъёмы трёх фазных проводов (зелёный, жёлтый, синий)",
+          "E04 — перегрев: дать остыть 15 мин, проверить вентиляцию контроллера",
+          "E08 — тормозной датчик замкнут: проверить концевик тормоза",
+          "Очистить разъёмы контакторов от влаги/окисления, пересоединить",
+        ],
+        tools: ["Мультиметр", "Торцевые ключи 8/10 мм", "WD-40"],
+        parts: ["Контроллер", "Датчик Холла"],
+        minutes: 75,
+      },
+      {
+        title: "Быстро садится батарея",
+        symptoms: ["Заряда хватает на 5–10 км вместо 30+", "Падение напряжения под нагрузкой", "BMS отключает батарею"],
+        causes: ["Деградация ячеек АКБ", "Неисправен BMS", "Утечка тока в проводке"],
+        steps: [
+          "Зарядить АКБ до 100%, измерить напряжение (должно быть 54–55 В для 48 В батареи)",
+          "Дать нагрузку, наблюдать просадку: >10% — проблема ячеек",
+          "Проверить ток холостого хода мультиметром: >50 мА — утечка",
+          "Осмотреть разъёмы батареи на нагрев (тепловизором или рукой)",
+          "Если BMS сбрасывается — требуется балансировка или замена АКБ",
+        ],
+        tools: ["Мультиметр", "Зарядное устройство"],
+        parts: ["АКБ 48В 13Ач", "BMS плата"],
+        minutes: 45,
+      },
+      {
+        title: "Не работает зарядный порт",
+        symptoms: ["Зарядное подключено, индикатор не светится", "Порт шатается", "Искры при подключении"],
+        causes: ["Повреждён разъём порта", "Обрыв провода зарядки", "Неисправно зарядное устройство"],
+        steps: [
+          "Проверить зарядное устройство на другом байке или тестовой нагрузке",
+          "Осмотреть порт: погнутые пины, трещины корпуса — заменить порт",
+          "Прозвонить провода от порта до БМС на целостность",
+          "При замене порта использовать термоусадку на всех соединениях",
+        ],
+        tools: ["Мультиметр", "Паяльник", "Термоусадка"],
+        parts: ["Зарядный порт", "Зарядное устройство 54.6В"],
+        minutes: 30,
+      },
+    ],
+  },
+  {
+    category: "Колёса",
+    icon: "🔵",
+    faults: [
+      {
+        title: "Прокол / спускает колесо",
+        symptoms: ["Колесо мягкое", "Видно повреждение покрышки", "Байк тянет в сторону"],
+        causes: ["Прокол камеры", "Боковой порез покрышки", "Износ ниппеля"],
+        steps: [
+          "Снять колесо: открутить ось (гайки 15 мм), отсоединить тормозной суппорт",
+          "Для мотор-колеса: аккуратно уложить, не натягивать фазные провода",
+          "Снять покрышку монтажками, вынуть камеру",
+          "Найти прокол: надуть камеру, опустить в воду — смотреть пузыри",
+          "Заклеить или заменить камеру, установить обратно",
+          "Проверить покрышку изнутри — извлечь источник прокола",
+          "Накачать до 40–45 PSI",
+        ],
+        tools: ["Монтажки (2 шт.)", "Ключ 15 мм", "Насос с манометром", "Ванночка с водой"],
+        parts: ["Камера 10\"", "Покрышка 10×2.5"],
+        minutes: 25,
+      },
+      {
+        title: "Люфт колеса (переднего или заднего)",
+        symptoms: ["Колесо качается поперёк при проверке рукой", "Скрежет при движении", "Нестабильное управление"],
+        causes: ["Износ подшипников ступицы", "Слабо затянута ось", "Деформация оси"],
+        steps: [
+          "Снять колесо, проверить затяжку оси (гайки 15 мм) — подтянуть до 30–35 Нм",
+          "Если люфт остался — снять ступицу, проверить подшипники (6004 2RS)",
+          "Извлечь старые подшипники съёмником или выколоткой",
+          "Запрессовать новые подшипники (слегка смазать литолом)",
+          "Собрать, проверить на люфт",
+        ],
+        tools: ["Ключи 15 мм", "Съёмник подшипников", "Молоток и выколотка", "Литол"],
+        parts: ["Подшипник 6004 2RS (2 шт)"],
+        minutes: 40,
+      },
+      {
+        title: "Износ покрышки / боковой порез",
+        symptoms: ["Видна нить корда", "Боковая грыжа", "Продольный порез боковины"],
+        causes: ["Естественный износ", "Езда по бордюрам", "Перегруз байка"],
+        steps: [
+          "Снять колесо",
+          "Полная замена покрышки — монтажками снять старую",
+          "Установить новую, начиная со стороны вентиля",
+          "Проверить, что борт покрышки сел равномерно по ободу",
+          "Накачать до 45 PSI, осмотреть на биение",
+        ],
+        tools: ["Монтажки (2 шт.)", "Насос с манометром"],
+        parts: ["Покрышка 10×2.5"],
+        minutes: 20,
+      },
+    ],
+  },
+  {
+    category: "Тормоза",
+    icon: "🛑",
+    faults: [
+      {
+        title: "Не тормозит (передний или задний)",
+        symptoms: ["Слабый отклик на ручку тормоза", "Тормозной путь сильно увеличен", "Ручка проваливается"],
+        causes: ["Стёрты тормозные колодки", "Замасленный тормозной диск", "Воздух в гидравлике (если гидравлика)", "Разрегулирован трос"],
+        steps: [
+          "Осмотреть колодки через смотровое окно суппорта — толщина >1 мм?",
+          "Если <1 мм — заменить колодки",
+          "Протереть диск изопропиловым спиртом",
+          "Для механики: отрегулировать трос — подтянуть до появления упора в ручке",
+          "Проверить натяжение троса на ходу",
+        ],
+        tools: ["Шестигранник 5 мм", "Отвёртка", "Изопропиловый спирт"],
+        parts: ["Тормозные колодки (комплект)", "Тормозной трос"],
+        minutes: 20,
+      },
+      {
+        title: "Скрип тормоза",
+        symptoms: ["Пронзительный скрип при торможении", "Вибрация на ручке тормоза"],
+        causes: ["Загрязнены колодки или диск", "Колодки задубели", "Неправильный монтаж суппорта"],
+        steps: [
+          "Снять колодки, зашлифовать наждачкой P120 крест-накрест",
+          "Протереть диск спиртом, проверить биение диска (норма <0.3 мм)",
+          "Проверить крепёж суппорта — должен быть затянут без люфта",
+          "Установить колодки, притормозить 10–15 раз с малой скорости",
+        ],
+        tools: ["Наждачная бумага P120", "Шестигранник 5 мм", "Линейка"],
+        parts: ["Тормозные колодки"],
+        minutes: 15,
+      },
+      {
+        title: "Кривой тормозной диск (трение об суппорт)",
+        symptoms: ["Периодический скрежет без нажатия тормоза", "Диск бьёт о колодки при вращении"],
+        causes: ["Деформация диска от удара/перегрева", "Ненадлежащая затяжка болтов диска"],
+        steps: [
+          "Проверить болты крепления диска (Torx T25) — затянуть до 6–8 Нм",
+          "Измерить биение диска: вращать колесо, поднести маркер 0.3 мм от диска",
+          "Лёгкое биение (<0.5 мм): выправить специальным ключом-рычагом",
+          "Сильное биение (>0.5 мм) или трещины — замена диска",
+        ],
+        tools: ["Torx T25", "Линейка / индикатор", "Ключ для правки диска"],
+        parts: ["Тормозной диск 140 мм"],
+        minutes: 30,
+      },
+      {
+        title: "Закисший суппорт",
+        symptoms: ["Один тормоз греется при езде", "Байк замедляется самостоятельно", "Колодки истираются быстро"],
+        causes: ["Залипание поршня суппорта", "Загрязнение направляющих"],
+        steps: [
+          "Снять суппорт, очистить от грязи",
+          "Выдавить поршень (использовать старую колодку + отвёртку)",
+          "Очистить поршень и цилиндр тормозной жидкостью DOT4",
+          "Смазать направляющие специальной смазкой для суппортов",
+          "Установить обратно, проверить на зажим",
+        ],
+        tools: ["Ключ 8 мм", "Шприц", "Тормозная жидкость DOT4", "Смазка суппортов"],
+        parts: ["Ремкомплект суппорта", "Тормозные колодки"],
+        minutes: 45,
+      },
+    ],
+  },
+  {
+    category: "Руль",
+    icon: "🔄",
+    faults: [
+      {
+        title: "Люфт рулевой колонки",
+        symptoms: ["Руль качается вперёд-назад при нажатии", "Стук при торможении", "Нестабильное управление"],
+        causes: ["Износ рулевого подшипника", "Слабо затянута гайка рулевой колонки"],
+        steps: [
+          "Проверить затяжку центральной гайки рулевой колонки (ключ 32 мм)",
+          "Если не помогло — снять руль и проверить подшипник",
+          "Извлечь старый подшипник (6000 2RS или рулевой конус)",
+          "Смазать новый подшипник, установить",
+          "Затянуть гайку колонки: руль должен поворачиваться без люфта и без тугих точек",
+        ],
+        tools: ["Ключ 32 мм", "Молоток и выколотка", "Литол"],
+        parts: ["Подшипник рулевой 6000 2RS"],
+        minutes: 45,
+      },
+      {
+        title: "Руль стоит криво (не по центру)",
+        symptoms: ["При движении прямо руль повёрнут на несколько градусов", "Байк уводит в сторону"],
+        causes: ["Руль сдвинулся после удара", "Слабо затянут зажим руля"],
+        steps: [
+          "Остановиться на ровной поверхности, выставить переднее колесо прямо",
+          "Ослабить болты хомута руля (шестигранник 5 мм)",
+          "Выровнять руль по колесу — проверить симметрию ручек",
+          "Затянуть болты крест-накрест до 8–10 Нм",
+        ],
+        tools: ["Шестигранник 5 мм"],
+        parts: [],
+        minutes: 10,
+      },
+      {
+        title: "Тугой поворот руля",
+        symptoms: ["Руль поворачивается с большим усилием", "Тугие точки при повороте"],
+        causes: ["Перетянута гайка рулевой колонки", "Повреждён рулевой подшипник", "Изогнута вилка"],
+        steps: [
+          "Ослабить центральную гайку рулевой колонки на пол-оборота",
+          "Проверить плавность поворота — добиться свободного хода без люфта",
+          "Если тугие точки остались — снять руль, осмотреть шарики рулевого",
+          "Заменить подшипник при наличии повреждений шариков или беговых дорожек",
+        ],
+        tools: ["Ключ 32 мм", "Литол"],
+        parts: ["Подшипник рулевой"],
+        minutes: 30,
+      },
+    ],
+  },
+  {
+    category: "Мотор",
+    icon: "⚙️",
+    faults: [
+      {
+        title: "Не тянет мотор / слабая тяга",
+        symptoms: ["Медленно едет", "Не берёт горки", "Перегревается при нагрузке"],
+        causes: ["Неисправен контроллер", "Деградация АКБ", "Загрязнены фазные контакты", "Перегрев обмотки"],
+        steps: [
+          "Проверить напряжение АКБ под нагрузкой: должно быть >42 В",
+          "Проверить фазные разъёмы (3 провода на моторе): надёжный контакт",
+          "Осмотреть вентиляцию контроллера — очистить от грязи",
+          "Дать байку остыть 20 мин, повторить тест",
+          "Если всё выше в норме — диагностика контроллера или замена",
+        ],
+        tools: ["Мультиметр", "Баллончик со сжатым воздухом"],
+        parts: ["Контроллер 48В 20А"],
+        minutes: 60,
+      },
+      {
+        title: "Посторонний шум мотора (скрежет, гул)",
+        symptoms: ["Металлический скрежет при езде", "Гул на скоростях >15 км/ч", "Вибрация от заднего колеса"],
+        causes: ["Износ подшипников мотора", "Попадание воды/грязи в мотор", "Повреждена обмотка"],
+        steps: [
+          "Снять мотор-колесо, прокрутить вручную — ощутить шероховатость?",
+          "Снять крышку мотора (болты 6×М4)",
+          "Осмотреть подшипники (6201 2RS) — замутнение, ржавчина → замена",
+          "Продуть полость мотора, протереть магниты и обмотку",
+          "Заменить подшипники, нанести немного смазки",
+        ],
+        tools: ["Ключ М4", "Выколотка", "Молоток", "Смазка моторных подшипников"],
+        parts: ["Подшипник 6201 2RS (2 шт)"],
+        minutes: 90,
+      },
+      {
+        title: "Рывки при разгоне",
+        symptoms: ["Мотор дёргает при старте", "Неравномерное ускорение"],
+        causes: ["Неисправен один из датчиков Холла", "Плохой контакт фазного провода"],
+        steps: [
+          "Проверить разъём датчиков Холла (5-пиновый разъём) — плотность контакта",
+          "Измерить напряжение на каждом датчике при вращении: должно меняться 0 → 5 В",
+          "Неисправный датчик (застывшее напряжение) — замена",
+          "Проверить фазные провода на целостность у разъёма",
+        ],
+        tools: ["Мультиметр"],
+        parts: ["Датчик Холла 5 В"],
+        minutes: 50,
+      },
+    ],
+  },
+  {
+    category: "Пластик",
+    icon: "🔧",
+    faults: [
+      {
+        title: "Трещина / скол корпуса",
+        symptoms: ["Видимая трещина на пластиковой детали", "Отломан кусок пластика"],
+        causes: ["Удар при падении", "Вибрационная усталость", "УФ-деградация пластика"],
+        steps: [
+          "Оценить размер трещины: <3 см — можно заклеить; >3 см — замена",
+          "Зачистить место трещины наждачкой P80",
+          "Нанести пластиковый клей или эпоксидку с обратной стороны",
+          "Прижать, держать 5 мин, дать 24 ч на полимеризацию",
+          "Снаружи зашпаклевать, зашкурить P240, покрасить",
+        ],
+        tools: ["Наждачка P80/P240", "Клей для пластика / эпоксидка", "Шпаклёвка"],
+        parts: ["Нужная деталь пластика", "Крепёж пластика"],
+        minutes: 30,
+      },
+      {
+        title: "Оторван крепёж / болтается деталь",
+        symptoms: ["Деталь хлопает на ходу", "Видно сломанный «ус» или отверстие без крепежа"],
+        causes: ["Вибрация сломала замок", "Потерян саморез/болт"],
+        steps: [
+          "Найти подходящий крепёж из ЗИП-комплекта",
+          "Если сломан «ус» — установить стяжку-хомут или алюминиевую скобу",
+          "Затянуть без фанатизма — пластик лопнет при перетяжке",
+        ],
+        tools: ["Отвёртка", "Кусачки", "Пластиковые хомуты"],
+        parts: ["Крепёж пластика (комплект саморезов М3×8)"],
+        minutes: 10,
+      },
+      {
+        title: "Порез / разрыв сиденья",
+        symptoms: ["Видимый порез дерматина", "Вылезает поролон"],
+        causes: ["Острый предмет", "Вандализм"],
+        steps: [
+          "Небольшой порез (<5 см): нанести клей для кожи/ПВХ, прижать прищепками",
+          "Большой разрыв: замена чехла сиденья — снять болты крепления сиденья (4×М6)",
+          "Установить новый чехол, натянуть равномерно, зафиксировать",
+        ],
+        tools: ["Ключ М6", "Клей для ПВХ", "Степлер"],
+        parts: ["Чехол сиденья Wenbox U2"],
+        minutes: 20,
+      },
+    ],
+  },
+];
+
+function renderKnowledgeBase() {
+  const container = document.getElementById("kb-content");
+  if (!container) return;
+
+  const search = String((document.getElementById("kb-search")?.value || state.kbSearch || "")).toLowerCase().trim();
+  const activeCategory = state.kbActiveCategory || "";
+
+  if (!activeCategory) {
+    container.innerHTML = WENBOX_KB.map(
+      (cat) => `
+        <button class="kb-category-card" type="button" data-action="kb-open-category" data-category="${escapeHtml(cat.category)}">
+          <span class="kb-cat-icon">${cat.icon}</span>
+          <strong>${escapeHtml(cat.category)}</strong>
+          <span class="muted">${cat.faults.length} поломок</span>
+        </button>
+      `
+    ).join("");
+    return;
+  }
+
+  const catData = WENBOX_KB.find((c) => c.category === activeCategory);
+  if (!catData) { container.innerHTML = ""; return; }
+
+  const faults = search
+    ? catData.faults.filter((f) =>
+        f.title.toLowerCase().includes(search) ||
+        f.symptoms.some((s) => s.toLowerCase().includes(search))
+      )
+    : catData.faults;
+
+  container.innerHTML = `
+    <button class="ghost-btn kb-back-btn" type="button" data-action="kb-back">← ${escapeHtml(catData.category)}</button>
+    ${faults.length === 0 ? '<p class="muted">Ничего не найдено</p>' : ""}
+    ${faults
+      .map(
+        (f, idx) => `
+          <details class="kb-fault-card" ${search ? "open" : ""}>
+            <summary>
+              <strong>${escapeHtml(f.title)}</strong>
+              <span class="kb-time-badge">${f.minutes} мин</span>
+            </summary>
+            <div class="kb-fault-body">
+              <div class="kb-section">
+                <span class="kb-label">Симптомы</span>
+                <ul>${f.symptoms.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>
+              </div>
+              <div class="kb-section">
+                <span class="kb-label">Причины</span>
+                <ul>${f.causes.map((c) => `<li>${escapeHtml(c)}</li>`).join("")}</ul>
+              </div>
+              <div class="kb-section">
+                <span class="kb-label">Пошаговый ремонт</span>
+                <ol>${f.steps.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ol>
+              </div>
+              <div class="kb-section kb-row">
+                <div>
+                  <span class="kb-label">Инструменты</span>
+                  <p class="muted">${escapeHtml(f.tools.join(", ") || "—")}</p>
+                </div>
+                <div>
+                  <span class="kb-label">Запчасти</span>
+                  <p class="muted">${escapeHtml(f.parts.join(", ") || "Не требуются")}</p>
+                </div>
+              </div>
+            </div>
+          </details>
+        `
+      )
+      .join("")}
+  `;
+}
+
+// ─── WORK ORDER DETAIL WITH TIMER ────────────────────────────────────────────
 
 function render() {
   const isAuthorized = Boolean(state.user);
@@ -2941,6 +3504,8 @@ function render() {
   renderChatUnreadBadges();
   renderProfile();
   renderBikeFormStatusOptions();
+  renderRepairTemplates();
+  renderKnowledgeBase();
 }
 
 async function bootstrap() {
@@ -3143,6 +3708,7 @@ closeDiagnosticModalButton?.addEventListener("click", () => {
 });
 closeWorkOrderModalButton?.addEventListener("click", () => {
   workOrderOverlay?.classList.add("hidden");
+  stopRepairTimer();
 });
 closeDashboardJumpModalButton?.addEventListener("click", () => {
   dashboardJumpOverlay?.classList.add("hidden");
@@ -3572,8 +4138,14 @@ diagnosticForm.addEventListener("submit", async (event) => {
   }
   showDiagnosticQuickErrors([]);
 
+  // Validate photo requirement when taking for repair
+  if (!editingId && state.diagnosticQuickFlow.decision === "take_repair" && !(state.diagnosticQuickFlow.photos || []).length) {
+    showDiagnosticQuickErrors(["Сделай хотя бы 1 фото байка при взятии в ремонт — это обязательный фотоконтроль."]);
+    return;
+  }
+
   try {
-    await api(editingId ? `/api/diagnostics/${editingId}` : "/api/diagnostics", {
+    const response = await api(editingId ? `/api/diagnostics/${editingId}` : "/api/diagnostics", {
       method: editingId ? "PUT" : "POST",
       body: JSON.stringify({
         date: formData.get("date") || new Date().toISOString().slice(0, 10),
@@ -3592,6 +4164,14 @@ diagnosticForm.addEventListener("submit", async (event) => {
       }),
       notifyError: true,
     });
+
+    // Upload photos for new diagnostics
+    if (!editingId && (state.diagnosticQuickFlow.photos || []).length) {
+      const diagnosticId = response?.id || response?.diagnosticId;
+      if (diagnosticId) {
+        await uploadAllDiagnosticPhotos(diagnosticId);
+      }
+    }
 
     resetDiagnosticFlow();
     diagnosticOverlay.classList.add("hidden");
@@ -4075,6 +4655,50 @@ document.addEventListener("click", async (event) => {
     state.diagnosticQuickFlow.step = state.diagnosticQuickFlow.category ? 2 : 1;
     openDiagnosticOverlay();
   }
+
+  // Templates
+  if (action === "apply-template") {
+    const template = (state.repairTemplates || []).find((t) => String(t.id) === id);
+    if (!template) return;
+    resetDiagnosticFlow();
+    state.diagnosticQuickFlow.category = template.category || "";
+    state.diagnosticQuickFlow.fault = template.fault || "";
+    state.diagnosticQuickFlow.criticality = template.criticality || "";
+    state.diagnosticQuickFlow.step = 4;
+    openDiagnosticOverlay();
+    notify("Шаблон применён — проверь данные и сохрани");
+    return;
+  }
+  if (action === "delete-template") {
+    if (!window.confirm("Удалить этот шаблон?")) return;
+    try {
+      await api(`/api/repair-templates/${id}`, { method: "DELETE", notifyError: true });
+      await bootstrap();
+    } catch { /* shown */ }
+    return;
+  }
+
+  // Knowledge base navigation
+  if (action === "kb-open-category") {
+    state.kbActiveCategory = target.dataset.category || "";
+    renderKnowledgeBase();
+    return;
+  }
+  if (action === "kb-back") {
+    state.kbActiveCategory = "";
+    renderKnowledgeBase();
+    return;
+  }
+
+  // Photo actions
+  if (action === "remove-diagnostic-photo") {
+    const idx = parseInt(target.dataset.idx, 10);
+    if (!isNaN(idx)) {
+      state.diagnosticQuickFlow.photos.splice(idx, 1);
+      renderPhotoPreview();
+    }
+    return;
+  }
 });
 
 inventoryDeleteInModal?.addEventListener("click", async () => {
@@ -4096,6 +4720,78 @@ inventoryDeleteInModal?.addEventListener("click", async () => {
     // Ошибка уже показана через notifyError в api()
   }
 });
+
+// Timer save button
+document.addEventListener("click", async (event) => {
+  const btn = event.target.closest("[data-action='save-repair-time']");
+  if (!btn) return;
+  const block = document.getElementById("repair-timer-block");
+  if (!block) return;
+  const orderId = block.dataset.orderId;
+  const startedAt = block.dataset.startedAt;
+  if (!orderId || !startedAt) return;
+  const elapsed = Math.round(Math.max(0, Date.now() - new Date(startedAt).getTime()) / 60000);
+  try {
+    await api(`/api/work-orders/${orderId}/actual-time`, {
+      method: "POST",
+      body: JSON.stringify({ actualMinutes: elapsed }),
+      notifyError: true,
+    });
+    const actualEl = block.querySelector(".repair-timer-actual");
+    if (actualEl) {
+      actualEl.textContent = `Сохранено: ${elapsed} мин`;
+      actualEl.classList.remove("hidden");
+    }
+    notify(`Время записано: ${elapsed} мин`);
+  } catch { /* shown */ }
+});
+
+// Photo capture input
+const photoInput = document.getElementById("diagnostic-photo-input");
+photoInput?.addEventListener("change", async (event) => {
+  const files = Array.from(event.target.files || []);
+  for (const file of files) {
+    const dataUrl = await resizePhotoToBase64(file);
+    if (dataUrl) {
+      state.diagnosticQuickFlow.photos.push(dataUrl);
+    }
+  }
+  event.target.value = "";
+  renderPhotoPreview();
+});
+
+// Save as template after diagnostic submit
+document.addEventListener("click", async (event) => {
+  const btn = event.target.closest("[data-action='save-as-template']");
+  if (!btn) return;
+  const name = window.prompt("Название шаблона:", state.diagnosticQuickFlow.fault || state.diagnosticQuickFlow.category || "Новый шаблон");
+  if (!name) return;
+  try {
+    await api("/api/repair-templates", {
+      method: "POST",
+      body: JSON.stringify({
+        name: name.trim(),
+        category: state.diagnosticQuickFlow.category || "",
+        fault: state.diagnosticQuickFlow.fault || "",
+        criticality: state.diagnosticQuickFlow.criticality || "",
+        requiredPartsText: (state.diagnosticQuickFlow.selectedParts || []).join(", "),
+      }),
+      notifyError: true,
+    });
+    notify("Шаблон сохранён");
+    await bootstrap();
+  } catch { /* shown */ }
+});
+
+// KB search
+document.getElementById("kb-search")?.addEventListener("input", (event) => {
+  state.kbSearch = event.target.value;
+  renderKnowledgeBase();
+});
+
+// Add kbActiveCategory and kbSearch to state
+if (!("kbActiveCategory" in state)) state.kbActiveCategory = "";
+if (!("kbSearch" in state)) state.kbSearch = "";
 
 syncBikeCodeBuilders();
 window.setInterval(refreshRepairTimers, 1000);

@@ -3182,3 +3182,324 @@ textarea:focus-visible {
   }
 }
 
+/* ─── REPAIR TIMER ─────────────────────────────────────────────────────────── */
+
+.repair-timer-block {
+  margin-top: 20px;
+  padding: 20px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 16px;
+  text-align: center;
+  color: #fff;
+}
+
+.repair-timer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.repair-timer-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.6);
+}
+
+.repair-timer-actual {
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.45);
+  background: rgba(255,255,255,0.08);
+  padding: 3px 8px;
+  border-radius: 99px;
+}
+
+.repair-timer-display {
+  font-size: 3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: #fff;
+  text-shadow: 0 0 20px rgba(79, 95, 207, 0.6);
+  margin-bottom: 16px;
+}
+
+.repair-timer-save-btn {
+  display: inline-block;
+  padding: 10px 28px;
+  border: none;
+  border-radius: 99px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  box-shadow: 0 4px 16px rgba(79, 95, 207, 0.4);
+}
+
+.repair-timer-save-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.repair-timer-save-btn:active {
+  transform: scale(0.97);
+}
+
+/* ─── DIAGNOSTIC PHOTOS ────────────────────────────────────────────────────── */
+
+.diag-photo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--accent-faint);
+  border: 1.5px dashed var(--accent);
+  border-radius: 10px;
+  color: var(--accent);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 0.15s;
+  touch-action: manipulation;
+}
+
+.diag-photo-btn:hover {
+  background: rgba(79, 95, 207, 0.18);
+}
+
+.diag-photo-btn svg {
+  flex-shrink: 0;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.diag-photo-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.diag-photo-thumb {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1.5px solid var(--border);
+  background: var(--surface-elevated);
+}
+
+.diag-photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.diag-photo-delete {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+  touch-action: manipulation;
+}
+
+/* ─── REPAIR TEMPLATES ─────────────────────────────────────────────────────── */
+
+.template-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.template-card:last-child {
+  border-bottom: none;
+}
+
+.template-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.template-card-body strong {
+  display: block;
+  font-size: 0.93rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.template-card-body .muted {
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+.template-card-body .status-pill {
+  font-size: 0.74rem;
+  padding: 2px 8px;
+  margin-top: 4px;
+  display: inline-block;
+}
+
+.template-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ─── KNOWLEDGE BASE ────────────────────────────────────────────────────────── */
+
+.kb-card {
+  max-width: 760px;
+  margin-inline: auto;
+}
+
+.kb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.kb-category-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 20px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  touch-action: manipulation;
+}
+
+.kb-category-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-faint);
+  transform: translateY(-2px);
+}
+
+.kb-cat-icon {
+  font-size: 2rem;
+}
+
+.kb-category-card strong {
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.kb-category-card .muted {
+  font-size: 0.76rem;
+}
+
+.kb-back-btn {
+  margin-bottom: 16px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.kb-fault-card {
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.kb-fault-card summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+  gap: 10px;
+}
+
+.kb-fault-card summary::-webkit-details-marker { display: none; }
+
+.kb-fault-card summary strong {
+  font-size: 0.95rem;
+  flex: 1;
+}
+
+.kb-time-badge {
+  flex-shrink: 0;
+  font-size: 0.76rem;
+  background: var(--accent-faint);
+  color: var(--accent);
+  padding: 3px 9px;
+  border-radius: 99px;
+  font-weight: 600;
+}
+
+.kb-fault-body {
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.kb-section {
+  margin-top: 14px;
+}
+
+.kb-section ul, .kb-section ol {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  font-size: 0.88rem;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.kb-section ol li {
+  margin-bottom: 4px;
+}
+
+.kb-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.kb-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+#kb-content:has(.kb-fault-card) {
+  display: block;
+}
+
+.diagnostic-scenario-block {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+

@@ -686,6 +686,57 @@ def normalize_inventory_category(raw_value) -> str:
     return category if category in allowed else ""
 
 
+def notify_parts_arrived_for_waiting_orders(conn, part_name: str, new_stock: int):
+    """After stock is increased, check if any waiting work orders can now be fulfilled."""
+    if new_stock <= 0:
+        return
+    waiting = conn.execute(
+        """
+        SELECT wo.id, wo.estimated_minutes, b.code AS bike_code
+        FROM work_orders wo
+        JOIN bikes b ON b.id = wo.bike_id
+        JOIN work_order_parts wop ON wop.work_order_id = wo.id
+        WHERE wo.status = 'ждет запчасти'
+          AND lower(wop.part_name) = lower(?)
+          AND wop.qty_reserved < wop.qty_required
+        """,
+        (part_name,),
+    ).fetchall()
+    config = get_telegram_config()
+    for order in waiting:
+        reservation = refresh_work_order_parts(conn, int(order["id"]))
+        if reservation["all_reserved"]:
+            eta = (utc_now() + timedelta(minutes=int(order["estimated_minutes"] or 0))).isoformat()
+            conn.execute(
+                "UPDATE work_orders SET status = 'принят', parts_ready = 1, estimated_ready_at = ? WHERE id = ?",
+                (eta, order["id"]),
+            )
+            set_bike_status(conn, conn.execute("SELECT bike_id FROM work_orders WHERE id = ?", (order["id"],)).fetchone()["bike_id"], "принят")
+            if telegram_is_enabled(config):
+                msg = f"📦 Запчасть «{part_name}» поступила — байк {order['bike_code']} теперь укомплектован, можно брать в ремонт!"
+                telegram_notify_role("mechanic", msg, config)
+                telegram_notify_role("owner", msg, config)
+
+
+def fetch_diagnostic_photos(conn, diagnostic_id: int) -> list:
+    return [
+        {"id": row["id"], "photoData": row["photo_data"], "createdAt": row["created_at"]}
+        for row in conn.execute(
+            "SELECT id, photo_data, created_at FROM diagnostic_photos WHERE diagnostic_id = ? ORDER BY id",
+            (diagnostic_id,),
+        ).fetchall()
+    ]
+
+
+def fetch_repair_templates(conn) -> list:
+    return [
+        dict(row)
+        for row in conn.execute(
+            "SELECT id, name, category, fault, criticality, required_parts_text, estimated_minutes, created_at FROM repair_templates ORDER BY name COLLATE NOCASE"
+        ).fetchall()
+    ]
+
+
 def notify_inventory_critical_if_needed(conn, part_name: str, stock_value: int):
     part = normalize_inventory_name(part_name)
     level = inventory_alert_level(stock_value)
@@ -1059,6 +1110,24 @@ def init_db():
             created_at TEXT NOT NULL,
             PRIMARY KEY (chat_id, message_id)
         );
+
+        CREATE TABLE IF NOT EXISTS diagnostic_photos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            diagnostic_id INTEGER NOT NULL,
+            photo_data TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS repair_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            category TEXT NOT NULL DEFAULT '',
+            fault TEXT NOT NULL DEFAULT '',
+            criticality TEXT NOT NULL DEFAULT 'Нужен ремонт',
+            required_parts_text TEXT NOT NULL DEFAULT '',
+            estimated_minutes INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        );
         """
     )
 
@@ -1083,6 +1152,7 @@ def init_db():
     ensure_column(cur, "work_orders", "completed_repair_id", "INTEGER")
     ensure_column(cur, "work_orders", "started_at", "TEXT")
     ensure_column(cur, "work_orders", "completed_at", "TEXT")
+    ensure_column(cur, "work_orders", "actual_minutes", "INTEGER")
 
     now = utc_now().isoformat()
 
@@ -1609,7 +1679,8 @@ def hydrate_work_orders(conn):
             work_orders.parts_ready,
             work_orders.started_at,
             work_orders.created_at,
-            work_orders.completed_at
+            work_orders.completed_at,
+            work_orders.actual_minutes
         FROM work_orders
         JOIN bikes ON bikes.id = work_orders.bike_id
         ORDER BY
@@ -1741,6 +1812,19 @@ def fetch_bootstrap_payload(user):
     }
     work_orders = hydrate_work_orders(conn)
     team_chat = fetch_recent_team_chat(limit=60)
+    repair_templates = fetch_repair_templates(conn)
+    # Add photos_count to each diagnostic
+    diag_photo_counts = {
+        row["diagnostic_id"]: row["cnt"]
+        for row in conn.execute(
+            "SELECT diagnostic_id, COUNT(*) AS cnt FROM diagnostic_photos GROUP BY diagnostic_id"
+        ).fetchall()
+    }
+    for d in diagnostics:
+        d["photos_count"] = diag_photo_counts.get(d["id"], 0)
+    # Add actual_minutes to work orders
+    for wo in work_orders:
+        pass  # actual_minutes already included via hydrate_work_orders column list
     owner_notifications = []
     for order in work_orders:
         for missing in order.get("missing_parts", []):
@@ -1780,6 +1864,7 @@ def fetch_bootstrap_payload(user):
         "teamChat": team_chat,
         "ownerNotifications": owner_notifications[:80],
         "telegramTransport": build_telegram_transport_payload(telegram_config),
+        "repairTemplates": repair_templates,
     }
 
 
@@ -1872,6 +1957,25 @@ class AppHandler(BaseHTTPRequestHandler):
             if not user:
                 return
             return json_response(self, 200, build_storage_health_payload())
+
+        if parsed.path.startswith("/api/diagnostics/") and parsed.path.endswith("/photos"):
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            diagnostic_id = parsed.path.split("/")[3]
+            conn = get_db()
+            photos = fetch_diagnostic_photos(conn, int(diagnostic_id))
+            conn.close()
+            return json_response(self, 200, {"photos": photos})
+
+        if parsed.path == "/api/repair-templates":
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            conn = get_db()
+            templates = fetch_repair_templates(conn)
+            conn.close()
+            return json_response(self, 200, {"templates": templates})
 
         return text_response(self, 404, "Not found")
 
@@ -2167,12 +2271,15 @@ class AppHandler(BaseHTTPRequestHandler):
                 (name,),
             ).fetchone()
             if existing:
+                prev_stock = int(existing["stock"] or 0)
                 next_category = category or str(existing["category"] or "")
                 conn.execute(
                     "UPDATE inventory SET stock = ?, min = ?, category = ?, updated_at = ? WHERE id = ?",
                     (stock, minimum, next_category, utc_now().isoformat(), existing["id"]),
                 )
                 notify_inventory_critical_if_needed(conn, name, stock)
+                if stock > prev_stock:
+                    notify_parts_arrived_for_waiting_orders(conn, name, stock)
             else:
                 conn.execute(
                     "INSERT INTO inventory (name, stock, min, category, updated_at) VALUES (?, ?, ?, ?, ?)",
@@ -2327,7 +2434,7 @@ class AppHandler(BaseHTTPRequestHandler):
             )
             conn.commit()
             conn.close()
-            return json_response(self, 201, {"ok": True, "workOrderId": work_order_id})
+            return json_response(self, 201, {"ok": True, "workOrderId": work_order_id, "diagnosticId": diagnostic_id})
 
         if parsed.path == "/api/team-chat":
             user = require_role(self, {"mechanic", "owner"})
@@ -2344,6 +2451,79 @@ class AppHandler(BaseHTTPRequestHandler):
                 return json_response(self, 400, {"error": "Сообщение не сохранено"})
             mirror_internal_chat_to_telegram(user["role"], sender_name, message)
             return json_response(self, 201, {"ok": True})
+
+        if parsed.path.startswith("/api/diagnostics/") and parsed.path.endswith("/photos"):
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            diagnostic_id = parsed.path.split("/")[3]
+            payload = read_json(self)
+            photo_data = str(payload.get("photoData", "")).strip()
+            if not photo_data or not photo_data.startswith("data:image/"):
+                return json_response(self, 400, {"error": "Некорректные данные фото"})
+            if len(photo_data) > 3_000_000:
+                return json_response(self, 400, {"error": "Фото слишком большое (макс. 2 МБ)"})
+            conn = get_db()
+            count = conn.execute(
+                "SELECT COUNT(*) AS cnt FROM diagnostic_photos WHERE diagnostic_id = ?", (diagnostic_id,)
+            ).fetchone()["cnt"]
+            if count >= 8:
+                conn.close()
+                return json_response(self, 400, {"error": "Максимум 8 фото на диагностику"})
+            conn.execute(
+                "INSERT INTO diagnostic_photos (diagnostic_id, photo_data, created_at) VALUES (?, ?, ?)",
+                (diagnostic_id, photo_data, utc_now().isoformat()),
+            )
+            conn.commit()
+            conn.close()
+            return json_response(self, 201, {"ok": True})
+
+        if parsed.path == "/api/repair-templates":
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            payload = read_json(self)
+            name = str(payload.get("name", "")).strip()
+            if not name:
+                return json_response(self, 400, {"error": "Название шаблона обязательно"})
+            conn = get_db()
+            conn.execute(
+                """
+                INSERT INTO repair_templates (name, category, fault, criticality, required_parts_text, estimated_minutes, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    name,
+                    str(payload.get("category", "")).strip(),
+                    str(payload.get("fault", "")).strip(),
+                    str(payload.get("criticality", "Нужен ремонт")).strip() or "Нужен ремонт",
+                    str(payload.get("requiredPartsText", "")).strip(),
+                    int(payload.get("estimatedMinutes", 0) or 0),
+                    utc_now().isoformat(),
+                ),
+            )
+            conn.commit()
+            conn.close()
+            return json_response(self, 201, {"ok": True})
+
+        if parsed.path.startswith("/api/work-orders/") and parsed.path.endswith("/actual-time"):
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            work_order_id = parsed.path.split("/")[3]
+            payload = read_json(self)
+            try:
+                actual_minutes = max(0, int(payload.get("actualMinutes", 0) or 0))
+            except (TypeError, ValueError):
+                return json_response(self, 400, {"error": "actualMinutes должен быть числом"})
+            conn = get_db()
+            conn.execute(
+                "UPDATE work_orders SET actual_minutes = ? WHERE id = ?",
+                (actual_minutes, work_order_id),
+            )
+            conn.commit()
+            conn.close()
+            return json_response(self, 200, {"ok": True})
 
         if parsed.path.startswith("/api/work-orders/") and parsed.path.endswith("/transition"):
             user = require_role(self, {"mechanic", "owner"})
@@ -2832,12 +3012,35 @@ class AppHandler(BaseHTTPRequestHandler):
             conn.close()
             return json_response(self, 200, {"ok": True})
 
+        if parsed.path.startswith("/api/diagnostic-photos/"):
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            photo_id = parsed.path.rsplit("/", 1)[-1]
+            conn = get_db()
+            conn.execute("DELETE FROM diagnostic_photos WHERE id = ?", (photo_id,))
+            conn.commit()
+            conn.close()
+            return json_response(self, 200, {"ok": True})
+
+        if parsed.path.startswith("/api/repair-templates/"):
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            template_id = parsed.path.rsplit("/", 1)[-1]
+            conn = get_db()
+            conn.execute("DELETE FROM repair_templates WHERE id = ?", (template_id,))
+            conn.commit()
+            conn.close()
+            return json_response(self, 200, {"ok": True})
+
         if parsed.path.startswith("/api/diagnostics/"):
             user = require_role(self, {"mechanic", "owner"})
             if not user:
                 return
             diagnostic_id = parsed.path.rsplit("/", 1)[-1]
             conn = get_db()
+            conn.execute("DELETE FROM diagnostic_photos WHERE diagnostic_id = ?", (diagnostic_id,))
             conn.execute("DELETE FROM diagnostics WHERE id = ?", (diagnostic_id,))
             conn.commit()
             conn.close()
