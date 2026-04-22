@@ -2967,6 +2967,109 @@ body:not(.is-auth-locked) .screen-section {
   white-space: nowrap;
 }
 
+/* ── ROI block ───────────────────────────────────────────────── */
+.roi-block {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.roi-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.roi-row-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.roi-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.roi-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.roi-sub {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+.roi-value {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.roi-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 2px 0;
+}
+
+.roi-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.roi-summary-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  flex: 1;
+}
+
+.roi-summary-rate {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.roi-summary-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.roi-return-bar {
+  height: 8px;
+  background: #eef3fb;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.roi-return-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.roi-return-label {
+  position: absolute;
+  right: 0;
+  top: -18px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
 /* ── Owner main grid ─────────────────────────────────────────── */
 .owner-grid {
   display: grid;

@@ -20,6 +20,7 @@ const state = {
     totalBikes: 0,
     targetRate: 95,
     mechanicFocus: "оперативка",
+    mechanicDailyCost: 3500,
   },
   repairs: [],
   inventory: [],
@@ -3697,6 +3698,10 @@ function renderMechanicEfficiency() {
   const card = document.getElementById("mechanic-efficiency-card");
   if (!card) return;
 
+  const dailyCost   = Math.max(0, Number(state.kpi?.mechanicDailyCost) || 3500);
+  const ratePerMin  = dailyCost / WORKDAY_TOTAL;                   // ₽ per minute
+  const ratePerHour = ratePerMin * 60;
+
   const { diagMin, repairMin, idleMin, effPct, elapsedMin, dayPct } = getMechanicEfficiencyData();
 
   // SVG ring: r=38, circumference ≈ 238.8
@@ -3722,10 +3727,18 @@ function renderMechanicEfficiency() {
   const statusText = effPct >= 70 ? "Отличный темп" : effPct >= 40 ? "Средняя активность" : effPct === 0 && elapsedMin === 0 ? "Смена ещё не началась" : "Низкая активность";
   const statusColor = effPct >= 70 ? "#22a85a" : effPct >= 40 ? "#f59e0b" : "#e05c5c";
 
+  // ROI calc
+  const earnedCost = Math.round((repairMin + diagMin) * ratePerMin);
+  const idleCost   = Math.round(idleMin * ratePerMin);
+  const paidSoFar  = Math.round(elapsedMin * ratePerMin);
+  const fmt₽ = (v) => v.toLocaleString("ru-RU") + " ₽";
+  const roiPct = paidSoFar > 0 ? Math.min(100, Math.round((earnedCost / paidSoFar) * 100)) : 0;
+  const roiColor = roiPct >= 70 ? "#22a85a" : roiPct >= 40 ? "#f59e0b" : "#e05c5c";
+
   card.innerHTML = `
     <div class="eff-title-row">
       <span class="eff-title">Механик сегодня</span>
-      <span class="eff-workday">10:00 — 19:00</span>
+      <span class="eff-workday">10:00 — 19:00 · ${fmt₽(dailyCost)}/день</span>
     </div>
     <div class="eff-body">
       <div class="eff-ring-wrap">
@@ -3755,6 +3768,40 @@ function renderMechanicEfficiency() {
         <span class="eff-day-bar-track"><span class="eff-day-bar-fill" style="width:${dayPct}%"></span></span>
         <span class="eff-day-time">${fmtMin(elapsedMin)} / 8ч</span>
       </span>
+    </div>
+
+    <!-- ROI block -->
+    <div class="roi-block">
+      <div class="roi-row roi-row--earned">
+        <div class="roi-row-left">
+          <span class="roi-icon">💰</span>
+          <div>
+            <div class="roi-label">Отработал</div>
+            <div class="roi-sub">${fmtMin(repairMin + diagMin)} продуктивного времени</div>
+          </div>
+        </div>
+        <span class="roi-value" style="color:#22a85a">${fmt₽(earnedCost)}</span>
+      </div>
+      <div class="roi-row roi-row--idle">
+        <div class="roi-row-left">
+          <span class="roi-icon">🕳️</span>
+          <div>
+            <div class="roi-label">Оплачен простой</div>
+            <div class="roi-sub">${fmtMin(idleMin)} бездействия</div>
+          </div>
+        </div>
+        <span class="roi-value" style="color:#e05c5c">${fmt₽(idleCost)}</span>
+      </div>
+      <div class="roi-divider"></div>
+      <div class="roi-summary">
+        <span class="roi-summary-label">Выплачено на данный момент</span>
+        <span class="roi-summary-rate">${fmt₽(Math.round(ratePerHour))}/ч · ${Math.round(ratePerMin)} ₽/мин</span>
+        <span class="roi-summary-value">${fmt₽(paidSoFar)}</span>
+      </div>
+      <div class="roi-return-bar">
+        <div class="roi-return-fill" style="width:${roiPct}%;background:${roiColor}"></div>
+        <span class="roi-return-label" style="color:${roiColor}">Возврат ${roiPct}%</span>
+      </div>
     </div>
   `;
 }
@@ -4458,6 +4505,9 @@ function render() {
   if (settingsForm) {
     settingsForm.elements.totalBikes.value = state.kpi.totalBikes || "";
     settingsForm.elements.targetRate.value = state.kpi.targetRate || "";
+    if (settingsForm.elements.mechanicDailyCost) {
+      settingsForm.elements.mechanicDailyCost.value = state.kpi.mechanicDailyCost ?? 3500;
+    }
     if (settingsForm.elements.mechanicFocus) {
       settingsForm.elements.mechanicFocus.value = state.kpi.mechanicFocus || "оперативка";
     }
@@ -5254,6 +5304,7 @@ if (settingsForm) {
         body: JSON.stringify({
           totalBikes: Number(formData.get("totalBikes")),
           targetRate: Number(formData.get("targetRate")),
+          mechanicDailyCost: Number(formData.get("mechanicDailyCost") || 3500),
           mechanicFocus: String(formData.get("mechanicFocus") || "").trim(),
         }),
         notifyError: true,

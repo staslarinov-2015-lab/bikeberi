@@ -1441,6 +1441,7 @@ def init_db():
                 ("total_bikes", "40"),
                 ("target_rate", "95"),
                 ("mechanic_focus", "оперативка"),
+                ("mechanic_daily_cost", "3500"),
                 ("telegram_bot_token", ""),
                 ("telegram_webhook_secret", ""),
                 ("telegram_owner_chat_id", ""),
@@ -1450,6 +1451,7 @@ def init_db():
     else:
         for key, value in [
             ("mechanic_focus", "оперативка"),
+            ("mechanic_daily_cost", "3500"),
             ("telegram_bot_token", ""),
             ("telegram_webhook_secret", ""),
             ("telegram_owner_chat_id", ""),
@@ -1937,6 +1939,7 @@ def fetch_bootstrap_payload(user):
             "totalBikes": int(settings.get("total_bikes", "40")),
             "targetRate": int(settings.get("target_rate", "95")),
             "mechanicFocus": str(settings.get("mechanic_focus", "оперативка")),
+            "mechanicDailyCost": int(settings.get("mechanic_daily_cost", "3500")),
         },
         "bikes": bikes,
         "repairs": repairs,
@@ -3258,11 +3261,17 @@ class AppHandler(BaseHTTPRequestHandler):
             mechanic_focus = str(payload.get("mechanicFocus", "оперативка")).strip() or "оперативка"
             if len(mechanic_focus) > 80:
                 return json_response(self, 400, {"error": "Фокус механика должен быть до 80 символов"})
+            mechanic_daily_cost_raw = payload.get("mechanicDailyCost", 3500)
+            try:
+                mechanic_daily_cost = max(0, int(mechanic_daily_cost_raw))
+            except (TypeError, ValueError):
+                mechanic_daily_cost = 3500
 
             conn = get_db()
             conn.execute("UPDATE settings SET value = ? WHERE key = 'total_bikes'", (str(total_bikes),))
             conn.execute("UPDATE settings SET value = ? WHERE key = 'target_rate'", (str(target_rate),))
             conn.execute("UPDATE settings SET value = ? WHERE key = 'mechanic_focus'", (mechanic_focus,))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('mechanic_daily_cost', ?)", (str(mechanic_daily_cost),))
             conn.commit()
             conn.close()
             return json_response(self, 200, {"ok": True})
