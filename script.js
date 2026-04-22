@@ -4952,17 +4952,18 @@ document.addEventListener("click", async (event) => {
   } catch { /* shown */ }
 });
 
-// Photo capture input
-const photoInput = document.getElementById("diagnostic-photo-input");
-photoInput?.addEventListener("change", async (event) => {
-  const files = Array.from(event.target.files || []);
+// Photo capture input — delegated because the input is rendered dynamically
+document.addEventListener("change", async (event) => {
+  const input = event.target.closest("#diagnostic-photo-input");
+  if (!input) return;
+  const files = Array.from(input.files || []);
   for (const file of files) {
     const dataUrl = await resizePhotoToBase64(file);
     if (dataUrl) {
       state.diagnosticQuickFlow.photos.push(dataUrl);
     }
   }
-  event.target.value = "";
+  input.value = "";
   renderPhotoPreview();
 });
 
