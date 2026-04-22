@@ -3155,12 +3155,12 @@ diagnosticQuickNext?.addEventListener("click", () => {
     syncDiagnosticWizard();
     return;
   }
-  diagnosticForm.requestSubmit();
+  diagnosticForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 });
 
 diagnosticQuickSaveOpen?.addEventListener("click", () => {
   diagnosticForm.dataset.afterSubmit = "open-repairs";
-  diagnosticForm.requestSubmit();
+  diagnosticForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 });
 
 refreshButton?.addEventListener("click", async () => {
