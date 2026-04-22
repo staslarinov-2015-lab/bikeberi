@@ -1846,12 +1846,12 @@ function syncDiagnosticWizard() {
   if (diagnosticQuickBack) diagnosticQuickBack.classList.toggle("hidden", progress === 1);
   if (diagnosticQuickSaveOpen) {
     diagnosticQuickSaveOpen.classList.toggle("hidden", !isSummary);
-    diagnosticQuickSaveOpen.disabled = !canProceed || state.diagnosticQuickFlow.decision !== "take_repair";
+    diagnosticQuickSaveOpen.disabled = state.diagnosticQuickFlow.decision !== "take_repair";
   }
   if (diagnosticQuickNext) {
     diagnosticQuickNext.classList.toggle("hidden", !isSummary);
     diagnosticQuickNext.textContent = "Сохранить диагностику";
-    diagnosticQuickNext.disabled = !canProceed;
+    diagnosticQuickNext.disabled = false;
   }
 
   if (isSummary) {
