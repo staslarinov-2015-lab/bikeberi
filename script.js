@@ -2963,7 +2963,7 @@ function getInventoryGroupForName(rawName) {
 }
 
 function renderInventory() {
-  const canManage = getRole() === "mechanic";
+  const canManage = true; // both mechanic and owner can add/edit inventory
   if (inventorySearchInput) {
     inventorySearchInput.value = state.inventorySearch || "";
   }
