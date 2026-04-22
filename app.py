@@ -2013,11 +2013,19 @@ class AppHandler(BaseHTTPRequestHandler):
             return self.serve_file("apple-touch-icon-v7.png", "image/png", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/logo-v7.png":
             return self.serve_file("logo-v7.png", "image/png", cache_control="public, max-age=31536000, immutable")
+        if parsed.path == "/icon-192-v8.png":
+            return self.serve_file("icon-192-v8.png", "image/png", cache_control="public, max-age=31536000, immutable")
+        if parsed.path == "/icon-512-v8.png":
+            return self.serve_file("icon-512-v8.png", "image/png", cache_control="public, max-age=31536000, immutable")
+        if parsed.path == "/apple-touch-icon-v8.png":
+            return self.serve_file("apple-touch-icon-v8.png", "image/png", cache_control="public, max-age=31536000, immutable")
+        if parsed.path == "/logo-v8.png":
+            return self.serve_file("logo-v8.png", "image/png", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/bike-scooter.svg":
             return self.serve_file("bike-scooter.svg", "image/svg+xml; charset=utf-8", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/favicon.ico":
             return self.serve_file(
-                "icon-192-v7.png",
+                "icon-192-v8.png",
                 "image/png",
                 cache_control="public, max-age=31536000, immutable",
             )
@@ -2213,6 +2221,14 @@ class AppHandler(BaseHTTPRequestHandler):
                 cache_control="public, max-age=31536000, immutable",
                 send_body=False,
             )
+        if parsed.path == "/icon-192-v8.png":
+            return self.serve_file("icon-192-v8.png", "image/png", cache_control="public, max-age=31536000, immutable", send_body=False)
+        if parsed.path == "/icon-512-v8.png":
+            return self.serve_file("icon-512-v8.png", "image/png", cache_control="public, max-age=31536000, immutable", send_body=False)
+        if parsed.path == "/apple-touch-icon-v8.png":
+            return self.serve_file("apple-touch-icon-v8.png", "image/png", cache_control="public, max-age=31536000, immutable", send_body=False)
+        if parsed.path == "/logo-v8.png":
+            return self.serve_file("logo-v8.png", "image/png", cache_control="public, max-age=31536000, immutable", send_body=False)
         if parsed.path == "/bike-scooter.svg":
             return self.serve_file(
                 "bike-scooter.svg",
@@ -2222,7 +2238,7 @@ class AppHandler(BaseHTTPRequestHandler):
             )
         if parsed.path == "/favicon.ico":
             return self.serve_file(
-                "icon-192-v7.png",
+                "icon-192-v8.png",
                 "image/png",
                 cache_control="public, max-age=31536000, immutable",
                 send_body=False,

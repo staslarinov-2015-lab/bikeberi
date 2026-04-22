@@ -14,6 +14,7 @@ COPY app.py index.html styles.css script.js site.webmanifest seed_dump.sql \
      icon-192-v5.png icon-512-v5.png apple-touch-icon-v5.png logo-v5.png \
      icon-192-v6.png icon-512-v6.png apple-touch-icon-v6.png logo-v6.png \
      icon-192-v7.png icon-512-v7.png apple-touch-icon-v7.png logo-v7.png \
+     icon-192-v8.png icon-512-v8.png apple-touch-icon-v8.png logo-v8.png \
      ./
 
 ENV PYTHONDONTWRITEBYTECODE=1

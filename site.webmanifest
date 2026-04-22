@@ -5,17 +5,17 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f3f6fb",
+  "background_color": "#007aff",
   "theme_color": "#007aff",
   "icons": [
     {
-      "src": "/icon-192-v7.png",
+      "src": "/icon-192-v8.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512-v7.png",
+      "src": "/icon-512-v8.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
