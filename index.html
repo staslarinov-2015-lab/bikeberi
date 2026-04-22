@@ -212,7 +212,7 @@
             </div>
             <div id="team-chat-list" class="team-chat-list" aria-live="polite"></div>
             <form id="team-chat-form" class="team-chat-form">
-              <input name="message" type="text" maxlength="400" placeholder="Сообщение команде…" required />
+              <input name="message" type="text" maxlength="400" placeholder="Сообщение…" required />
               <button class="primary-btn" type="submit">Отправить</button>
             </form>
           </section>
@@ -224,7 +224,7 @@
               <div class="toolbar-left">
                 <label class="search-wrap search-wrap-wide">
                   <span class="visually-hidden">Поиск</span>
-                  <input id="bike-search" type="search" placeholder="Поиск по номеру / VIN / модели…" />
+                  <input id="bike-search" type="search" placeholder="Поиск байка…" />
                 </label>
               </div>
               <div class="toolbar-right">
@@ -318,7 +318,7 @@
             <div class="workspace-toolbar" style="flex-direction:column;align-items:stretch;gap:12px;margin-bottom:16px;">
               <label class="search-wrap" style="max-width:100%;">
                 <span class="visually-hidden">Поиск запчастей</span>
-                <input id="inventory-search" type="search" placeholder="Поиск по названию запчасти…" style="width:100%;border-radius:12px;background:#f2f2f7;border:none;padding:12px 16px;" />
+                <input id="inventory-search" type="search" placeholder="Поиск запчасти…" style="width:100%;border-radius:12px;background:#f2f2f7;border:none;padding:12px 16px;" />
               </label>
               <div class="toolbar-right" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                 <button id="open-receive-parts-modal" class="ghost-btn receive-parts-btn" type="button" style="padding:12px;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;">
@@ -335,10 +335,10 @@
         <section id="section-knowledge-base" class="screen-section hidden">
           <section class="content-card kb-card">
             <div class="workspace-toolbar">
-              <h3 class="panel-title toolbar-title">Учебник по ремонту Wenbox U2</h3>
+              <h3 class="panel-title toolbar-title">Учебник Wenbox U2</h3>
               <label class="search-wrap">
                 <span class="visually-hidden">Поиск</span>
-                <input id="kb-search" type="search" placeholder="Поиск по неисправности…" />
+                <input id="kb-search" type="search" placeholder="Поиск…" />
               </label>
             </div>
             <div id="kb-content" class="kb-grid"></div>
@@ -346,7 +346,7 @@
 
           <section class="content-card" style="margin-top:16px">
             <div class="workspace-toolbar">
-              <h3 class="panel-title toolbar-title">Шаблоны ремонтов</h3>
+              <h3 class="panel-title toolbar-title">Шаблоны</h3>
             </div>
             <div id="repair-templates-list" class="stack-list"></div>
           </section>
@@ -552,12 +552,12 @@
           </article>
 
           <article class="stack-item">
-            <strong>Что нужно ремонтировать</strong>
+            <strong>Проблема</strong>
             <p id="work-order-detail-fault" class="muted">-</p>
           </article>
 
           <article class="stack-item">
-            <strong>Какие запчасти нужны</strong>
+            <strong>Запчасти</strong>
             <p id="work-order-detail-parts" class="muted">-</p>
           </article>
 
@@ -645,8 +645,8 @@
       <div class="modal-card modal-card-wide">
         <div class="modal-head">
           <div>
-            <h2>Принять запчасти</h2>
-            <p class="muted" style="font-size:0.82rem;margin-top:2px">Введи количество прибывших единиц для каждой позиции</p>
+            <h2>Приёмка запчастей</h2>
+            <p class="muted" style="font-size:0.82rem;margin-top:2px">Укажи количество для каждой позиции</p>
           </div>
           <button id="close-receive-parts-modal" class="ghost-btn" type="button">Закрыть</button>
         </div>
@@ -759,7 +759,7 @@
     <div id="diagnostic-overlay" class="overlay hidden">
       <div class="modal-card">
         <div class="modal-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-          <h2 id="diagnostic-modal-title" style="margin:0;font-size:1.05rem;font-weight:700;line-height:1.2;min-width:0;">Новая диагностическая запись</h2>
+          <h2 id="diagnostic-modal-title" style="margin:0;font-size:1.05rem;font-weight:700;line-height:1.2;min-width:0;">Новая диагностика</h2>
           <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
             <button id="diagnostic-help-btn" class="wo-help-btn mechanic-only" type="button" title="Помощь в диагностике">?</button>
             <button id="close-diagnostic-modal" class="wo-close-btn" type="button">Закрыть</button>
@@ -788,8 +788,8 @@
           <section id="diagnostic-quick-step-summary" class="diagnostic-step-view hidden">
             <div class="diagnostic-step-head">
               <div>
-                <h3>Какие запчасти нужны?</h3>
-                <p class="muted">Выбери нужные позиции со склада и сохрани диагностику</p>
+                <h3>Запчасти</h3>
+                <p class="muted">Выбери нужные позиции со склада</p>
               </div>
             </div>
             <div id="diagnostic-quick-summary-card" class="diagnostic-quick-summary-card"></div>

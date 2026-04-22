@@ -1804,8 +1804,8 @@ const DIAGNOSTIC_QUICK_STEPS = {
     options: ["Можно ездить", "Нужен ремонт", "Стоп-эксплуатация"],
   },
   4: {
-    title: "Какие запчасти нужны?",
-    subtitle: "Выбери нужные запчасти со склада",
+    title: "Запчасти",
+    subtitle: "Выбери нужные позиции со склада",
     key: "selectedParts",
     multi: true,
     min: 0,
@@ -2017,7 +2017,7 @@ function renderQuickSummaryCard() {
       </div>
       <label class="${decision === "queue" ? "" : "hidden"}">
         <span>Причина, почему не можем взять в ремонт сейчас</span>
-        <textarea id="diagnostic-queue-reason" rows="3" placeholder="Например: нет места в ремзоне до 18:00, ожидаем поставку ключевой запчасти">${escapeHtml(queueReason)}</textarea>
+        <textarea id="diagnostic-queue-reason" rows="3" placeholder="Например: нет места, ждём запчасть">${escapeHtml(queueReason)}</textarea>
       </label>
     </div>
     <div class="diagnostic-scenario-block">
@@ -2081,7 +2081,7 @@ function syncDiagnosticWizard() {
   const step = state.diagnosticQuickFlow.step;
   const progress = Math.max(1, Math.min(step, DIAGNOSTIC_QUICK_TOTAL_STEPS));
   const percent = (progress / DIAGNOSTIC_QUICK_TOTAL_STEPS) * 100;
-  diagnosticModalTitle.textContent = "Новая диагностическая запись";
+  diagnosticModalTitle.textContent = state.diagnosticQuickFlow.editingId ? "Редактировать диагностику" : "Новая диагностика";
   if (diagnosticQuickProgressText) diagnosticQuickProgressText.textContent = `Шаг ${progress}/${DIAGNOSTIC_QUICK_TOTAL_STEPS}`;
   if (diagnosticQuickProgressCounter) diagnosticQuickProgressCounter.textContent = `${progress}/${DIAGNOSTIC_QUICK_TOTAL_STEPS}`;
   if (diagnosticQuickProgressFill) diagnosticQuickProgressFill.style.width = `${percent}%`;
