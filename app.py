@@ -2005,11 +2005,19 @@ class AppHandler(BaseHTTPRequestHandler):
             return self.serve_file("apple-touch-icon-v2.png", "image/png", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/apple-touch-icon-v3.png":
             return self.serve_file("apple-touch-icon-v3.png", "image/png", cache_control="public, max-age=31536000, immutable")
+        if parsed.path == "/icon-192-v7.png":
+            return self.serve_file("icon-192-v7.png", "image/png", cache_control="public, max-age=31536000, immutable")
+        if parsed.path == "/icon-512-v7.png":
+            return self.serve_file("icon-512-v7.png", "image/png", cache_control="public, max-age=31536000, immutable")
+        if parsed.path == "/apple-touch-icon-v7.png":
+            return self.serve_file("apple-touch-icon-v7.png", "image/png", cache_control="public, max-age=31536000, immutable")
+        if parsed.path == "/logo-v7.png":
+            return self.serve_file("logo-v7.png", "image/png", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/bike-scooter.svg":
             return self.serve_file("bike-scooter.svg", "image/svg+xml; charset=utf-8", cache_control="public, max-age=31536000, immutable")
         if parsed.path == "/favicon.ico":
             return self.serve_file(
-                "icon-192-v3.png",
+                "icon-192-v7.png",
                 "image/png",
                 cache_control="public, max-age=31536000, immutable",
             )
@@ -2177,6 +2185,34 @@ class AppHandler(BaseHTTPRequestHandler):
                 cache_control="public, max-age=31536000, immutable",
                 send_body=False,
             )
+        if parsed.path == "/icon-192-v7.png":
+            return self.serve_file(
+                "icon-192-v7.png",
+                "image/png",
+                cache_control="public, max-age=31536000, immutable",
+                send_body=False,
+            )
+        if parsed.path == "/icon-512-v7.png":
+            return self.serve_file(
+                "icon-512-v7.png",
+                "image/png",
+                cache_control="public, max-age=31536000, immutable",
+                send_body=False,
+            )
+        if parsed.path == "/apple-touch-icon-v7.png":
+            return self.serve_file(
+                "apple-touch-icon-v7.png",
+                "image/png",
+                cache_control="public, max-age=31536000, immutable",
+                send_body=False,
+            )
+        if parsed.path == "/logo-v7.png":
+            return self.serve_file(
+                "logo-v7.png",
+                "image/png",
+                cache_control="public, max-age=31536000, immutable",
+                send_body=False,
+            )
         if parsed.path == "/bike-scooter.svg":
             return self.serve_file(
                 "bike-scooter.svg",
@@ -2186,7 +2222,7 @@ class AppHandler(BaseHTTPRequestHandler):
             )
         if parsed.path == "/favicon.ico":
             return self.serve_file(
-                "icon-192-v3.png",
+                "icon-192-v7.png",
                 "image/png",
                 cache_control="public, max-age=31536000, immutable",
                 send_body=False,
@@ -3375,6 +3411,10 @@ class AppHandler(BaseHTTPRequestHandler):
             .replace("/icon-192-v3.png", f"/icon-192-v3.png?v={get_asset_version('icon-192-v3.png')}")
             .replace("/icon-512-v3.png", f"/icon-512-v3.png?v={get_asset_version('icon-512-v3.png')}")
             .replace("/apple-touch-icon-v3.png", f"/apple-touch-icon-v3.png?v={get_asset_version('apple-touch-icon-v3.png')}")
+            .replace("/icon-192-v7.png", f"/icon-192-v7.png?v={get_asset_version('icon-192-v7.png')}")
+            .replace("/icon-512-v7.png", f"/icon-512-v7.png?v={get_asset_version('icon-512-v7.png')}")
+            .replace("/apple-touch-icon-v7.png", f"/apple-touch-icon-v7.png?v={get_asset_version('apple-touch-icon-v7.png')}")
+            .replace("/logo-v7.png", f"/logo-v7.png?v={get_asset_version('logo-v7.png')}")
             .replace(
                 "/2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG",
                 f"/2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG?v={get_asset_version('2F25FE4D-B350-43A7-BFFF-71027B2F4466.PNG')}",
