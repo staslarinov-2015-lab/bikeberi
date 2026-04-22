@@ -1703,6 +1703,15 @@ function showDiagnosticQuickErrors(messages) {
 
 function getDiagnosticSubmitErrors(bikeCode, mechanicName) {
   const errors = [];
+  if (!String(state.diagnosticQuickFlow.category || "").trim()) {
+    errors.push("Выбери категорию поломки.");
+  }
+  if (!String(state.diagnosticQuickFlow.fault || "").trim()) {
+    errors.push("Выбери конкретную поломку.");
+  }
+  if (!String(state.diagnosticQuickFlow.criticality || "").trim()) {
+    errors.push("Укажи приоритет (критичность) диагностики.");
+  }
   if (!isValidBikeCode(bikeCode)) {
     errors.push("Укажи номер байка в формате РЕ123У.");
   }
