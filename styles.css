@@ -1344,13 +1344,12 @@ tbody tr:hover {
   border-radius: var(--radius-lg);
   padding: 14px;
   background: var(--surface);
+  display: grid;
+  gap: 8px;
 }
 
-.diagnostic-mini-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+.diagnostic-mini-card.is-clickable {
+  cursor: pointer;
 }
 
 .diagnostic-mini-bike {
@@ -1360,7 +1359,12 @@ tbody tr:hover {
 }
 
 .diagnostic-mini-fault {
-  margin: 10px 0 0;
+  margin: 0;
+}
+
+.diagnostic-mini-actions {
+  margin-top: 4px;
+  justify-content: flex-start;
 }
 
 .inventory-meta {
@@ -2085,12 +2089,12 @@ tbody tr:hover {
 }
 
 .mobile-tab-cta .mobile-tab-label {
-  color: #5f6f88;
+  display: none;
 }
 
 .mobile-tab-cta-icon {
-  width: 44px;
-  height: 44px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
@@ -2098,8 +2102,21 @@ tbody tr:hover {
   font-size: 1.2rem;
   background: #5c6ae0;
   color: #fff;
-  box-shadow: 0 8px 20px rgba(51, 64, 157, 0.24);
-  transform: translateY(-10px);
+  box-shadow: 0 0 0 0 rgba(92, 106, 224, 0.35), 0 12px 24px rgba(51, 64, 157, 0.28);
+  transform: translateY(-14px);
+  animation: diagnostic-cta-glow 2.1s ease-in-out infinite;
+}
+
+@keyframes diagnostic-cta-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(92, 106, 224, 0.34), 0 12px 24px rgba(51, 64, 157, 0.24);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(92, 106, 224, 0), 0 14px 26px rgba(51, 64, 157, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(92, 106, 224, 0), 0 12px 24px rgba(51, 64, 157, 0.24);
+  }
 }
 
 body:not(.is-auth-locked) .screen-section {

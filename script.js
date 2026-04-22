@@ -1271,19 +1271,17 @@ function renderDiagnosticsTable() {
   diagnosticsGrid.innerHTML = state.diagnostics
     .map(
       (item) => `
-        <article class="diagnostic-mini-card">
-          <div class="diagnostic-mini-head">
-            <strong class="diagnostic-mini-bike">${escapeHtml(item.bike)}</strong>
-            ${
-              canManage
-                ? `<div class="table-actions">
-                    <button class="icon-btn" type="button" data-action="edit-diagnostic" data-id="${item.id}">Ред.</button>
-                    <button class="danger-btn" type="button" data-action="delete-diagnostic" data-id="${item.id}">Удалить</button>
-                  </div>`
-                : ""
-            }
-          </div>
+        <article class="diagnostic-mini-card ${canManage ? "is-clickable" : ""}" ${canManage ? `data-action="edit-diagnostic" data-id="${item.id}"` : ""}>
+          <strong class="diagnostic-mini-bike">${escapeHtml(item.bike)}</strong>
           <p class="muted diagnostic-mini-fault">${escapeHtml(item.fault || "Поломка не указана")}</p>
+          ${
+            canManage
+              ? `<div class="table-actions diagnostic-mini-actions">
+                  <button class="icon-btn" type="button" data-action="edit-diagnostic" data-id="${item.id}">Ред.</button>
+                  <button class="danger-btn" type="button" data-action="delete-diagnostic" data-id="${item.id}">Удалить</button>
+                </div>`
+              : ""
+          }
         </article>
       `
     )
