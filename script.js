@@ -1873,16 +1873,18 @@ const DIAGNOSTIC_KNOWLEDGE_BASE = {
 const DIAGNOSTIC_QUICK_STEPS = {
   1: {
     title: "Где проблема?",
-    subtitle: "Выбери один узел",
-    key: "category",
-    multi: false,
+    subtitle: "Можно выбрать несколько узлов",
+    key: "categories",
+    multi: true,
+    min: 1,
     options: ["Электрика", "Тормоза", "Колеса", "Руль", "Пластик", "Мотор"],
   },
   2: {
     title: "Какая поломка?",
-    subtitle: "Выбери одну из типовых поломок",
-    key: "fault",
-    multi: false,
+    subtitle: "Выбери поломки",
+    key: "faults",
+    multi: true,
+    min: 1,
     options: [],
   },
   3: {
@@ -1966,11 +1968,17 @@ function getQuickRequiredPartsText() {
 }
 
 function buildQuickFaultTitle() {
+  const faults = state.diagnosticQuickFlow.faults || [];
+  if (faults.length) return faults.join("; ");
   return state.diagnosticQuickFlow.fault || "неисправность";
 }
 
 function buildQuickSymptomsText() {
-  return `Категория: ${state.diagnosticQuickFlow.category}. Поломка: ${state.diagnosticQuickFlow.fault}.`;
+  const categories = state.diagnosticQuickFlow.categories || [];
+  const faults = state.diagnosticQuickFlow.faults || [];
+  const catStr = categories.length ? categories.join(", ") : (state.diagnosticQuickFlow.category || "—");
+  const faultStr = faults.length ? faults.join("; ") : (state.diagnosticQuickFlow.fault || "—");
+  return `Категории: ${catStr}. Поломки: ${faultStr}.`;
 }
 
 function buildQuickConclusionText() {
@@ -2020,11 +2028,13 @@ function showDiagnosticQuickErrors(messages) {
 
 function getDiagnosticSubmitErrors(bikeCode, mechanicName) {
   const errors = [];
-  if (!String(state.diagnosticQuickFlow.category || "").trim()) {
-    errors.push("Выбери категорию поломки.");
+  const categories = state.diagnosticQuickFlow.categories || [];
+  const faults = state.diagnosticQuickFlow.faults || [];
+  if (!categories.length && !String(state.diagnosticQuickFlow.category || "").trim()) {
+    errors.push("Выбери хотя бы один узел (категорию поломки).");
   }
-  if (!String(state.diagnosticQuickFlow.fault || "").trim()) {
-    errors.push("Выбери конкретную поломку.");
+  if (!faults.length && !String(state.diagnosticQuickFlow.fault || "").trim()) {
+    errors.push("Выбери хотя бы одну поломку.");
   }
   if (!String(state.diagnosticQuickFlow.criticality || "").trim()) {
     errors.push("Укажи приоритет (критичность) диагностики.");
@@ -2088,9 +2098,20 @@ function renderQuickSummaryCard() {
       `;
     })
     .join("");
+  const summaryCats = state.diagnosticQuickFlow.categories || [];
+  const summaryFaults = state.diagnosticQuickFlow.faults || [];
+  const categorySummaryHtml = summaryCats.length > 1
+    ? `<div class="diagnostic-quick-summary-row"><strong>Узлы:</strong> ${escapeHtml(summaryCats.join(", "))}</div>`
+    : `<div class="diagnostic-quick-summary-row"><strong>Узел:</strong> ${escapeHtml(summaryCats[0] || state.diagnosticQuickFlow.category || "-")}</div>`;
+  const faultSummaryHtml = summaryFaults.length > 1
+    ? summaryFaults.map((f) => `<div class="diagnostic-quick-summary-tag">${escapeHtml(f)}</div>`).join("")
+    : `<div class="diagnostic-quick-summary-row"><strong>Поломка:</strong> ${escapeHtml(summaryFaults[0] || state.diagnosticQuickFlow.fault || "-")}</div>`;
+  const faultBlock = summaryFaults.length > 1
+    ? `<div class="diagnostic-quick-summary-row"><strong>Поломки:</strong></div><div class="diagnostic-quick-summary-tags">${faultSummaryHtml}</div>`
+    : faultSummaryHtml;
   diagnosticQuickSummaryCard.innerHTML = `
-    <div class="diagnostic-quick-summary-row"><strong>Узел:</strong> ${escapeHtml(state.diagnosticQuickFlow.category || "-")}</div>
-    <div class="diagnostic-quick-summary-row"><strong>Поломка:</strong> ${escapeHtml(buildQuickFaultTitle())}</div>
+    ${categorySummaryHtml}
+    ${faultBlock}
     <div class="diagnostic-quick-summary-row"><strong>Приоритет:</strong> ${escapeHtml(state.diagnosticQuickFlow.criticality)}</div>
     <div class="diagnostic-scenario-block">
       <div class="diagnostic-quick-summary-row"><strong>Варианты развития событий:</strong></div>
@@ -2144,15 +2165,45 @@ function renderQuickStepOptions() {
     return;
   }
   const selected = state.diagnosticQuickFlow[cfg.key];
-  const options =
-    state.diagnosticQuickFlow.step === 2
-      ? getQuickFaultOptionsByCategory()
-      : state.diagnosticQuickFlow.step === 4
-        ? []
-        : cfg.options;
+
+  if (step === 4) {
+    diagnosticQuickOptions.innerHTML = "";
+    return;
+  }
+
+  if (step === 2) {
+    const selectedCategories = state.diagnosticQuickFlow.categories || [];
+    const selectedFaults = new Set(state.diagnosticQuickFlow.faults || []);
+    const showGroups = selectedCategories.length > 1;
+
+    diagnosticQuickOptions.innerHTML = selectedCategories
+      .map((cat) => {
+        const faults = (DIAGNOSTIC_QUICK_FAULT_CATALOG[cat] || []).map((item) => item.label);
+        if (!faults.length) return "";
+        const groupHeader = showGroups
+          ? `<div class="diagnostic-fault-group-label">${escapeHtml(cat)}</div>`
+          : "";
+        const buttons = faults
+          .map((fault) => `
+            <button
+              class="diagnostic-quick-option ${selectedFaults.has(fault) ? "is-active" : ""}"
+              type="button"
+              data-action="diagnostic-quick-option"
+              data-value="${escapeHtml(fault)}"
+              data-category="${escapeHtml(cat)}"
+            >${escapeHtml(fault)}</button>
+          `)
+          .join("");
+        return `${groupHeader}<div class="diagnostic-fault-group">${buttons}</div>`;
+      })
+      .join("");
+    return;
+  }
+
+  const options = cfg.options;
   diagnosticQuickOptions.innerHTML = options
     .map((option) => {
-      const active = cfg.multi ? selected.includes(option) : selected === option;
+      const active = cfg.multi ? (Array.isArray(selected) ? selected.includes(option) : false) : selected === option;
       return `
         <button
           class="diagnostic-quick-option ${active ? "is-active" : ""}"
@@ -2184,13 +2235,21 @@ function syncDiagnosticWizard() {
     const editingId = String(diagnosticForm?.dataset?.editId || "").trim();
     diagnosticQuickDelete.classList.toggle("hidden", !(isSummary && editingId));
   }
+  const isMultiSelectionStep = step === 1 || step === 2;
+
   if (diagnosticQuickSaveOpen) {
     diagnosticQuickSaveOpen.classList.toggle("hidden", !isSummary);
     diagnosticQuickSaveOpen.disabled = false;
   }
   if (diagnosticQuickNext) {
-    diagnosticQuickNext.classList.toggle("hidden", !isSummary);
-    diagnosticQuickNext.textContent = "Сохранить диагностику";
+    diagnosticQuickNext.classList.toggle("hidden", false);
+    if (isSummary) {
+      diagnosticQuickNext.textContent = "Сохранить диагностику";
+    } else if (isMultiSelectionStep) {
+      diagnosticQuickNext.textContent = "Далее →";
+    } else {
+      diagnosticQuickNext.classList.add("hidden");
+    }
     diagnosticQuickNext.disabled = false;
   }
 
@@ -2203,12 +2262,42 @@ function syncDiagnosticWizard() {
   if (!cfg) return;
   if (diagnosticQuickTitle) diagnosticQuickTitle.textContent = cfg.title;
   if (diagnosticQuickSubtitle) {
-    diagnosticQuickSubtitle.textContent =
-      step === 2 && state.diagnosticQuickFlow.category
-        ? `Поломки для категории: ${state.diagnosticQuickFlow.category}`
+    if (step === 2) {
+      const cats = state.diagnosticQuickFlow.categories || [];
+      diagnosticQuickSubtitle.textContent = cats.length
+        ? `Поломки: ${cats.join(", ")}`
         : cfg.subtitle;
+    } else {
+      diagnosticQuickSubtitle.textContent = cfg.subtitle;
+    }
   }
   renderQuickStepOptions();
+}
+
+function loadDiagnosticIntoFlow(item) {
+  const rawCategory = String(item.category || "").trim();
+  const rawFault = String(item.fault || "").trim();
+  const categories = rawCategory ? rawCategory.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  const faults = rawFault ? rawFault.split(";").map((s) => s.trim()).filter(Boolean) : [];
+  state.diagnosticQuickFlow.categories = categories;
+  state.diagnosticQuickFlow.faults = faults;
+  state.diagnosticQuickFlow.category = categories[0] || rawCategory;
+  state.diagnosticQuickFlow.fault = faults[0] || rawFault;
+  state.diagnosticQuickFlow.criticality =
+    String(item.severity || "").trim() === "Критичная"
+      ? "Стоп-эксплуатация"
+      : String(item.severity || "").trim() === "Низкая"
+        ? "Можно ездить"
+        : "Нужен ремонт";
+  state.diagnosticQuickFlow.selectedParts = [];
+  state.diagnosticQuickFlow.selectedPartsCategory = "";
+  state.diagnosticQuickFlow.decision = String(item.recommendation || "").toLowerCase().includes("очеред")
+    ? "queue"
+    : "take_repair";
+  state.diagnosticQuickFlow.queueReason = state.diagnosticQuickFlow.decision === "queue"
+    ? String(item.recommendation || "")
+    : "";
+  state.diagnosticQuickFlow.step = DIAGNOSTIC_QUICK_TOTAL_STEPS;
 }
 
 function resetDiagnosticFlow() {
@@ -2220,6 +2309,8 @@ function resetDiagnosticFlow() {
   };
   state.diagnosticQuickFlow = {
     step: 1,
+    categories: [],
+    faults: [],
     category: "",
     fault: "",
     criticality: "",
@@ -4048,26 +4139,26 @@ diagnosticQuickOptions?.addEventListener("click", (event) => {
     const current = new Set(state.diagnosticQuickFlow[cfg.key] || []);
     if (current.has(value)) {
       current.delete(value);
-    } else if (current.size < (cfg.max || 3)) {
+    } else if (current.size < (cfg.max || 50)) {
       current.add(value);
     }
     state.diagnosticQuickFlow[cfg.key] = Array.from(current);
-  } else {
-    state.diagnosticQuickFlow[cfg.key] = value;
-    if (cfg.key === "category") {
-      state.diagnosticQuickFlow.fault = "";
+    if (cfg.key === "categories") {
+      state.diagnosticQuickFlow.faults = [];
       state.diagnosticQuickFlow.selectedParts = [];
       state.diagnosticQuickFlow.selectedPartsCategory = "";
       state.diagnosticQuickFlow.criticality = "";
       state.diagnosticQuickFlow.decision = "";
       state.diagnosticQuickFlow.queueReason = "";
     }
-    if (cfg.key === "fault") {
+    if (cfg.key === "faults") {
       state.diagnosticQuickFlow.selectedParts = [];
       state.diagnosticQuickFlow.selectedPartsCategory = "";
       state.diagnosticQuickFlow.decision = "";
       state.diagnosticQuickFlow.queueReason = "";
     }
+  } else {
+    state.diagnosticQuickFlow[cfg.key] = value;
   }
   showDiagnosticQuickErrors([]);
   if (!cfg.multi && currentStep < DIAGNOSTIC_QUICK_TOTAL_STEPS) {
@@ -4425,7 +4516,10 @@ diagnosticForm.addEventListener("submit", async (event) => {
   diagnosticForm.elements.bike.value = bikeCode;
   diagnosticForm.elements.mechanicName.value = mechanicName;
   diagnosticForm.elements.date.value = new Date().toISOString().slice(0, 10);
-  diagnosticForm.elements.category.value = state.diagnosticQuickFlow.category;
+  const cats = state.diagnosticQuickFlow.categories || [];
+  diagnosticForm.elements.category.value = cats.length
+    ? cats.join(", ")
+    : (state.diagnosticQuickFlow.category || "");
   diagnosticForm.elements.fault.value = buildQuickFaultTitle();
   diagnosticForm.elements.symptoms.value = buildQuickSymptomsText();
   diagnosticForm.elements.conclusion.value = buildQuickConclusionText();
@@ -4754,21 +4848,7 @@ document.addEventListener("click", async (event) => {
     resetDiagnosticFlow();
     diagnosticForm.dataset.editId = id;
     diagnosticForm.elements.date.value = item.date;
-    state.diagnosticQuickFlow.category = item.category || "";
-    state.diagnosticQuickFlow.criticality =
-      String(item.severity || "").trim() === "Критичная"
-        ? "Стоп-эксплуатация"
-        : String(item.severity || "").trim() === "Низкая"
-          ? "Можно ездить"
-          : "Нужен ремонт";
-    state.diagnosticQuickFlow.fault = item.fault || "";
-    state.diagnosticQuickFlow.selectedParts = [];
-    state.diagnosticQuickFlow.selectedPartsCategory = "";
-    state.diagnosticQuickFlow.decision = String(item.recommendation || "").toLowerCase().includes("очеред")
-      ? "queue"
-      : "take_repair";
-    state.diagnosticQuickFlow.queueReason = state.diagnosticQuickFlow.decision === "queue" ? String(item.recommendation || "") : "";
-    state.diagnosticQuickFlow.step = DIAGNOSTIC_QUICK_TOTAL_STEPS;
+    loadDiagnosticIntoFlow(item);
     setBikeCodeValue("diagnostic", item.bike);
     openDiagnosticOverlay();
   }
@@ -4787,21 +4867,7 @@ document.addEventListener("click", async (event) => {
     resetDiagnosticFlow();
     diagnosticForm.dataset.editId = String(diagnostic.id);
     diagnosticForm.elements.date.value = diagnostic.date;
-    state.diagnosticQuickFlow.category = diagnostic.category || "";
-    state.diagnosticQuickFlow.criticality =
-      String(diagnostic.severity || "").trim() === "Критичная"
-        ? "Стоп-эксплуатация"
-        : String(diagnostic.severity || "").trim() === "Низкая"
-          ? "Можно ездить"
-          : "Нужен ремонт";
-    state.diagnosticQuickFlow.fault = diagnostic.fault || "";
-    state.diagnosticQuickFlow.selectedParts = [];
-    state.diagnosticQuickFlow.selectedPartsCategory = "";
-    state.diagnosticQuickFlow.decision = String(diagnostic.recommendation || "").toLowerCase().includes("очеред")
-      ? "queue"
-      : "take_repair";
-    state.diagnosticQuickFlow.queueReason = state.diagnosticQuickFlow.decision === "queue" ? String(diagnostic.recommendation || "") : "";
-    state.diagnosticQuickFlow.step = DIAGNOSTIC_QUICK_TOTAL_STEPS;
+    loadDiagnosticIntoFlow(diagnostic);
     setBikeCodeValue("diagnostic", diagnostic.bike);
     openDiagnosticOverlay();
     return;
@@ -4896,14 +4962,7 @@ document.addEventListener("click", async (event) => {
     resetDiagnosticFlow();
     diagnosticForm.dataset.editId = id;
     diagnosticForm.elements.date.value = item.date;
-    state.diagnosticQuickFlow.category = item.category || "";
-    state.diagnosticQuickFlow.criticality =
-      String(item.severity || "").trim() === "Критичная"
-        ? "Стоп-эксплуатация"
-        : String(item.severity || "").trim() === "Низкая"
-        ? "Можно ездить"
-        : "Нужен ремонт";
-    state.diagnosticQuickFlow.step = 5;
+    loadDiagnosticIntoFlow(item);
     setBikeCodeValue("diagnostic", item.bike || "");
     syncDiagnosticWizard();
     diagnosticOverlay?.classList.remove("hidden");

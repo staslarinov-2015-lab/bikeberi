@@ -2103,8 +2103,9 @@ tbody tr:hover {
 
 .diagnostic-quick-options {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 8px;
+  align-items: start;
 }
 
 .diagnostic-quick-option {
@@ -2127,6 +2128,47 @@ tbody tr:hover {
   border-color: var(--accent);
   background: var(--accent-faint);
   color: var(--accent);
+  position: relative;
+}
+.diagnostic-quick-option.is-active::after {
+  content: "✓";
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.diagnostic-fault-group-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 10px 0 4px;
+  grid-column: 1 / -1;
+}
+
+.diagnostic-fault-group {
+  display: contents;
+}
+
+.diagnostic-quick-summary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.diagnostic-quick-summary-tag {
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--accent-faint);
+  color: var(--accent);
+  font-weight: 500;
 }
 
 .diagnostic-quick-actions {
