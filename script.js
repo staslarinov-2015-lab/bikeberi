@@ -2425,60 +2425,62 @@ function renderEventsFeed() {
 
 function renderAlerts() {
   if (!alertsList) return;
-  const loadItems = [];
-  if (getRole() === "mechanic" && String(state.kpi.mechanicFocus || "").trim()) {
-    loadItems.push({
-      title: "Цель",
-      copy: `От управляющего: ${state.kpi.mechanicFocus}`,
-      state: "ok",
-      hours: "",
-    });
-  }
-  const urgentWaiting = state.workOrders
-    .filter((item) => item.status === "ждет запчасти")
-    .slice(0, 4)
-    .map((item) => ({
-      title: item.bike_code,
-      copy: item.missing_parts?.length
-        ? `Не хватает: ${item.missing_parts.map((part) => `${part.name} x${part.missing}`).join(", ")}`
-        : "Ожидает комплектность",
-      state: "danger",
-      hours: `${item.estimated_minutes || 0} мин`,
-    }));
-  const activeRepairs = state.workOrders
-    .filter((item) => item.status === "в ремонте")
-    .slice(0, Math.max(0, 4 - urgentWaiting.length))
-    .map((item) => ({
-      title: item.bike_code,
-      copy: item.fault || item.issue,
-      state: "ok",
-      hours: `${item.estimated_minutes || 0} мин`,
-    }));
-  loadItems.push(...urgentWaiting, ...activeRepairs);
 
-  if (!loadItems.length) {
-    loadItems.push({
-      title: "—",
-      copy: "Нет срочных задач.",
-      state: "ok",
-      hours: "",
-    });
-  }
+  const focus = String(state.kpi.mechanicFocus || "").trim();
+  const showFocus = getRole() === "mechanic" && Boolean(focus);
 
-  alertsList.innerHTML = loadItems
-    .map(
-      (item) => `
-        <div class="alert-row">
-          <div class="alert-row-main">
-            <span class="alert-row-code">${escapeHtml(item.title)}</span>
-            <span class="alert-row-meta muted">${escapeHtml(item.copy)}</span>
-          </div>
-          <span class="alert-row-pill ${item.state === "danger" ? "is-warn" : "is-ok"}">${item.state === "danger" ? "!" : "·"}</span>
-          <span class="alert-row-time">${escapeHtml(item.hours)}</span>
+  const inRepair = (state.workOrders || []).filter((o) => o.status === "в ремонте");
+  const waitingParts = (state.workOrders || []).filter((o) => o.status === "ждет запчасти");
+
+  const goalHtml = showFocus ? `
+    <div class="focus-goal-card">
+      <div class="focus-goal-label">Цель на неделю</div>
+      <div class="focus-goal-text">${escapeHtml(focus)}</div>
+    </div>
+  ` : "";
+
+  const repairSection = inRepair.length ? `
+    <div class="focus-section-title">В ремонте сейчас</div>
+    ${inRepair.map((o) => `
+      <button class="focus-order-card" type="button" data-action="open-dashboard-order" data-id="${o.id}">
+        <div class="focus-order-left">
+          <div class="focus-order-code">${escapeHtml(o.bike_code || "—")}</div>
+          <div class="focus-order-fault muted">${escapeHtml(o.fault || o.issue || "—")}</div>
         </div>
-      `
-    )
-    .join("");
+        <div class="focus-order-right">
+          <span class="status-pill status-repair">в ремонте</span>
+          <span class="focus-order-arrow">›</span>
+        </div>
+      </button>
+    `).join("")}
+  ` : "";
+
+  const waitingSection = waitingParts.length ? `
+    <div class="focus-section-title">Ждут запчасти</div>
+    ${waitingParts.map((o) => {
+      const missing = o.missing_parts?.length
+        ? o.missing_parts.map((p) => p.name).join(", ")
+        : "Ожидает комплектность";
+      return `
+        <button class="focus-order-card focus-order-card--warn" type="button" data-action="open-dashboard-order" data-id="${o.id}">
+          <div class="focus-order-left">
+            <div class="focus-order-code">${escapeHtml(o.bike_code || "—")}</div>
+            <div class="focus-order-fault muted">${escapeHtml(missing)}</div>
+          </div>
+          <div class="focus-order-right">
+            <span class="status-pill status-waiting">ждёт ЗЧ</span>
+            <span class="focus-order-arrow">›</span>
+          </div>
+        </button>
+      `;
+    }).join("")}
+  ` : "";
+
+  const emptyHtml = !inRepair.length && !waitingParts.length ? `
+    <p class="muted" style="padding:12px 0;">Нет срочных задач — всё под контролем 👍</p>
+  ` : "";
+
+  alertsList.innerHTML = goalHtml + repairSection + waitingSection + emptyHtml;
 }
 
 function renderRepairsTable() {

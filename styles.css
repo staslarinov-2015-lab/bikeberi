@@ -737,6 +737,110 @@ body.mobile-menu-open {
   gap: 8px;
 }
 
+/* ─── "Что делать сейчас" focus cards ─────────────────────────────────────── */
+
+.focus-goal-card {
+  background: var(--accent-faint);
+  border: 1.5px solid rgba(0, 122, 255, 0.2);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.focus-goal-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.focus-goal-text {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.focus-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 14px 0 8px;
+}
+
+.focus-section-title:first-child {
+  margin-top: 0;
+}
+
+.focus-order-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.focus-order-card:hover,
+.focus-order-card:active {
+  background: var(--accent-faint);
+  border-color: rgba(0, 122, 255, 0.25);
+}
+
+.focus-order-card--warn {
+  border-color: rgba(255, 149, 0, 0.25);
+}
+
+.focus-order-card--warn:hover,
+.focus-order-card--warn:active {
+  background: rgba(255, 149, 0, 0.08);
+}
+
+.focus-order-left {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.focus-order-code {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.focus-order-fault {
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.focus-order-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.focus-order-arrow {
+  font-size: 1.2rem;
+  color: var(--muted);
+}
+
+/* ─── end focus cards ──────────────────────────────────────────────────────── */
+
 .alert-row {
   display: grid;
   grid-template-columns: 1fr auto auto;
