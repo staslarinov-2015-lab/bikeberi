@@ -543,31 +543,38 @@ body.mobile-menu-open {
 
 .segmented {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  flex-wrap: nowrap;
+  gap: 3px;
   margin-bottom: 16px;
+  background: #eef3fb;
+  border-radius: 22px;
+  padding: 3px;
 }
 
 .segmented-btn {
+  flex: 1;
   border: 0;
-  background: #eef3fb;
+  background: transparent;
   color: #475a78;
-  padding: 10px 14px;
+  padding: 8px 4px;
   border-radius: 18px;
-  font-size: 0.92rem;
-  font-weight: 800;
+  font-size: 0.85rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  white-space: nowrap;
+  text-align: center;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  touch-action: manipulation;
 }
 
 .segmented-btn:hover {
-  background: #e6eefb;
+  background: rgba(255,255,255,0.6);
 }
 
 .segmented-btn.is-active {
-  background: var(--accent);
-  color: #fff;
-  border-color: transparent;
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
 }
 
 .stat-grid {
