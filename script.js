@@ -1024,7 +1024,7 @@ function getDashboardJumpPayload(jump) {
         return {
           bike: o.bike_code || "-",
           text: [o.fault || o.issue, startedAt ? `с ${startedAt}` : ""].filter(Boolean).join(" · "),
-          bikeId: bikeIdByCode(o.bike_code),
+          orderId: o.id,
         };
       });
     return { title: "🔧 В ремонте сейчас", rows };
@@ -1049,7 +1049,7 @@ function getDashboardJumpPayload(jump) {
       .map((o) => ({
         bike: o.bike_code || "-",
         text: [o.fault || o.issue, o.priority !== "обычный" ? `⚡ ${o.priority}` : ""].filter(Boolean).join(" · "),
-        bikeId: bikeIdByCode(o.bike_code),
+        orderId: o.id,
       }));
     return { title: "📋 Принят в работу", rows };
   }
@@ -1060,7 +1060,7 @@ function getDashboardJumpPayload(jump) {
       .map((o) => ({
         bike: o.bike_code || "-",
         text: o.fault || o.issue || "Финальная проверка",
-        bikeId: bikeIdByCode(o.bike_code),
+        orderId: o.id,
       }));
     return { title: "🔎 На проверке", rows };
   }
@@ -1073,7 +1073,7 @@ function getDashboardJumpPayload(jump) {
         text: o.missing_parts?.length
           ? "Нет: " + o.missing_parts.map((p) => p.name).join(", ")
           : "Ожидает комплектность",
-        bikeId: bikeIdByCode(o.bike_code),
+        orderId: o.id,
       }));
     return { title: "⏳ Ждут запчасти", rows };
   }
@@ -1095,7 +1095,7 @@ function getDashboardJumpPayload(jump) {
           o.actual_minutes ? `${o.actual_minutes} мин` : null,
           o.pause_reason ? `«${o.pause_reason}»` : null,
         ].filter(Boolean).join(" · "),
-        bikeId: bikeIdByCode(o.bike_code),
+        orderId: o.id,
       }));
     return { title: "⏸ Приостановленные ремонты", rows };
   }
@@ -1120,15 +1120,18 @@ function openDashboardJumpModal(jump) {
   if (dashboardJumpTitle) dashboardJumpTitle.textContent = payload.title;
   dashboardJumpList.innerHTML = payload.rows.length
     ? payload.rows
-        .map(
-          (row) => `
-            <article class="jump-list-row ${row.bikeId ? "jump-list-row-clickable" : ""}" ${row.bikeId ? `data-action="open-dashboard-bike" data-id="${row.bikeId}"` : ""}>
+        .map((row) => {
+          const clickable = row.orderId || row.bikeId;
+          const action = row.orderId ? "open-dashboard-order" : "open-dashboard-bike";
+          const dataId = row.orderId || row.bikeId || "";
+          return `
+            <article class="jump-list-row ${clickable ? "jump-list-row-clickable" : ""}" ${clickable ? `data-action="${action}" data-id="${dataId}"` : ""}>
               <div class="jump-list-row-code">${escapeHtml(row.bike)}</div>
               <div class="jump-list-row-text muted">${escapeHtml(row.text)}</div>
-              ${row.bikeId ? `<span class="jump-list-row-arrow">›</span>` : ""}
+              ${clickable ? `<span class="jump-list-row-arrow">›</span>` : ""}
             </article>
-          `
-        )
+          `;
+        })
         .join("")
     : '<p class="muted" style="padding:20px 16px">Нет байков в этом статусе.</p>';
   dashboardJumpOverlay.classList.remove("hidden");
@@ -4750,6 +4753,14 @@ document.addEventListener("click", async (event) => {
     bikeForm.elements.status.value = bike.status || (getRole() === "owner" ? "в аренде" : "на диагностике");
     bikeForm.elements.notes.value = bike.notes || "";
     bikeOverlay?.classList.remove("hidden");
+  }
+
+  if (action === "open-dashboard-order") {
+    const order = (state.workOrders || []).find((o) => String(o.id) === id);
+    if (!order) return;
+    dashboardJumpOverlay?.classList.add("hidden");
+    openWorkOrderDetail(order);
+    return;
   }
 
   if (action === "open-dashboard-bike") {
