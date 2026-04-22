@@ -2151,7 +2151,7 @@ const DIAGNOSTIC_QUICK_STEPS = {
     subtitle: "Выбери уровень срочности",
     key: "criticality",
     multi: false,
-    options: ["Можно ездить", "Нужен ремонт", "Стоп-эксплуатация"],
+    options: ["Можно ездить", "Нужен ремонт"],
   },
   4: {
     title: "Запчасти",
@@ -2168,7 +2168,6 @@ function getQuickSeverity() {
   const map = {
     "Можно ездить": "Низкая",
     "Нужен ремонт": "Средняя",
-    "Стоп-эксплуатация": "Критичная",
   };
   return map[state.diagnosticQuickFlow.criticality] || "Средняя";
 }
@@ -2213,9 +2212,6 @@ function getQuickRecommendation() {
   }
   if (state.diagnosticQuickFlow.criticality === "Нужен ремонт") {
     return "Нужен ремонт: проверяем наличие выбранных запчастей на складе.";
-  }
-  if (state.diagnosticQuickFlow.criticality === "Стоп-эксплуатация") {
-    return "Стоп-эксплуатация: срочный ремонт и приоритетная комплектация.";
   }
   return "Определи приоритет, чтобы сформировать план работ.";
 }
@@ -2543,11 +2539,9 @@ function loadDiagnosticIntoFlow(item) {
   state.diagnosticQuickFlow.category = categories[0] || rawCategory;
   state.diagnosticQuickFlow.fault = faults[0] || rawFault;
   state.diagnosticQuickFlow.criticality =
-    String(item.severity || "").trim() === "Критичная"
-      ? "Стоп-эксплуатация"
-      : String(item.severity || "").trim() === "Низкая"
-        ? "Можно ездить"
-        : "Нужен ремонт";
+    String(item.severity || "").trim() === "Низкая"
+      ? "Можно ездить"
+      : "Нужен ремонт";
   state.diagnosticQuickFlow.selectedParts = [];
   state.diagnosticQuickFlow.selectedPartsCategory = "";
   state.diagnosticQuickFlow.decision = String(item.recommendation || "").toLowerCase().includes("очеред")

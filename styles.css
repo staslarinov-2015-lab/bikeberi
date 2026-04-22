@@ -2224,6 +2224,19 @@ tbody tr:hover {
   gap: 8px;
   position: relative;
   z-index: 2;
+  flex-wrap: wrap; /* Allow wrapping if buttons get too long */
+}
+
+/* Force buttons to have a minimum width or take up equal space if wrapping */
+.diagnostic-quick-actions > button {
+  flex: 1 1 auto;
+  text-align: center;
+  white-space: normal; /* Let text wrap within the button if necessary */
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.15;
 }
 
 .diagnostic-quick-summary-card {
