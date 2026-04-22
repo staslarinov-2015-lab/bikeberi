@@ -4608,7 +4608,17 @@ loginForm.addEventListener("submit", async (event) => {
 
     state.user = payload.user;
     loginForm.reset();
-    await bootstrap();
+    try {
+      await bootstrap();
+    } catch (loadErr) {
+      // Сессия на сервере создана, но данные не подгрузились — сбрасываем, чтобы не застревать
+      state.user = null;
+      try {
+        await api("/api/logout", { method: "POST", body: JSON.stringify({}) });
+      } catch { /* */ }
+      render();
+      throw loadErr;
+    }
   } catch (error) {
     loginError.textContent = error.message;
     loginError.classList.remove("hidden");

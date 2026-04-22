@@ -307,6 +307,17 @@ def get_asset_version(filename: str) -> str:
     return str(int(path.stat().st_mtime))
 
 
+def safe_int_setting(settings: dict, key: str, default: int) -> int:
+    """Avoid 500 in /api/bootstrap if settings values are empty or non-numeric."""
+    raw = settings.get(key)
+    if raw is None or (isinstance(raw, str) and not str(raw).strip()):
+        return default
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return default
+
+
 def json_response(handler, status, payload, extra_headers=None):
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     handler.send_response(status)
@@ -1938,11 +1949,11 @@ def fetch_bootstrap_payload(user):
     return {
         "user": user,
         "kpi": {
-            "totalBikes": int(settings.get("total_bikes", "40")),
-            "targetRate": int(settings.get("target_rate", "95")),
-            "mechanicFocus": str(settings.get("mechanic_focus", "")),
-            "mechanicDailyCost": int(settings.get("mechanic_daily_cost", "3500")),
-            "dailyGoal": str(settings.get("daily_goal", "")),
+            "totalBikes": max(1, safe_int_setting(settings, "total_bikes", 40)),
+            "targetRate": min(100, max(1, safe_int_setting(settings, "target_rate", 95))),
+            "mechanicFocus": str(settings.get("mechanic_focus", "") or ""),
+            "mechanicDailyCost": max(0, safe_int_setting(settings, "mechanic_daily_cost", 3500)),
+            "dailyGoal": str(settings.get("daily_goal", "") or ""),
         },
         "bikes": bikes,
         "repairs": repairs,
