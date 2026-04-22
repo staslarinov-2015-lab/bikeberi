@@ -7,6 +7,7 @@ import re
 import secrets
 import sqlite3
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -72,6 +73,9 @@ _SUPABASE_LAST_DOWNLOAD_NOT_FOUND = False
 # Bucket that successfully downloaded/uploaded (may differ from SUPABASE_BUCKET if env is stale).
 _SUPABASE_ACTIVE_BUCKET = ""
 ALLOW_DEMO_SEED = os.environ.get("BIKEBERI_ALLOW_DEMO_SEED", "false").strip().lower() == "true"
+TELEGRAM_POLL_INTERVAL_SEC = max(3, int(os.environ.get("BIKEBERI_TELEGRAM_POLL_INTERVAL_SEC", "6") or 6))
+_TELEGRAM_POLL_STARTED = False
+_TELEGRAM_POLL_LOCK = threading.Lock()
 
 BIKE_STATUSES = {
     "в аренде",
@@ -403,12 +407,15 @@ def telegram_send_message(chat_id_raw: str, text: str, config: dict | None = Non
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    try:
-        with urlopen(request, timeout=8):
-            pass
-    except Exception:
-        # Telegram transport is best-effort and must not break core app flow.
-        return
+    for attempt in range(3):
+        try:
+            with urlopen(request, timeout=8):
+                return
+        except Exception:
+            if attempt >= 2:
+                # Telegram transport is best-effort and must not break core app flow.
+                return
+            time.sleep(0.35 * (attempt + 1))
 
 
 def mirror_internal_chat_to_telegram(sender_role: str, sender_name: str, message: str):
@@ -451,6 +458,106 @@ def store_chat_message(sender_role: str, sender_name: str, message: str):
     conn.commit()
     conn.close()
     return True
+
+
+def is_new_telegram_inbound_message(conn, chat_id_raw: str, message_id_raw) -> bool:
+    chat_id = str(chat_id_raw or "").strip()
+    try:
+        message_id = int(message_id_raw)
+    except (TypeError, ValueError):
+        return False
+    if not chat_id:
+        return False
+    cur = conn.execute(
+        """
+        INSERT OR IGNORE INTO telegram_inbound_messages (chat_id, message_id, created_at)
+        VALUES (?, ?, ?)
+        """,
+        (chat_id, message_id, utc_now().isoformat()),
+    )
+    return cur.rowcount > 0
+
+
+def process_telegram_inbound_payload(message_obj: dict, config: dict | None = None) -> bool:
+    cfg = config or get_telegram_config()
+    text = str((message_obj or {}).get("text", "")).strip()
+    chat_id = str(((message_obj or {}).get("chat") or {}).get("id", "")).strip()
+    message_id = (message_obj or {}).get("message_id")
+    if not text or not chat_id:
+        return False
+    sender_role = telegram_chat_role(chat_id, cfg)
+    if not sender_role:
+        return False
+    conn = get_db()
+    if not is_new_telegram_inbound_message(conn, chat_id, message_id):
+        conn.commit()
+        conn.close()
+        return False
+    sender_name = "Управляющий" if sender_role == "owner" else "Механик"
+    conn.execute(
+        """
+        INSERT INTO team_chat_messages (sender_role, sender_name, message, created_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (sender_role, sender_name, text[:400], utc_now().isoformat()),
+    )
+    conn.commit()
+    conn.close()
+    return True
+
+
+def telegram_poll_loop():
+    while True:
+        try:
+            config = get_telegram_config()
+            if not telegram_is_enabled(config):
+                time.sleep(TELEGRAM_POLL_INTERVAL_SEC)
+                continue
+            conn = get_db()
+            offset_raw = get_setting_value(conn, "telegram_last_update_id", "0")
+            conn.close()
+            try:
+                offset = int(offset_raw or "0")
+            except ValueError:
+                offset = 0
+            payload = json.dumps(
+                {
+                    "offset": max(offset + 1, 1),
+                    "limit": 30,
+                    "timeout": 10,
+                    "allowed_updates": ["message", "edited_message"],
+                }
+            ).encode("utf-8")
+            req = Request(
+                f"https://api.telegram.org/bot{config['token']}/getUpdates",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            max_update_id = offset
+            with urlopen(req, timeout=15) as response:
+                data = json.loads(response.read().decode("utf-8"))
+            for item in data.get("result", []) or []:
+                update_id = int(item.get("update_id") or 0)
+                max_update_id = max(max_update_id, update_id)
+                process_telegram_inbound_payload(item.get("message") or item.get("edited_message") or {}, config)
+            if max_update_id > offset:
+                conn = get_db()
+                set_setting_value(conn, "telegram_last_update_id", str(max_update_id))
+                conn.commit()
+                conn.close()
+        except Exception:
+            time.sleep(1.0)
+        time.sleep(TELEGRAM_POLL_INTERVAL_SEC)
+
+
+def ensure_telegram_polling_started():
+    global _TELEGRAM_POLL_STARTED
+    with _TELEGRAM_POLL_LOCK:
+        if _TELEGRAM_POLL_STARTED:
+            return
+        threading.Thread(target=telegram_poll_loop, daemon=True).start()
+        _TELEGRAM_POLL_STARTED = True
 
 
 def fetch_recent_team_chat(limit: int = 60):
@@ -883,6 +990,13 @@ def init_db():
             sender_name TEXT NOT NULL,
             message TEXT NOT NULL,
             created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS telegram_inbound_messages (
+            chat_id TEXT NOT NULL,
+            message_id INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (chat_id, message_id)
         );
         """
     )
@@ -1848,17 +1962,10 @@ class AppHandler(BaseHTTPRequestHandler):
                 return text_response(self, 403, "Forbidden")
             payload = read_json(self)
             message_obj = payload.get("message") or payload.get("edited_message") or {}
-            text = str(message_obj.get("text", "")).strip()
-            chat_id = str((message_obj.get("chat") or {}).get("id", "")).strip()
-            if not text or not chat_id:
+            if not message_obj:
                 return json_response(self, 200, {"ok": True})
-            sender_role = telegram_chat_role(chat_id, config)
-            if not sender_role:
-                return json_response(self, 200, {"ok": True})
-            sender_name = "Управляющий" if sender_role == "owner" else "Механик"
-            if store_chat_message(sender_role, sender_name, text):
-                return json_response(self, 200, {"ok": True})
-            return json_response(self, 400, {"error": "Сообщение не сохранено"})
+            process_telegram_inbound_payload(message_obj, config)
+            return json_response(self, 200, {"ok": True})
 
         if parsed.path == "/api/telegram/webhook/register":
             user = require_role(self, {"owner"})
@@ -2751,6 +2858,7 @@ class AppHandler(BaseHTTPRequestHandler):
 
 def main():
     init_db()
+    ensure_telegram_polling_started()
     server = ThreadingHTTPServer((HOST, PORT), AppHandler)
     print(f"{APP_NAME} is running on http://{HOST}:{PORT}")
     server.serve_forever()
