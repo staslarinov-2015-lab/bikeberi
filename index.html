@@ -758,13 +758,11 @@
 
     <div id="diagnostic-overlay" class="overlay hidden">
       <div class="modal-card">
-        <div class="modal-head">
-          <div>
-            <h2 id="diagnostic-modal-title">Новая диагностическая запись</h2>
-          </div>
-          <div style="display:flex;gap:8px;">
-            <button id="diagnostic-help-btn" class="ghost-btn mechanic-only" type="button">Помощь ❓</button>
-            <button id="close-diagnostic-modal" class="ghost-btn" type="button">Закрыть</button>
+        <div class="modal-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <h2 id="diagnostic-modal-title" style="margin:0;font-size:1.05rem;font-weight:700;line-height:1.2;min-width:0;">Новая диагностическая запись</h2>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <button id="diagnostic-help-btn" class="wo-help-btn mechanic-only" type="button" title="Помощь в диагностике">?</button>
+            <button id="close-diagnostic-modal" class="wo-close-btn" type="button">Закрыть</button>
           </div>
         </div>
 
