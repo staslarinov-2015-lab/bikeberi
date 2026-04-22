@@ -472,6 +472,7 @@ const inventoryCategoryEditor = document.getElementById("inventory-category-edit
 const inventoryCurrentCategory = document.getElementById("inventory-current-category");
 const inventoryTransferToggle = document.getElementById("inventory-transfer-toggle");
 const inventoryTransferOptions = document.getElementById("inventory-transfer-options");
+const inventoryDeleteInModal = document.getElementById("inventory-delete-in-modal");
 const openBikeModalButton = document.getElementById("open-bike-modal");
 const closeBikeModalButton = document.getElementById("close-bike-modal");
 const bikeModalTitle = document.getElementById("bike-modal-title");
@@ -2464,13 +2465,6 @@ function renderInventory() {
             <span class="stock-chip ${chipClass}">${escapeHtml(String(Math.max(stock, 0)))}</span>
           </div>
         </div>
-        ${
-          canManage
-            ? `<div class="inventory-minimal-footer">
-                <button class="danger-btn inventory-delete-btn" type="button" data-action="delete-inventory-item" data-id="${item.id}">Удалить</button>
-              </div>`
-            : ""
-        }
       </article>
     `;
   };
@@ -3035,6 +3029,7 @@ openInventoryModalButton?.addEventListener("click", () => {
   inventoryForm.reset();
   delete inventoryForm.dataset.editId;
   setInventoryCategoryInForm("");
+  if (inventoryDeleteInModal) inventoryDeleteInModal.classList.add("hidden");
   inventoryCategoryEditor?.classList.add("hidden");
   inventoryTransferOptions?.classList.add("hidden");
   if (inventoryTransferOptions) inventoryTransferOptions.innerHTML = "";
@@ -3048,6 +3043,7 @@ closeInventoryModalButton?.addEventListener("click", () => {
   inventoryForm.reset();
   delete inventoryForm.dataset.editId;
   setInventoryCategoryInForm("");
+  if (inventoryDeleteInModal) inventoryDeleteInModal.classList.add("hidden");
   inventoryCategoryEditor?.classList.add("hidden");
   inventoryTransferOptions?.classList.add("hidden");
   if (inventoryTransferOptions) inventoryTransferOptions.innerHTML = "";
@@ -3059,6 +3055,7 @@ inventoryOverlay?.addEventListener("click", (event) => {
   inventoryForm.reset();
   delete inventoryForm.dataset.editId;
   setInventoryCategoryInForm("");
+  if (inventoryDeleteInModal) inventoryDeleteInModal.classList.add("hidden");
   inventoryCategoryEditor?.classList.add("hidden");
   inventoryTransferOptions?.classList.add("hidden");
   if (inventoryTransferOptions) inventoryTransferOptions.innerHTML = "";
@@ -3445,6 +3442,7 @@ inventoryForm.addEventListener("submit", async (event) => {
     inventoryForm.reset();
     delete inventoryForm.dataset.editId;
     setInventoryCategoryInForm("");
+    if (inventoryDeleteInModal) inventoryDeleteInModal.classList.add("hidden");
     inventoryCategoryEditor?.classList.add("hidden");
     inventoryTransferOptions?.classList.add("hidden");
     if (inventoryTransferOptions) inventoryTransferOptions.innerHTML = "";
@@ -3742,7 +3740,9 @@ document.addEventListener("click", async (event) => {
     inventoryCategoryEditor?.classList.remove("hidden");
     inventoryTransferOptions?.classList.add("hidden");
     renderInventoryTransferOptions(categoryKey);
+    if (inventoryDeleteInModal) inventoryDeleteInModal.classList.remove("hidden");
     inventoryOverlay.classList.remove("hidden");
+    return;
   }
 
   if (action === "inventory-transfer-select") {
@@ -3771,6 +3771,7 @@ document.addEventListener("click", async (event) => {
       delete inventoryForm.dataset.editId;
       inventoryCategoryEditor?.classList.add("hidden");
       inventoryTransferOptions?.classList.add("hidden");
+      if (inventoryDeleteInModal) inventoryDeleteInModal.classList.add("hidden");
       if (inventoryTransferOptions) inventoryTransferOptions.innerHTML = "";
       await bootstrap();
     } catch {
@@ -4017,6 +4018,26 @@ document.addEventListener("click", async (event) => {
     state.diagnosticQuickFlow.category = target.dataset.category || "";
     state.diagnosticQuickFlow.step = state.diagnosticQuickFlow.category ? 2 : 1;
     openDiagnosticOverlay();
+  }
+});
+
+inventoryDeleteInModal?.addEventListener("click", async () => {
+  const editingId = String(inventoryForm.dataset.editId || "").trim();
+  if (!editingId) return;
+  if (!window.confirm("Удалить эту запчасть со склада?")) return;
+  try {
+    await api(`/api/inventory/${editingId}`, { method: "DELETE", headers: {}, notifyError: true });
+    inventoryOverlay?.classList.add("hidden");
+    inventoryForm.reset();
+    delete inventoryForm.dataset.editId;
+    setInventoryCategoryInForm("");
+    inventoryCategoryEditor?.classList.add("hidden");
+    inventoryTransferOptions?.classList.add("hidden");
+    if (inventoryTransferOptions) inventoryTransferOptions.innerHTML = "";
+    inventoryDeleteInModal.classList.add("hidden");
+    await bootstrap();
+  } catch {
+    // Ошибка уже показана через notifyError в api()
   }
 });
 
