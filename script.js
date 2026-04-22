@@ -482,6 +482,10 @@ const diagnosticModalTitle = document.getElementById("diagnostic-modal-title");
 const workOrderOverlay = document.getElementById("work-order-overlay");
 const closeWorkOrderModalButton = document.getElementById("close-work-order-modal");
 const workOrderModalTitle = document.getElementById("work-order-modal-title");
+const dashboardJumpOverlay = document.getElementById("dashboard-jump-overlay");
+const closeDashboardJumpModalButton = document.getElementById("close-dashboard-jump-modal");
+const dashboardJumpTitle = document.getElementById("dashboard-jump-title");
+const dashboardJumpList = document.getElementById("dashboard-jump-list");
 const workOrderDetailBike = document.getElementById("work-order-detail-bike");
 const workOrderDetailStatus = document.getElementById("work-order-detail-status");
 const workOrderDetailFault = document.getElementById("work-order-detail-fault");
@@ -945,6 +949,69 @@ function openWorkOrderDetail(order) {
     workOrderDetailHint.textContent = plan || "—";
   }
   workOrderOverlay.classList.remove("hidden");
+}
+
+function getDashboardJumpPayload(jump) {
+  if (jump === "diagnostics") {
+    const rows = (state.diagnostics || [])
+      .filter((item) => isDateInDashboardPeriod(item.date))
+      .slice(0, 80)
+      .map((item) => ({
+        bike: item.bike || "-",
+        text: [item.category, item.fault].filter(Boolean).join(" · ") || "Поломка не указана",
+      }));
+    return { title: "Диагностика за период", rows };
+  }
+  if (jump === "inspection") {
+    const rows = (state.workOrders || [])
+      .filter((item) => item.status === "проверка" || item.status === "диагностика")
+      .slice(0, 80)
+      .map((item) => ({
+        bike: item.bike_code || "-",
+        text: item.fault || item.issue || "Проверка",
+      }));
+    return { title: "ТО / проверка", rows };
+  }
+  if (jump === "repair") {
+    const rows = (state.workOrders || [])
+      .filter((item) => item.status === "в ремонте")
+      .slice(0, 80)
+      .map((item) => ({
+        bike: item.bike_code || "-",
+        text: item.fault || item.issue || "Ремонт",
+      }));
+    return { title: "В ремонте сейчас", rows };
+  }
+  const rows = (state.workOrders || [])
+    .filter((item) => item.status === "ждет запчасти")
+    .slice(0, 80)
+    .map((item) => ({
+      bike: item.bike_code || "-",
+      text:
+        item.missing_parts?.length
+          ? item.missing_parts.map((part) => `${part.name} x${part.missing}`).join(", ")
+          : "Ожидает комплектность",
+    }));
+  return { title: "Ждут запчасти", rows };
+}
+
+function openDashboardJumpModal(jump) {
+  if (!dashboardJumpOverlay || !dashboardJumpList) return;
+  const payload = getDashboardJumpPayload(jump);
+  if (dashboardJumpTitle) dashboardJumpTitle.textContent = payload.title;
+  dashboardJumpList.innerHTML = payload.rows.length
+    ? payload.rows
+        .map(
+          (row) => `
+            <article class="stack-item">
+              <strong>${escapeHtml(row.bike)}</strong>
+              <p class="muted">${escapeHtml(row.text)}</p>
+            </article>
+          `
+        )
+        .join("")
+    : '<article class="stack-item"><p class="muted">Нет байков в этом статусе.</p></article>';
+  dashboardJumpOverlay.classList.remove("hidden");
 }
 
 async function ensureNotificationPermission() {
@@ -3029,6 +3096,13 @@ closeDiagnosticModalButton?.addEventListener("click", () => {
 closeWorkOrderModalButton?.addEventListener("click", () => {
   workOrderOverlay?.classList.add("hidden");
 });
+closeDashboardJumpModalButton?.addEventListener("click", () => {
+  dashboardJumpOverlay?.classList.add("hidden");
+});
+dashboardJumpOverlay?.addEventListener("click", (event) => {
+  if (event.target.closest(".modal-card")) return;
+  dashboardJumpOverlay.classList.add("hidden");
+});
 
 mobileMenuToggle?.addEventListener("click", () => {
   toggleMobileMenu();
@@ -3596,15 +3670,7 @@ document.addEventListener("click", async (event) => {
   const dashboardJumpTarget = event.target.closest("[data-dashboard-jump]");
   if (dashboardJumpTarget) {
     const jump = dashboardJumpTarget.dataset.dashboardJump;
-    if (jump === "diagnostics") {
-      state.activeSection = "diagnostics";
-    } else {
-      state.activeSection = "bikes";
-      if (jump === "repair") state.bikeStatusFilter = "в ремонте";
-      else if (jump === "waiting") state.bikeStatusFilter = "ждет запчасти";
-      else if (jump === "inspection") state.bikeStatusFilter = "проверка";
-    }
-    render();
+    openDashboardJumpModal(jump);
     return;
   }
 
