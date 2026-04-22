@@ -510,6 +510,7 @@ const diagnosticQuickSummaryCard = document.getElementById("diagnostic-quick-sum
 const diagnosticQuickBack = document.getElementById("diagnostic-quick-back");
 const diagnosticQuickNext = document.getElementById("diagnostic-quick-next");
 const diagnosticQuickSaveOpen = document.getElementById("diagnostic-quick-save-open");
+const diagnosticQuickError = document.getElementById("diagnostic-quick-error");
 const refreshButton = document.getElementById("refresh-button");
 const queueFilterChipsEl = document.getElementById("queue-filter-chips");
 const bikeCodeBuilders = Array.from(document.querySelectorAll("[data-bike-code-root]"));
@@ -1663,6 +1664,41 @@ function canGoNextQuickStep() {
   return Boolean(String(value || "").trim());
 }
 
+function showDiagnosticQuickErrors(messages) {
+  if (!diagnosticQuickError) return;
+  const list = (messages || []).filter(Boolean);
+  if (!list.length) {
+    diagnosticQuickError.classList.add("hidden");
+    diagnosticQuickError.innerHTML = "";
+    return;
+  }
+  diagnosticQuickError.innerHTML = `
+    <strong>Проверь заполнение:</strong>
+    <ul>${list.map((message) => `<li>${escapeHtml(message)}</li>`).join("")}</ul>
+  `;
+  diagnosticQuickError.classList.remove("hidden");
+}
+
+function getDiagnosticSubmitErrors(bikeCode, mechanicName) {
+  const errors = [];
+  if (!isValidBikeCode(bikeCode)) {
+    errors.push("Укажи номер байка в формате РЕ123У.");
+  }
+  if (!(state.diagnosticQuickFlow.selectedParts || []).length) {
+    errors.push("Выбери хотя бы одну необходимую запчасть.");
+  }
+  if (!state.diagnosticQuickFlow.decision) {
+    errors.push("Выбери вариант развития событий: взять в ремонт или поставить в очередь.");
+  }
+  if (state.diagnosticQuickFlow.decision === "queue" && !String(state.diagnosticQuickFlow.queueReason || "").trim()) {
+    errors.push("Укажи причину, почему байк ставим в очередь.");
+  }
+  if (!mechanicName) {
+    errors.push("Не удалось определить пользователя. Перезайди в аккаунт.");
+  }
+  return errors;
+}
+
 function renderQuickSummaryCard() {
   if (!diagnosticQuickSummaryCard) return;
   const selectedParts = new Set(state.diagnosticQuickFlow.selectedParts || []);
@@ -1805,6 +1841,7 @@ function resetDiagnosticFlow() {
   diagnosticForm.elements.mechanicName.value = state.user?.full_name || "";
   diagnosticForm.elements.category.value = "";
   diagnosticForm.elements.fault.value = "";
+  showDiagnosticQuickErrors([]);
   syncDiagnosticWizard();
 }
 
@@ -2917,6 +2954,7 @@ mobileNavOverlay?.addEventListener("click", () => {
 
 diagnosticQuickBack?.addEventListener("click", () => {
   state.diagnosticQuickFlow.step = Math.max(1, state.diagnosticQuickFlow.step - 1);
+  showDiagnosticQuickErrors([]);
   syncDiagnosticWizard();
 });
 
@@ -2949,6 +2987,7 @@ diagnosticQuickOptions?.addEventListener("click", (event) => {
       state.diagnosticQuickFlow.selectedParts = Array.from(new Set([...(state.diagnosticQuickFlow.selectedParts || []), ...defaults]));
     }
   }
+  showDiagnosticQuickErrors([]);
   syncDiagnosticWizard();
 });
 
@@ -2959,6 +2998,7 @@ diagnosticQuickSummaryCard?.addEventListener("click", (event) => {
     if (state.diagnosticQuickFlow.decision !== "queue") {
       state.diagnosticQuickFlow.queueReason = "";
     }
+    showDiagnosticQuickErrors([]);
     syncDiagnosticWizard();
     return;
   }
@@ -2973,6 +3013,7 @@ diagnosticQuickSummaryCard?.addEventListener("click", (event) => {
     current.add(partName);
   }
   state.diagnosticQuickFlow.selectedParts = Array.from(current);
+  showDiagnosticQuickErrors([]);
   syncDiagnosticWizard();
 });
 
@@ -2980,6 +3021,7 @@ diagnosticQuickSummaryCard?.addEventListener("input", (event) => {
   const textarea = event.target.closest("#diagnostic-queue-reason");
   if (!textarea) return;
   state.diagnosticQuickFlow.queueReason = textarea.value || "";
+  showDiagnosticQuickErrors([]);
   syncDiagnosticWizard();
 });
 
@@ -2988,6 +3030,7 @@ diagnosticQuickNext?.addEventListener("click", () => {
   if (!canGoNextQuickStep()) return;
   if (state.diagnosticQuickFlow.step < DIAGNOSTIC_QUICK_TOTAL_STEPS) {
     state.diagnosticQuickFlow.step += 1;
+    showDiagnosticQuickErrors([]);
     syncDiagnosticWizard();
     return;
   }
@@ -3254,11 +3297,14 @@ diagnosticForm.addEventListener("submit", async (event) => {
   const formData = new FormData(diagnosticForm);
   const editingId = diagnosticForm.dataset.editId;
   const afterSubmitAction = diagnosticForm.dataset.afterSubmit || "";
+  const validationErrors = getDiagnosticSubmitErrors(bikeCode, mechanicName);
 
-  if (!isValidBikeCode(bikeCode) || !mechanicName) {
+  if (validationErrors.length) {
+    showDiagnosticQuickErrors(validationErrors);
     diagnosticForm.reportValidity();
     return;
   }
+  showDiagnosticQuickErrors([]);
 
   try {
     await api(editingId ? `/api/diagnostics/${editingId}` : "/api/diagnostics", {
