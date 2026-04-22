@@ -418,16 +418,22 @@ def mirror_internal_chat_to_telegram(sender_role: str, sender_name: str, message
     target_chat_id = telegram_target_chat_for_sender(sender_role, config)
     if not target_chat_id:
         return
-    role_label = "Управляющий" if sender_role == "owner" else "Механик"
-    text = f"Байк Сервис · {role_label}\n{sender_name}\n\n{message}"
+    text = f"Байк Сервис\n{sender_name}\n\n{message}"
     telegram_send_message(target_chat_id, text, config)
+
+
+def chat_display_name(raw_name: str, role: str = "") -> str:
+    source = str(raw_name or "").strip()
+    if source:
+        return source.split()[0]
+    return "Управляющий" if role == "owner" else "Механик"
 
 
 def store_chat_message(sender_role: str, sender_name: str, message: str):
     role = str(sender_role or "").strip()
     if role not in {"owner", "mechanic"}:
         return False
-    name = str(sender_name or "").strip() or ("Управляющий" if role == "owner" else "Механик")
+    name = chat_display_name(sender_name, role)
     text = str(message or "").strip()
     if not text:
         return False
@@ -2144,9 +2150,10 @@ class AppHandler(BaseHTTPRequestHandler):
                 return json_response(self, 400, {"error": "Сообщение пустое"})
             if len(message) > 400:
                 return json_response(self, 400, {"error": "Сообщение должно быть до 400 символов"})
-            if not store_chat_message(user["role"], user["full_name"], message):
+            sender_name = chat_display_name(user["full_name"], user["role"])
+            if not store_chat_message(user["role"], sender_name, message):
                 return json_response(self, 400, {"error": "Сообщение не сохранено"})
-            mirror_internal_chat_to_telegram(user["role"], user["full_name"], message)
+            mirror_internal_chat_to_telegram(user["role"], sender_name, message)
             return json_response(self, 201, {"ok": True})
 
         if parsed.path.startswith("/api/work-orders/") and parsed.path.endswith("/transition"):
