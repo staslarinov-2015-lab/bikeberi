@@ -3634,6 +3634,22 @@ function renderKnowledgeBase() {
 
 // ─── WORK ORDER DETAIL WITH TIMER ────────────────────────────────────────────
 
+// ─── HELP BUTTONS IN MODALS ──────────────────────────────────────────────────
+
+document.getElementById("diagnostic-help-btn")?.addEventListener("click", () => {
+  // Close diagnostic overlay temporarily, go to kb
+  document.getElementById("diagnostic-overlay")?.classList.add("hidden");
+  state.activeSection = "knowledge-base";
+  renderSections();
+});
+
+document.getElementById("repair-help-btn")?.addEventListener("click", () => {
+  // Close repair overlay temporarily, go to kb
+  document.getElementById("work-order-overlay")?.classList.add("hidden");
+  state.activeSection = "knowledge-base";
+  renderSections();
+});
+
 function render() {
   const isAuthorized = Boolean(state.user);
   loginOverlay.classList.toggle("hidden", isAuthorized);
