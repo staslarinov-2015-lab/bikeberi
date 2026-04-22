@@ -602,6 +602,61 @@ body.mobile-menu-open {
   overflow-y: auto;
 }
 
+.dashboard-status-row {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  min-height: 66px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dashboard-status-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dashboard-status-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: #eef1f6;
+  color: #5f6878;
+  display: inline-grid;
+  place-items: center;
+}
+
+.dashboard-status-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.dashboard-status-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-status-value {
+  color: var(--accent);
+  font-size: 1.7rem;
+  line-height: 1;
+  font-weight: 600;
+}
+
+.dashboard-status-arrow {
+  color: #a0a8b8;
+  font-size: 1.1rem;
+}
+
 .stat-detail-line {
   font-size: 0.82rem;
   color: var(--muted);

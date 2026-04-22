@@ -1947,10 +1947,7 @@ function renderMetrics() {
       tint: "stat-neutral",
       label: "Диагностика за период",
       value: String(stats.diagnosedInPeriod),
-      details: (state.diagnostics || [])
-        .filter((item) => isDateInDashboardPeriod(item.date))
-        .slice(0, 6)
-        .map((item) => `${item.bike} · ${item.category || ""} ${item.fault || ""}`.trim()),
+      jump: "diagnostics",
     },
     {
       key: "inspection",
@@ -1958,10 +1955,7 @@ function renderMetrics() {
       tint: "stat-ok",
       label: "ТО / проверка",
       value: String(stats.inspectionNow),
-      details: (state.workOrders || [])
-        .filter((item) => item.status === "проверка" || item.status === "диагностика")
-        .slice(0, 6)
-        .map((item) => `${item.bike_code} · ${item.fault || item.issue || ""}`.trim()),
+      jump: "inspection",
     },
     {
       key: "repair",
@@ -1969,10 +1963,7 @@ function renderMetrics() {
       tint: "stat-accent",
       label: "В ремонте сейчас",
       value: String(stats.inRepairNow),
-      details: (state.workOrders || [])
-        .filter((item) => item.status === "в ремонте")
-        .slice(0, 6)
-        .map((item) => `${item.bike_code} · ${item.estimated_minutes || 0} мин`),
+      jump: "repair",
     },
     {
       key: "waiting",
@@ -1980,40 +1971,23 @@ function renderMetrics() {
       tint: "stat-warn",
       label: "Ждут запчасти",
       value: String(stats.waitingPartsNow),
-      details: (state.workOrders || [])
-        .filter((item) => item.status === "ждет запчасти")
-        .slice(0, 6)
-        .map((item) =>
-          item.missing_parts?.length
-            ? `${item.bike_code} · ${item.missing_parts.map((part) => `${part.name} x${part.missing}`).join(", ")}`
-            : `${item.bike_code} · ожидает комплектность`
-        ),
+      jump: "waiting",
     },
   ];
 
   metricsGrid.innerHTML = cards
     .map(
       (card) => `
-        <article class="stat-card ${card.tint} ${state.dashboardExpanded === card.key ? "is-expanded" : ""}">
-          <button
-            class="stat-card-trigger"
-            type="button"
-            data-dashboard-card="${card.key}"
-            aria-expanded="${state.dashboardExpanded === card.key ? "true" : "false"}"
-          >
-            <span class="stat-card-icon" aria-hidden="true">${escapeHtml(card.icon || "")}</span>
-            <span class="stat-card-label">${escapeHtml(card.label)}</span>
-            <span class="stat-card-value">${escapeHtml(card.value)}</span>
-            <span class="stat-card-chevron" aria-hidden="true"></span>
-          </button>
-          <div class="stat-card-details ${state.dashboardExpanded === card.key ? "is-open" : ""}">
-            ${
-              card.details.length
-                ? card.details.map((item) => `<div class="stat-detail-line">${escapeHtml(item)}</div>`).join("")
-                : '<div class="stat-detail-line muted">—</div>'
-            }
-          </div>
-        </article>
+        <button class="dashboard-status-row" type="button" data-dashboard-jump="${card.jump}">
+          <span class="dashboard-status-left">
+            <span class="dashboard-status-icon" aria-hidden="true">${escapeHtml(card.icon || "")}</span>
+            <span class="dashboard-status-label">${escapeHtml(card.label)}</span>
+          </span>
+          <span class="dashboard-status-right">
+            <strong class="dashboard-status-value">${escapeHtml(card.value)}</strong>
+            <span class="dashboard-status-arrow" aria-hidden="true">›</span>
+          </span>
+        </button>
       `
     )
     .join("");
@@ -3619,11 +3593,18 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const dashboardCardTarget = event.target.closest("[data-dashboard-card]");
-  if (dashboardCardTarget) {
-    const nextKey = dashboardCardTarget.dataset.dashboardCard;
-    state.dashboardExpanded = state.dashboardExpanded === nextKey ? "" : nextKey;
-    renderMetrics();
+  const dashboardJumpTarget = event.target.closest("[data-dashboard-jump]");
+  if (dashboardJumpTarget) {
+    const jump = dashboardJumpTarget.dataset.dashboardJump;
+    if (jump === "diagnostics") {
+      state.activeSection = "diagnostics";
+    } else {
+      state.activeSection = "bikes";
+      if (jump === "repair") state.bikeStatusFilter = "в ремонте";
+      else if (jump === "waiting") state.bikeStatusFilter = "ждет запчасти";
+      else if (jump === "inspection") state.bikeStatusFilter = "проверка";
+    }
+    render();
     return;
   }
 
