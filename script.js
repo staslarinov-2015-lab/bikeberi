@@ -1141,7 +1141,7 @@ function getDashboardJumpPayload(jump) {
     const rows = source.map((item) => ({
       bike: item.bike || "-",
       text: [item.category, item.fault].filter(Boolean).join(" · ") || "Поломка не указана",
-      bikeId: bikeIdByCode(item.bike),
+      diagId: item.id,
     }));
     return { title: inPeriod.length ? `Диагностика за ${periodLabel}` : "Все диагностики", rows };
   }
@@ -1213,9 +1213,9 @@ function openDashboardJumpModal(jump) {
   dashboardJumpList.innerHTML = payload.rows.length
     ? payload.rows
         .map((row) => {
-          const clickable = row.orderId || row.bikeId;
-          const action = row.orderId ? "open-dashboard-order" : "open-dashboard-bike";
-          const dataId = row.orderId || row.bikeId || "";
+          const clickable = row.orderId || row.bikeId || row.diagId;
+          const action = row.orderId ? "open-dashboard-order" : row.diagId ? "open-dashboard-diag" : "open-dashboard-bike";
+          const dataId = row.orderId || row.diagId || row.bikeId || "";
           return `
             <article class="jump-list-row ${clickable ? "jump-list-row-clickable" : ""}" ${clickable ? `data-action="${action}" data-id="${dataId}"` : ""}>
               <div class="jump-list-row-code">${escapeHtml(row.bike)}</div>
@@ -2285,7 +2285,7 @@ function renderMetrics() {
   const cards = [
     {
       key: "diagnosed",
-      icon: "🩺",
+      icon: SVG_ICONS.stethoscope,
       tint: "stat-neutral",
       label: "Диагностика за период",
       value: String(stats.diagnosedInPeriod),
@@ -2293,7 +2293,7 @@ function renderMetrics() {
     },
     {
       key: "inspection",
-      icon: "🧪",
+      icon: SVG_ICONS.eye,
       tint: "stat-ok",
       label: "ТО / проверка",
       value: String(stats.inspectionNow),
@@ -2301,7 +2301,7 @@ function renderMetrics() {
     },
     {
       key: "repair",
-      icon: "🔧",
+      icon: SVG_ICONS.wrench,
       tint: "stat-accent",
       label: "В ремонте сейчас",
       value: String(stats.inRepairNow),
@@ -2309,7 +2309,7 @@ function renderMetrics() {
     },
     {
       key: "waiting",
-      icon: "⏳",
+      icon: SVG_ICONS.clock,
       tint: "stat-warn",
       label: "Ждут запчасти",
       value: String(stats.waitingPartsNow),
@@ -2322,7 +2322,7 @@ function renderMetrics() {
       (card) => `
         <button class="dashboard-status-row" type="button" data-dashboard-jump="${card.jump}">
           <span class="dashboard-status-left">
-            <span class="dashboard-status-icon" aria-hidden="true">${escapeHtml(card.icon || "")}</span>
+            <span class="dashboard-status-icon" aria-hidden="true">${card.icon || ""}</span>
             <span class="dashboard-status-label">${escapeHtml(card.label)}</span>
           </span>
           <span class="dashboard-status-right">
@@ -2393,15 +2393,27 @@ function getBikeStatusRows() {
   return [...known, ...unknown];
 }
 
+const SVG_ICONS = {
+  check:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M20 6L9 17l-5-5"/></svg>`,
+  wrench:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M14.7 6.3a3.5 3.5 0 0 0-4.9 4.9l-5.4 5.4a1.2 1.2 0 1 0 1.7 1.7l5.4-5.4a3.5 3.5 0 0 0 4.9-4.9l-2.2 2.2-2.7-2.7z"/></svg>`,
+  search:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>`,
+  clock:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`,
+  list:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h5"/></svg>`,
+  pause:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`,
+  bike:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="6" cy="16" r="3"/><circle cx="18" cy="16" r="3"/><path d="M6 16l3-8h6l2 5"/><path d="M12 8V5l3 1"/></svg>`,
+  stethoscope: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M4.5 5.5A2.5 2.5 0 0 1 7 3h0a2.5 2.5 0 0 1 2.5 2.5v6a5.5 5.5 0 0 0 11 0v-1"/><circle cx="20.5" cy="10.5" r="1"/></svg>`,
+  eye:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>`,
+};
+
 const BIKE_STATUS_JUMP_MAP = {
-  "готов":           { jump: "ready",         icon: "✅", accent: "#22a85a" },
-  "в ремонте":       { jump: "repair",        icon: "🔧", accent: "#e07c2e" },
-  "на диагностике":  { jump: "in-diagnostics",icon: "🔍", accent: "#4f5fcf" },
-  "принят":          { jump: "accepted",      icon: "📋", accent: "#4f5fcf" },
-  "проверка":        { jump: "inspection",    icon: "🔎", accent: "#8a5cf6" },
-  "ждет запчасти":   { jump: "waiting-parts", icon: "⏳", accent: "#e05c5c" },
-  "в аренде":        { jump: "rented",        icon: "🛴", accent: "#2ebbc1" },
-  "приостановлен":   { jump: "paused",        icon: "⏸", accent: "#f59e0b" },
+  "готов":           { jump: "ready",         icon: SVG_ICONS.check,  accent: "#22a85a" },
+  "в ремонте":       { jump: "repair",        icon: SVG_ICONS.wrench, accent: "#e07c2e" },
+  "на диагностике":  { jump: "in-diagnostics",icon: SVG_ICONS.search, accent: "#007aff" },
+  "принят":          { jump: "accepted",      icon: SVG_ICONS.list,   accent: "#007aff" },
+  "проверка":        { jump: "inspection",    icon: SVG_ICONS.eye,    accent: "#8a5cf6" },
+  "ждет запчасти":   { jump: "waiting-parts", icon: SVG_ICONS.clock,  accent: "#e05c5c" },
+  "в аренде":        { jump: "rented",        icon: SVG_ICONS.bike,   accent: "#2ebbc1" },
+  "приостановлен":   { jump: "paused",        icon: SVG_ICONS.pause,  accent: "#f59e0b" },
 };
 
 function renderBikeStatuses() {
@@ -2417,7 +2429,7 @@ function renderBikeStatuses() {
     .map((row) => {
       const meta = BIKE_STATUS_JUMP_MAP[row.key];
       const label = row.key === "ждет запчасти" ? "ждут запчасти" : row.key;
-      const icon = meta?.icon || "🏍";
+      const icon = meta?.icon || SVG_ICONS.bike;
       const accent = meta?.accent || "var(--accent)";
       const jumpAttr = meta ? `data-dashboard-jump="${meta.jump}"` : "";
       const clickable = meta ? "status-row-clickable" : "";
@@ -4874,6 +4886,27 @@ document.addEventListener("click", async (event) => {
     if (!order) return;
     dashboardJumpOverlay?.classList.add("hidden");
     openWorkOrderDetail(order);
+    return;
+  }
+
+  if (action === "open-dashboard-diag") {
+    const item = (state.diagnostics || []).find((d) => String(d.id) === id);
+    if (!item) return;
+    dashboardJumpOverlay?.classList.add("hidden");
+    resetDiagnosticFlow();
+    diagnosticForm.dataset.editId = id;
+    diagnosticForm.elements.date.value = item.date;
+    state.diagnosticQuickFlow.category = item.category || "";
+    state.diagnosticQuickFlow.criticality =
+      String(item.severity || "").trim() === "Критичная"
+        ? "Стоп-эксплуатация"
+        : String(item.severity || "").trim() === "Низкая"
+        ? "Можно ездить"
+        : "Нужен ремонт";
+    state.diagnosticQuickFlow.step = 5;
+    setBikeCodeValue("diagnostic", item.bike || "");
+    syncDiagnosticWizard();
+    diagnosticOverlay?.classList.remove("hidden");
     return;
   }
 

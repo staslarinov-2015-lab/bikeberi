@@ -712,6 +712,10 @@ body.mobile-menu-open {
   color: #5f6878;
   display: inline-grid;
   place-items: center;
+  flex-shrink: 0;
+}
+.dashboard-status-icon svg {
+  display: block;
 }
 
 .dashboard-status-label {
@@ -3462,10 +3466,17 @@ textarea:focus-visible {
 }
 
 .status-row-icon {
-  font-size: 1.1rem;
   flex-shrink: 0;
-  width: 24px;
-  text-align: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #f0f2f5;
+  display: inline-grid;
+  place-items: center;
+}
+.status-row-icon svg {
+  display: block;
+  stroke: var(--row-accent, var(--accent));
 }
 
 .status-row-label {
