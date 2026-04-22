@@ -1594,12 +1594,16 @@ function renderDiagnosticsTable() {
           </article>
         `;
       }
-      // Owner: read-only card with full detail
+      // Owner: clickable read-only card
+      const hasPhotos = item.photos_count > 0;
       return `
-        <article class="diagnostic-mini-card diagnostic-owner-card">
+        <article class="diagnostic-mini-card diagnostic-owner-card is-clickable" data-action="view-diagnostic" data-id="${item.id}">
           <div class="diag-owner-head">
             <strong class="diagnostic-mini-bike">${escapeHtml(item.bike)}</strong>
-            ${timeLabel ? `<span class="diag-time-badge">${escapeHtml(timeLabel)}</span>` : ""}
+            <div class="diag-owner-head-right">
+              ${hasPhotos ? `<span class="diag-photo-badge">📷 ${item.photos_count}</span>` : ""}
+              ${timeLabel ? `<span class="diag-time-badge">${escapeHtml(timeLabel)}</span>` : ""}
+            </div>
           </div>
           <p class="diagnostic-mini-fault">${escapeHtml(item.fault || "Поломка не указана")}</p>
           <p class="diag-owner-meta muted">${escapeHtml([item.category, item.severity].filter(Boolean).join(" · ") || "—")}</p>
@@ -2363,8 +2367,97 @@ function openDiagnosticOverlay() {
   if (!state.diagnosticStartedAt) {
     state.diagnosticStartedAt = Date.now();
   }
+  const viewPanel = document.getElementById("diagnostic-view-panel");
+  const wizard = document.getElementById("diagnostic-quick-wizard");
+  if (viewPanel) viewPanel.classList.add("hidden");
+  if (wizard) wizard.classList.remove("hidden");
   diagnosticOverlay.classList.remove("hidden");
   syncDiagnosticWizard();
+}
+
+async function openDiagnosticViewForOwner(item) {
+  if (!diagnosticOverlay) return;
+  const viewPanel = document.getElementById("diagnostic-view-panel");
+  const wizard = document.getElementById("diagnostic-quick-wizard");
+  const diagForm = document.getElementById("diagnostic-form");
+  if (!viewPanel) return;
+
+  // Switch to view mode
+  if (wizard) wizard.classList.add("hidden");
+  if (diagForm) diagForm.classList.add("hidden");
+  viewPanel.classList.remove("hidden");
+
+  const dateLabel = item.date
+    ? new Date(item.date).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+    : "—";
+  const timeLabel = item.diagnostic_minutes ? `${item.diagnostic_minutes} мин` : null;
+
+  // Update modal title
+  if (diagnosticModalTitle) diagnosticModalTitle.textContent = `Байк ${escapeHtml(item.bike || "—")}`;
+
+  viewPanel.innerHTML = `
+    <div class="diag-view-rows">
+      <div class="diag-view-row">
+        <span class="diag-view-label">Байк</span>
+        <span class="diag-view-value">${escapeHtml(item.bike || "—")}</span>
+      </div>
+      <div class="diag-view-row">
+        <span class="diag-view-label">Узел / категория</span>
+        <span class="diag-view-value">${escapeHtml(item.category || "—")}</span>
+      </div>
+      <div class="diag-view-row">
+        <span class="diag-view-label">Поломка</span>
+        <span class="diag-view-value">${escapeHtml(item.fault || "—")}</span>
+      </div>
+      <div class="diag-view-row">
+        <span class="diag-view-label">Критичность</span>
+        <span class="diag-view-value">${escapeHtml(item.severity || "—")}</span>
+      </div>
+      <div class="diag-view-row">
+        <span class="diag-view-label">Механик</span>
+        <span class="diag-view-value">${escapeHtml(item.mechanic_name || "—")}</span>
+      </div>
+      <div class="diag-view-row">
+        <span class="diag-view-label">Дата</span>
+        <span class="diag-view-value">${escapeHtml(dateLabel)}${timeLabel ? ` · ⏱ ${timeLabel}` : ""}</span>
+      </div>
+      ${item.recommendation ? `
+      <div class="diag-view-row">
+        <span class="diag-view-label">Решение</span>
+        <span class="diag-view-value">${escapeHtml(item.recommendation)}</span>
+      </div>` : ""}
+    </div>
+    <div class="diag-view-photos-section">
+      <div class="diag-view-photos-title">Фотоконтроль</div>
+      <div id="diag-view-photos" class="diag-view-photos-grid">
+        <span class="muted" style="font-size:0.85rem">Загрузка фото…</span>
+      </div>
+    </div>
+  `;
+
+  diagnosticOverlay.classList.remove("hidden");
+
+  // Fetch photos
+  try {
+    const data = await api(`/api/diagnostics/${item.id}/photos`);
+    const photosEl = document.getElementById("diag-view-photos");
+    if (!photosEl) return;
+    const photos = data?.photos || [];
+    if (!photos.length) {
+      photosEl.innerHTML = '<span class="muted" style="font-size:0.85rem">Фотографии не прикреплены</span>';
+    } else {
+      photosEl.innerHTML = photos
+        .map((p) => `
+          <div class="diag-view-photo-thumb">
+            <img src="${p.photoData}" alt="Фотоконтроль" loading="lazy" />
+          </div>
+        `)
+        .join("");
+    }
+  } catch {
+    const photosEl = document.getElementById("diag-view-photos");
+    if (photosEl) photosEl.innerHTML = '<span class="muted" style="font-size:0.85rem">Не удалось загрузить фото</span>';
+  }
 }
 
 function renderMetrics() {
@@ -4100,6 +4193,11 @@ openDiagnosticModalButton?.addEventListener("click", () => {
 
 closeDiagnosticModalButton?.addEventListener("click", () => {
   diagnosticOverlay.classList.add("hidden");
+  const viewPanel = document.getElementById("diagnostic-view-panel");
+  const wizard = document.getElementById("diagnostic-quick-wizard");
+  if (viewPanel) { viewPanel.classList.add("hidden"); viewPanel.innerHTML = ""; }
+  if (wizard) wizard.classList.remove("hidden");
+  if (diagnosticModalTitle) diagnosticModalTitle.textContent = "Новая диагностика";
   resetDiagnosticFlow();
 });
 closeWorkOrderModalButton?.addEventListener("click", () => {
@@ -4840,6 +4938,13 @@ document.addEventListener("click", async (event) => {
     } catch {
       // Ошибка уже показана через notifyError в api()
     }
+  }
+
+  if (action === "view-diagnostic") {
+    const item = (state.diagnostics || []).find((entry) => String(entry.id) === id);
+    if (!item) return;
+    openDiagnosticViewForOwner(item);
+    return;
   }
 
   if (action === "edit-diagnostic") {
