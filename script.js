@@ -3749,6 +3749,14 @@ async function doLogout() {
 
 logoutButton.addEventListener("click", doLogout);
 
+document.getElementById("profile-logout-btn")?.addEventListener("click", doLogout);
+document.getElementById("profile-switch-account-btn")?.addEventListener("click", async () => {
+  await doLogout();
+  setTimeout(() => {
+    document.getElementById("login-username")?.focus();
+  }, 100);
+});
+
 document.getElementById("switch-account-button")?.addEventListener("click", async () => {
   await doLogout();
   // Focus the login username field for quick re-login

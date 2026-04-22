@@ -2389,6 +2389,33 @@ body:not(.is-auth-locked) .screen-section {
   margin-top: 12px;
 }
 
+.profile-account-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.profile-switch-btn {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.profile-switch-btn:hover {
+  background: rgba(79, 95, 207, 0.12);
+  color: #a0aaff;
+}
+
+.profile-logout-btn {
+  color: var(--error);
+}
+
+.profile-logout-btn:hover {
+  background: rgba(255, 80, 80, 0.1);
+}
+
 .team-chat-list {
   max-height: 280px;
   overflow: auto;
