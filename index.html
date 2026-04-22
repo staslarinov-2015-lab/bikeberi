@@ -259,7 +259,15 @@
 
         <section id="section-repairs" class="screen-section hidden">
           <section class="content-card">
-            <div id="queue-filter-chips" class="status-toolbar queue-filter-toolbar"></div>
+            <div class="queue-toolbar-row">
+              <div id="queue-filter-chips" class="status-toolbar queue-filter-toolbar"></div>
+              <select id="queue-sort-select" class="queue-sort-select" aria-label="Сортировка">
+                <option value="default">По умолчанию</option>
+                <option value="date_asc">По дате диагностики ↑</option>
+                <option value="bike_asc">По номеру байка ↑</option>
+                <option value="complexity">По сложности</option>
+              </select>
+            </div>
             <h3 class="panel-title block-title">В работе</h3>
             <div id="active-repair-board" class="stack-list"></div>
 

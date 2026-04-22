@@ -9,6 +9,7 @@ const state = {
   bikeSearch: "",
   bikeStatusFilter: "all",
   queueFilter: "all",
+  queueSort: "default",
   inventorySearch: "",
   inventoryActiveGroup: "",
   teamChat: [],
@@ -321,6 +322,35 @@ function matchesQueueFilter(order) {
   if (f === "waiting_parts") return order.status === "ждет запчасти" || (order.missing_parts?.length > 0);
   if (f === "complex") return getOrderComplexityTone(order) === "is-red";
   return true;
+}
+
+function extractBikeNumber(code) {
+  const m = String(code || "").match(/\d+/);
+  return m ? parseInt(m[0], 10) : 0;
+}
+
+const COMPLEXITY_RANK = { "is-red": 0, "is-yellow": 1, "is-green": 2 };
+
+function sortOrders(orders) {
+  const sort = state.queueSort || "default";
+  if (sort === "default") return orders;
+  const arr = [...orders];
+  if (sort === "date_asc") {
+    arr.sort((a, b) => {
+      const ta = new Date(a.intake_date || a.created_at || 0).getTime();
+      const tb = new Date(b.intake_date || b.created_at || 0).getTime();
+      return ta - tb;
+    });
+  } else if (sort === "bike_asc") {
+    arr.sort((a, b) => extractBikeNumber(a.bike_code) - extractBikeNumber(b.bike_code));
+  } else if (sort === "complexity") {
+    arr.sort((a, b) => {
+      const ra = COMPLEXITY_RANK[getOrderComplexityTone(a)] ?? 3;
+      const rb = COMPLEXITY_RANK[getOrderComplexityTone(b)] ?? 3;
+      return ra - rb;
+    });
+  }
+  return arr;
 }
 
 function applyDiagnosticFaultSuggestions(category, faultResolved) {
@@ -3185,6 +3215,10 @@ function renderBikes() {
 
 function renderQueueFilterToolbar() {
   if (!queueFilterChipsEl) return;
+  // Sync sort select value
+  const sortSelect = document.getElementById("queue-sort-select");
+  if (sortSelect) sortSelect.value = state.queueSort || "default";
+
   const orders = state.workOrders || [];
   const counts = {
     all: orders.length,
@@ -3223,7 +3257,7 @@ function renderWorkOrders() {
   if (!workOrdersBoard || !activeRepairBoard) return;
   const canManage = getRole() === "mechanic";
   renderQueueFilterToolbar();
-  const filtered = (state.workOrders || []).filter(matchesQueueFilter);
+  const filtered = sortOrders((state.workOrders || []).filter(matchesQueueFilter));
   const activeOrders = filtered.filter((order) => order.status === "в ремонте");
   const queueOrders = filtered.filter((order) => order.status !== "в ремонте");
 
@@ -4904,6 +4938,8 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  // queue sort select is handled via 'change' event below
+
   const bikeChip = event.target.closest("[data-bike-status-filter]");
   if (bikeChip) {
     state.bikeStatusFilter = bikeChip.dataset.bikeStatusFilter;
@@ -5556,6 +5592,12 @@ document.addEventListener("change", async (event) => {
   }
   input.value = "";
   renderPhotoPreview();
+});
+
+// Queue sort select
+document.getElementById("queue-sort-select")?.addEventListener("change", (event) => {
+  state.queueSort = event.target.value || "default";
+  renderWorkOrders();
 });
 
 // Handover photo capture — delegated
