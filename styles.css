@@ -2325,7 +2325,7 @@ body:not(.is-auth-locked) .screen-section {
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 140;
   display: grid;
   place-items: center;
   padding: 20px;

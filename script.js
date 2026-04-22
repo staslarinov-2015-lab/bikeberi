@@ -1631,7 +1631,7 @@ function getQuickInventoryGroupedOptions() {
 
 function getQuickRecommendation() {
   if (state.diagnosticQuickFlow.criticality === "Можно ездить") {
-    return "Можно ездить: требуемые запчасти автоматически добавлены в заказ.";
+    return "Можно ездить: мастер вручную выбирает нужные запчасти.";
   }
   if (state.diagnosticQuickFlow.criticality === "Нужен ремонт") {
     return "Нужен ремонт: проверяем наличие выбранных запчастей на складе.";
@@ -3092,10 +3092,6 @@ diagnosticQuickOptions?.addEventListener("click", (event) => {
     if (cfg.key === "fault") {
       state.diagnosticQuickFlow.selectedParts = [];
       state.diagnosticQuickFlow.selectedPartsCategory = "";
-    }
-    if (cfg.key === "criticality" && value === "Можно ездить") {
-      const defaults = getQuickDefaultPartsByFault();
-      state.diagnosticQuickFlow.selectedParts = Array.from(new Set([...(state.diagnosticQuickFlow.selectedParts || []), ...defaults]));
     }
   }
   showDiagnosticQuickErrors([]);
