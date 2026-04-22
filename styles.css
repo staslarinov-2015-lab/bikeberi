@@ -3560,6 +3560,101 @@ textarea:focus-visible {
   display: block;
 }
 
+/* ─── HANDOVER PHOTO CONTROL (issue checklist) ─────────────────────────────── */
+
+.handover-photo-group {
+  margin-top: 16px;
+  border-color: var(--accent);
+}
+
+.handover-photo-hint {
+  font-size: 0.8rem;
+  margin-bottom: 10px;
+}
+
+.handover-photo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.handover-photo-slot {
+  border-radius: 14px;
+  border: 2px dashed var(--border);
+  background: var(--surface-elevated);
+  aspect-ratio: 4/3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  overflow: hidden;
+  position: relative;
+}
+
+.handover-photo-slot:active {
+  transform: scale(0.97);
+}
+
+.handover-photo-slot.has-photo {
+  border-style: solid;
+  border-color: var(--accent);
+}
+
+.handover-photo-slot svg {
+  color: var(--muted);
+}
+
+.handover-photo-slot.has-photo svg {
+  display: none;
+}
+
+.handover-photo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.handover-photo-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+  position: relative;
+  z-index: 1;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.handover-photo-slot.has-photo .handover-photo-label {
+  color: var(--accent);
+  background: rgba(255, 255, 255, 0.9);
+  position: absolute;
+  bottom: 6px;
+}
+
+/* Handover thumb label in repair card */
+.handover-thumb-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.wo-handover-photos {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+}
+
 .diagnostic-mini-meta {
   font-size: 0.76rem;
   margin-top: 2px;

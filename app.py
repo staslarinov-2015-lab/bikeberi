@@ -1178,6 +1178,14 @@ def init_db():
             created_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS handover_photos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            work_order_id INTEGER NOT NULL,
+            side TEXT NOT NULL,
+            photo_data TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS repair_templates (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -1888,9 +1896,15 @@ def fetch_bootstrap_payload(user):
     }
     for d in diagnostics:
         d["photos_count"] = diag_photo_counts.get(d["id"], 0)
-    # Add actual_minutes to work orders
+    # Add handover_photos_count to each work order
+    handover_photo_counts = {
+        row["work_order_id"]: row["cnt"]
+        for row in conn.execute(
+            "SELECT work_order_id, COUNT(*) AS cnt FROM handover_photos GROUP BY work_order_id"
+        ).fetchall()
+    }
     for wo in work_orders:
-        pass  # actual_minutes already included via hydrate_work_orders column list
+        wo["handover_photos_count"] = handover_photo_counts.get(wo["id"], 0)
     owner_notifications = []
     for order in work_orders:
         for missing in order.get("missing_parts", []):
@@ -2031,6 +2045,22 @@ class AppHandler(BaseHTTPRequestHandler):
             diagnostic_id = parsed.path.split("/")[3]
             conn = get_db()
             photos = fetch_diagnostic_photos(conn, int(diagnostic_id))
+            conn.close()
+            return json_response(self, 200, {"photos": photos})
+
+        if parsed.path.startswith("/api/work-orders/") and parsed.path.endswith("/handover-photos"):
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            work_order_id = parsed.path.split("/")[3]
+            conn = get_db()
+            photos = [
+                {"id": row["id"], "side": row["side"], "photoData": row["photo_data"], "createdAt": row["created_at"]}
+                for row in conn.execute(
+                    "SELECT id, side, photo_data, created_at FROM handover_photos WHERE work_order_id = ? ORDER BY id",
+                    (work_order_id,),
+                ).fetchall()
+            ]
             conn.close()
             return json_response(self, 200, {"photos": photos})
 
@@ -2587,6 +2617,34 @@ class AppHandler(BaseHTTPRequestHandler):
             conn.execute(
                 "INSERT INTO diagnostic_photos (diagnostic_id, photo_data, created_at) VALUES (?, ?, ?)",
                 (diagnostic_id, photo_data, utc_now().isoformat()),
+            )
+            conn.commit()
+            conn.close()
+            return json_response(self, 201, {"ok": True})
+
+        if parsed.path.startswith("/api/work-orders/") and parsed.path.endswith("/handover-photos"):
+            user = require_role(self, {"mechanic"})
+            if not user:
+                return
+            work_order_id = parsed.path.split("/")[3]
+            payload = read_json(self)
+            side = str(payload.get("side", "")).strip()
+            photo_data = str(payload.get("photoData", "")).strip()
+            if side not in ("front", "left", "right", "back"):
+                return json_response(self, 400, {"error": "Неверная сторона (front/left/right/back)"})
+            if not photo_data or not photo_data.startswith("data:image/"):
+                return json_response(self, 400, {"error": "Некорректные данные фото"})
+            if len(photo_data) > 3_000_000:
+                return json_response(self, 400, {"error": "Фото слишком большое (макс. 2 МБ)"})
+            conn = get_db()
+            # Upsert: replace existing photo for this side
+            conn.execute(
+                "DELETE FROM handover_photos WHERE work_order_id = ? AND side = ?",
+                (work_order_id, side),
+            )
+            conn.execute(
+                "INSERT INTO handover_photos (work_order_id, side, photo_data, created_at) VALUES (?, ?, ?, ?)",
+                (work_order_id, side, photo_data, utc_now().isoformat()),
             )
             conn.commit()
             conn.close()

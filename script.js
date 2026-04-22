@@ -29,6 +29,7 @@ const state = {
     checked: {},
     completedAt: "",
     pendingWorkOrderId: "",
+    handoverPhotos: { front: null, left: null, right: null, back: null },
   },
   repairDraftFromDiagnostic: null,
   diagnosticFlow: {
@@ -676,6 +677,7 @@ function resetIssueChecklistDraft() {
     checked: {},
     completedAt: "",
     pendingWorkOrderId: "",
+    handoverPhotos: { front: null, left: null, right: null, back: null },
   };
   saveIssueChecklistDraft();
   renderIssueChecklist();
@@ -688,6 +690,7 @@ function startIssueChecklistForOrder(order) {
     checked: {},
     completedAt: "",
     pendingWorkOrderId: String(order.id || ""),
+    handoverPhotos: { front: null, left: null, right: null, back: null },
   };
   saveIssueChecklistDraft();
   state.activeSection = "issue-checklist";
@@ -716,9 +719,14 @@ function renderIssueChecklist() {
   if (issueChecklistProgressBar) {
     issueChecklistProgressBar.style.width = `${percent}%`;
   }
+  const photos = state.issueChecklist.handoverPhotos || {};
+  const photosDone = ["front", "left", "right", "back"].filter((s) => photos[s]).length;
+  const allPhotosDone = photosDone === 4;
+  const canConfirm = isComplete && hasPending && allPhotosDone;
+
   if (issueChecklistStatus) {
-    issueChecklistStatus.className = `issue-checklist-status ${isComplete && hasPending ? "is-ready" : "is-blocked"}`;
-    issueChecklistStatus.disabled = !isComplete || !hasPending;
+    issueChecklistStatus.className = `issue-checklist-status ${canConfirm ? "is-ready" : "is-blocked"}`;
+    issueChecklistStatus.disabled = !canConfirm;
     issueChecklistStatus.textContent = state.issueChecklist.completedAt
       ? "Выдача подтверждена"
       : hasPending
@@ -730,6 +738,39 @@ function renderIssueChecklist() {
       ? `Завершено: ${state.issueChecklist.completedAt}`
       : "";
   }
+
+  const HANDOVER_SIDES = [
+    { key: "front", label: "Спереди" },
+    { key: "left",  label: "Слева" },
+    { key: "right", label: "Справа" },
+    { key: "back",  label: "Сзади" },
+  ];
+
+  const photoGridHtml = `
+    <fieldset class="issue-checklist-group handover-photo-group">
+      <legend>📷 Фотоконтроль выдачи (обязательно)</legend>
+      <p class="handover-photo-hint muted">Сделай фото байка с 4 сторон перед выдачей</p>
+      <div class="handover-photo-grid">
+        ${HANDOVER_SIDES.map(({ key, label }) => {
+          const dataUrl = photos[key];
+          return `
+            <div class="handover-photo-slot ${dataUrl ? "has-photo" : ""}" data-side="${key}">
+              ${dataUrl
+                ? `<img src="${dataUrl}" alt="${label}" class="handover-photo-img" />`
+                : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`
+              }
+              <label class="handover-photo-label" for="handover-photo-${key}">${label}${dataUrl ? " ✓" : ""}</label>
+              <input type="file" id="handover-photo-${key}" accept="image/*" capture="environment"
+                class="handover-photo-input" data-side="${key}" style="display:none" />
+            </div>
+          `;
+        }).join("")}
+      </div>
+      <p class="handover-photo-status muted" style="margin-top:8px;font-size:0.8rem">
+        ${allPhotosDone ? "✅ Все фото сделаны" : `Осталось: ${4 - photosDone} из 4`}
+      </p>
+    </fieldset>
+  `;
 
   issueChecklistGroups.innerHTML = ISSUE_CHECKLIST.map(
     (group, groupIndex) => `
@@ -750,7 +791,15 @@ function renderIssueChecklist() {
         </div>
       </fieldset>
     `
-  ).join("");
+  ).join("") + photoGridHtml;
+
+  // Attach click handlers for photo slots (delegated via document)
+  issueChecklistGroups.querySelectorAll(".handover-photo-slot").forEach((slot) => {
+    slot.addEventListener("click", () => {
+      const input = slot.querySelector(".handover-photo-input");
+      if (input) input.click();
+    });
+  });
 }
 
 async function api(path, options = {}) {
@@ -1085,6 +1134,34 @@ function openWorkOrderDetail(order) {
   }
 
   workOrderOverlay.classList.remove("hidden");
+
+  // Load handover photos if the order is "готов" (completed)
+  const handoverBlock = document.getElementById("work-order-handover-photos");
+  const handoverGrid = document.getElementById("work-order-handover-photos-grid");
+  if (handoverBlock && handoverGrid) {
+    if (order.status === "готов" && order.handover_photos_count > 0) {
+      handoverBlock.classList.remove("hidden");
+      handoverGrid.innerHTML = '<span class="muted" style="font-size:0.82rem">Загрузка фото…</span>';
+      api(`/api/work-orders/${order.id}/handover-photos`).then((data) => {
+        const SIDE_LABELS = { front: "Спереди", left: "Слева", right: "Справа", back: "Сзади" };
+        const photos = data?.photos || [];
+        if (!photos.length) {
+          handoverGrid.innerHTML = '<span class="muted" style="font-size:0.82rem">Нет фото</span>';
+        } else {
+          handoverGrid.innerHTML = photos.map((p) => `
+            <div class="diag-view-photo-thumb">
+              <img src="${p.photoData}" alt="${SIDE_LABELS[p.side] || p.side}" loading="lazy" />
+              <div class="handover-thumb-label">${escapeHtml(SIDE_LABELS[p.side] || p.side)}</div>
+            </div>
+          `).join("");
+        }
+      }).catch(() => {
+        handoverGrid.innerHTML = '<span class="muted" style="font-size:0.82rem">Ошибка загрузки фото</span>';
+      });
+    } else {
+      handoverBlock.classList.add("hidden");
+    }
+  }
 }
 
 function getDashboardJumpPayload(jump) {
@@ -4415,10 +4492,24 @@ issueChecklistForm?.addEventListener("change", (event) => {
 issueChecklistStatus?.addEventListener("click", async () => {
   const items = getIssueChecklistItems();
   const isComplete = items.every((item) => Boolean(state.issueChecklist.checked[item.id]));
-  if (!isComplete || !state.issueChecklist.pendingWorkOrderId) return;
+  const photos = state.issueChecklist.handoverPhotos || {};
+  const allPhotosDone = ["front", "left", "right", "back"].every((s) => photos[s]);
+  if (!isComplete || !state.issueChecklist.pendingWorkOrderId || !allPhotosDone) return;
 
   try {
-    await api(`/api/work-orders/${state.issueChecklist.pendingWorkOrderId}/transition`, {
+    // Upload 4 handover photos first
+    const orderId = state.issueChecklist.pendingWorkOrderId;
+    for (const side of ["front", "left", "right", "back"]) {
+      if (photos[side]) {
+        await api(`/api/work-orders/${orderId}/handover-photos`, {
+          method: "POST",
+          body: JSON.stringify({ side, photoData: photos[side] }),
+          notifyError: true,
+        });
+      }
+    }
+
+    await api(`/api/work-orders/${orderId}/transition`, {
       method: "POST",
       body: JSON.stringify({ action: "complete_checklist" }),
       notifyError: true,
@@ -5465,6 +5556,26 @@ document.addEventListener("change", async (event) => {
   }
   input.value = "";
   renderPhotoPreview();
+});
+
+// Handover photo capture — delegated
+document.addEventListener("change", async (event) => {
+  const input = event.target.closest(".handover-photo-input");
+  if (!input) return;
+  const side = input.dataset.side;
+  if (!side) return;
+  const file = input.files?.[0];
+  if (!file) return;
+  const dataUrl = await resizePhotoToBase64(file);
+  if (dataUrl) {
+    if (!state.issueChecklist.handoverPhotos) {
+      state.issueChecklist.handoverPhotos = { front: null, left: null, right: null, back: null };
+    }
+    state.issueChecklist.handoverPhotos[side] = dataUrl;
+    saveIssueChecklistDraft();
+    renderIssueChecklist();
+  }
+  input.value = "";
 });
 
 // Save as template after diagnostic submit
