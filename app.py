@@ -318,6 +318,18 @@ def safe_int_setting(settings: dict, key: str, default: int) -> int:
         return default
 
 
+def safe_int(value, default: int = 0) -> int:
+    """SQLite / bad data: NULL or text must not crash int()."""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return int(value)
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def json_response(handler, status, payload, extra_headers=None):
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     handler.send_response(status)
@@ -1511,7 +1523,10 @@ def get_current_user(handler):
     raw_cookie = handler.headers.get("Cookie")
     if raw_cookie:
         jar = cookies.SimpleCookie()
-        jar.load(raw_cookie)
+        try:
+            jar.load(raw_cookie)
+        except Exception:
+            return None
         morsel = jar.get(SESSION_COOKIE)
         if morsel:
             token = unsign_token(morsel.value)
@@ -1552,13 +1567,27 @@ def create_session(user_id):
     return sign_token(raw_token), expires_at
 
 
-def build_cookie(token="", expires_at=None, delete=False):
+def _request_is_https(handler) -> bool:
+    """Render / reverse proxies: session cookie must be Secure on HTTPS in the browser."""
+    if handler is None:
+        return False
+    h = handler.headers
+    if (h.get("X-Forwarded-Proto") or "").lower() == "https":
+        return True
+    if (h.get("X-Forwarded-Ssl") or "").lower() == "on":
+        return True
+    if (h.get("X-Forwarded-Port") or "").strip() == "443":
+        return True
+    return False
+
+
+def build_cookie(token="", expires_at=None, delete=False, *, handler=None):
     cookie = cookies.SimpleCookie()
     cookie[SESSION_COOKIE] = token
     cookie[SESSION_COOKIE]["path"] = "/"
     cookie[SESSION_COOKIE]["httponly"] = True
     cookie[SESSION_COOKIE]["samesite"] = "Lax"
-    if COOKIE_SECURE:
+    if COOKIE_SECURE or _request_is_https(handler):
         cookie[SESSION_COOKIE]["secure"] = True
     if delete:
         cookie[SESSION_COOKIE]["max-age"] = 0
@@ -1819,12 +1848,12 @@ def hydrate_work_orders(conn):
         missing_parts = [
             {
                 "name": part["part_name"],
-                "required": int(part["qty_required"]),
-                "reserved": int(part["qty_reserved"] or 0),
-                "missing": int(part["qty_required"]) - int(part["qty_reserved"] or 0),
+                "required": safe_int(part.get("qty_required"), 0),
+                "reserved": safe_int(part.get("qty_reserved"), 0),
+                "missing": safe_int(part.get("qty_required"), 0) - safe_int(part.get("qty_reserved"), 0),
             }
             for part in parts
-            if int(part["qty_reserved"] or 0) < int(part["qty_required"])
+            if safe_int(part.get("qty_reserved"), 0) < safe_int(part.get("qty_required"), 0)
         ]
         order["parts"] = parts
         order["history"] = history
@@ -1854,8 +1883,14 @@ def fetch_bootstrap_payload(user):
         "SELECT id, name, stock, min, reserved, category FROM inventory ORDER BY name COLLATE NOCASE ASC"
     ).fetchall():
         item = dict(row)
-        item["available"] = max(int(item["stock"]) - int(item["reserved"] or 0), 0)
-        item["need_to_order"] = item["available"] <= item["min"]
+        st = safe_int(item.get("stock"), 0)
+        rs = safe_int(item.get("reserved"), 0)
+        mn = safe_int(item.get("min"), 0)
+        item["stock"] = st
+        item["reserved"] = rs
+        item["min"] = mn
+        item["available"] = max(st - rs, 0)
+        item["need_to_order"] = item["available"] <= mn
         inventory.append(item)
     bikes = [
         dict(row)
@@ -2058,7 +2093,16 @@ class AppHandler(BaseHTTPRequestHandler):
             user = require_auth(self)
             if not user:
                 return
-            return json_response(self, 200, fetch_bootstrap_payload(user))
+            try:
+                payload = fetch_bootstrap_payload(user)
+            except Exception as exc:  # noqa: BLE001
+                print(f"[bootstrap] {type(exc).__name__}: {exc}", flush=True)
+                return json_response(
+                    self,
+                    500,
+                    {"error": "Ошибка загрузки данных. Попробуйте обновить страницу."},
+                )
+            return json_response(self, 200, payload)
         if parsed.path == "/api/team-chat":
             user = require_role(self, {"mechanic", "owner"})
             if not user:
@@ -2360,7 +2404,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 self,
                 200,
                 {"user": serialize_user(user_row)},
-                extra_headers=[build_cookie(token, expires_at)],
+                extra_headers=[build_cookie(token, expires_at, handler=self)],
             )
 
         if parsed.path == "/api/logout":
@@ -2378,7 +2422,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 self,
                 200,
                 {"ok": True},
-                extra_headers=[build_cookie(delete=True)],
+                extra_headers=[build_cookie(delete=True, handler=self)],
             )
 
         if parsed.path == "/api/repairs":

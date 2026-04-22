@@ -844,8 +844,9 @@ async function api(path, options = {}) {
         "Content-Type": "application/json",
         ...(fetchOptions.headers || {}),
       },
-      credentials: "same-origin",
       ...fetchOptions,
+      credentials: "include",
+      cache: "no-store",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Сеть недоступна";
@@ -4509,7 +4510,9 @@ document.getElementById("repair-help-btn")?.addEventListener("click", () => {
 
 function render() {
   const isAuthorized = Boolean(state.user);
-  loginOverlay.classList.toggle("hidden", isAuthorized);
+  if (loginOverlay) {
+    loginOverlay.classList.toggle("hidden", isAuthorized);
+  }
   document.body.classList.toggle("is-auth-locked", !isAuthorized);
   if (globalSearch) globalSearch.value = state.search;
   if (statusFilter) statusFilter.value = state.statusFilter;
