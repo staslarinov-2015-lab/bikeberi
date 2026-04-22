@@ -1144,6 +1144,7 @@ def init_db():
     ensure_column(cur, "diagnostics", "category", "TEXT")
     ensure_column(cur, "diagnostics", "fault", "TEXT")
     ensure_column(cur, "diagnostics", "severity", "TEXT")
+    ensure_column(cur, "diagnostics", "diagnostic_minutes", "INTEGER")
     ensure_column(cur, "bikes", "notes", "TEXT")
     ensure_column(cur, "bikes", "last_service_at", "TEXT")
     ensure_column(cur, "work_orders", "required_parts_text", "TEXT NOT NULL DEFAULT '-'")
@@ -1303,7 +1304,7 @@ def init_db():
     work_orders_count = cur.execute("SELECT COUNT(*) FROM work_orders").fetchone()[0]
     if work_orders_count == 0:
         diagnostics_rows = cur.execute(
-            "SELECT id, date, bike, mechanic_name, category, fault, conclusion, recommendation FROM diagnostics ORDER BY id ASC"
+            "SELECT id, date, bike, mechanic_name, category, fault, severity, conclusion, recommendation, diagnostic_minutes FROM diagnostics ORDER BY id ASC"
         ).fetchall()
         for diagnostic in diagnostics_rows:
             bike_id = cur.execute("SELECT id FROM bikes WHERE code = ?", (diagnostic["bike"],)).fetchone()["id"]
@@ -2382,11 +2383,12 @@ class AppHandler(BaseHTTPRequestHandler):
             except ValueError as error:
                 return json_response(self, 400, {"error": str(error)})
 
+            diagnostic_minutes = max(0, int(payload.get("diagnosticMinutes", 0) or 0))
             conn = get_db()
             cursor = conn.execute(
                 """
-                INSERT INTO diagnostics (date, bike, mechanic_name, category, fault, symptoms, conclusion, severity, recommendation, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO diagnostics (date, bike, mechanic_name, category, fault, symptoms, conclusion, severity, recommendation, diagnostic_minutes, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     str(payload["date"]).strip(),
@@ -2398,6 +2400,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     str(payload["conclusion"]).strip(),
                     str(payload["severity"]).strip(),
                     str(payload["recommendation"]).strip(),
+                    diagnostic_minutes,
                     utc_now().isoformat(),
                 ),
             )

@@ -70,9 +70,9 @@
           <button class="nav-link" type="button" data-section="bikes">Парк</button>
           <button class="nav-link" type="button" data-section="diagnostics">Диагностика</button>
           <button class="nav-link" type="button" data-section="inventory">Склад</button>
-          <button class="nav-link" type="button" data-section="issue-checklist">Выдача</button>
+          <button class="nav-link mechanic-only" type="button" data-section="issue-checklist">Выдача</button>
           <button class="nav-link owner-only" type="button" data-section="owner">Показатели</button>
-          <button class="nav-link" type="button" data-section="knowledge-base">Учебник</button>
+          <button class="nav-link mechanic-only" type="button" data-section="knowledge-base">Учебник</button>
         </nav>
 
         <div class="sidebar-footer">
@@ -264,7 +264,7 @@
             <div class="workspace-toolbar">
               <h3 class="panel-title toolbar-title">Диагностика</h3>
               <div class="toolbar-right">
-                <button id="open-diagnostic-modal" class="primary-btn" type="button">Начать диагностику</button>
+                <button id="open-diagnostic-modal" class="primary-btn mechanic-only" type="button">Начать диагностику</button>
               </div>
             </div>
             <div id="diagnostics-grid" class="diagnostics-grid"></div>
@@ -439,7 +439,7 @@
         </span>
         <span class="mobile-tab-label">Очередь</span>
       </button>
-      <button id="quick-diagnostic-tab" class="mobile-tab mobile-tab-cta" type="button" data-action="start-diagnostic" aria-label="Начать диагностику">
+      <button id="quick-diagnostic-tab" class="mobile-tab mobile-tab-cta mechanic-only" type="button" data-action="start-diagnostic" aria-label="Начать диагностику">
         <span class="mobile-tab-cta-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
             <path d="M14.7 6.3a3.5 3.5 0 0 0-4.9 4.9l-5.4 5.4a1.2 1.2 0 1 0 1.7 1.7l5.4-5.4a3.5 3.5 0 0 0 4.9-4.9l-2.2 2.2-2.7-2.7z" />
@@ -457,7 +457,7 @@
         </span>
         <span class="mobile-tab-label">Склад</span>
       </button>
-      <button class="mobile-tab" type="button" data-section="knowledge-base" aria-label="Учебник">
+      <button class="mobile-tab mechanic-only" type="button" data-section="knowledge-base" aria-label="Учебник">
         <span class="mobile-tab-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
@@ -586,7 +586,7 @@
           </article>
         </div>
 
-        <div id="repair-timer-block" class="repair-timer-block hidden">
+        <div id="repair-timer-block" class="repair-timer-block hidden mechanic-only">
           <div class="repair-timer-header">
             <span class="repair-timer-label">⏱ Таймер ремонта</span>
             <span class="repair-timer-actual hidden"></span>
@@ -602,7 +602,7 @@
           </div>
         </div>
 
-        <div id="pause-repair-block" class="pause-repair-block hidden">
+        <div id="pause-repair-block" class="pause-repair-block hidden mechanic-only">
           <button class="work-order-resume-btn" type="button" data-action="resume-repair-btn">
             ▶ Возобновить ремонт
           </button>

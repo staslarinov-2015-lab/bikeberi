@@ -49,6 +49,7 @@ const state = {
   },
   repairTemplates: [],
   repairTimerInterval: null,
+  diagnosticStartedAt: null,
 };
 
 const repairDeadlineNotifications = new Set();
@@ -1471,21 +1472,46 @@ function renderMechanicDayFocus() {
 
 function renderDiagnosticsTable() {
   if (!diagnosticsGrid) return;
-  const canManage = getRole() === "mechanic" || getRole() === "owner";
-  diagnosticsGrid.innerHTML = state.diagnostics
-    .map(
-      (item) => `
-        <article class="diagnostic-mini-card ${canManage ? "is-clickable" : ""}" ${canManage ? `data-action="edit-diagnostic" data-id="${item.id}"` : ""}>
-          <strong class="diagnostic-mini-bike">${escapeHtml(item.bike)}</strong>
-          <p class="muted diagnostic-mini-fault">${escapeHtml(item.fault || "Поломка не указана")}</p>
-        </article>
-      `
-    )
-    .join("");
+  const isMechanic = getRole() === "mechanic";
 
   if (!state.diagnostics.length) {
     diagnosticsGrid.innerHTML = '<article class="inventory-card"><p class="muted">Нет записей.</p></article>';
+    return;
   }
+
+  diagnosticsGrid.innerHTML = state.diagnostics
+    .map((item) => {
+      const timeLabel = item.diagnostic_minutes
+        ? `⏱ ${item.diagnostic_minutes} мин`
+        : "";
+      const dateLabel = item.date
+        ? new Date(item.date).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })
+        : "";
+      const metaLine = [item.mechanic_name, dateLabel, timeLabel].filter(Boolean).join(" · ");
+      if (isMechanic) {
+        return `
+          <article class="diagnostic-mini-card is-clickable" data-action="edit-diagnostic" data-id="${item.id}">
+            <strong class="diagnostic-mini-bike">${escapeHtml(item.bike)}</strong>
+            <p class="muted diagnostic-mini-fault">${escapeHtml(item.fault || "Поломка не указана")}</p>
+            ${metaLine ? `<p class="diagnostic-mini-meta muted">${escapeHtml(metaLine)}</p>` : ""}
+          </article>
+        `;
+      }
+      // Owner: read-only card with full detail
+      return `
+        <article class="diagnostic-mini-card diagnostic-owner-card">
+          <div class="diag-owner-head">
+            <strong class="diagnostic-mini-bike">${escapeHtml(item.bike)}</strong>
+            ${timeLabel ? `<span class="diag-time-badge">${escapeHtml(timeLabel)}</span>` : ""}
+          </div>
+          <p class="diagnostic-mini-fault">${escapeHtml(item.fault || "Поломка не указана")}</p>
+          <p class="diag-owner-meta muted">${escapeHtml([item.category, item.severity].filter(Boolean).join(" · ") || "—")}</p>
+          <p class="diag-owner-mechanic muted">Механик: ${escapeHtml(item.mechanic_name || "—")} · ${escapeHtml(dateLabel)}</p>
+          ${item.recommendation ? `<p class="diag-owner-rec">Решение: ${escapeHtml(item.recommendation)}</p>` : ""}
+        </article>
+      `;
+    })
+    .join("");
 }
 
 function renderDiagnosticCategoryGrid() {
@@ -2104,7 +2130,9 @@ function resetDiagnosticFlow() {
     selectedPartsCategory: "",
     decision: "",
     queueReason: "",
+    photos: [],
   };
+  state.diagnosticStartedAt = null;
   diagnosticForm.reset();
   resetBikeCodeValue("diagnostic");
   delete diagnosticForm.dataset.editId;
@@ -2143,6 +2171,10 @@ function closeAllModals() {
 }
 
 function openDiagnosticOverlay() {
+  // Track when diagnostic was started (for duration calculation on save)
+  if (!state.diagnosticStartedAt) {
+    state.diagnosticStartedAt = Date.now();
+  }
   diagnosticOverlay.classList.remove("hidden");
   syncDiagnosticWizard();
 }
@@ -2444,7 +2476,7 @@ function renderAlerts() {
 function renderRepairsTable() {
   if (!repairsTable) return;
   const rows = getFilteredRepairs();
-  const canManage = getRole() === "mechanic" || getRole() === "owner";
+  const canManage = getRole() === "mechanic";
 
   repairsTable.innerHTML = rows
     .map(
@@ -2559,7 +2591,7 @@ function getInventoryGroupForName(rawName) {
 }
 
 function renderInventory() {
-  const canManage = getRole() === "mechanic" || getRole() === "owner";
+  const canManage = getRole() === "mechanic";
   if (inventorySearchInput) {
     inventorySearchInput.value = state.inventorySearch || "";
   }
@@ -2743,7 +2775,7 @@ function getFilteredBikes() {
 
 function renderBikes() {
   if (!bikesTable) return;
-  const canManage = getRole() === "mechanic" || getRole() === "owner";
+  const canManage = getRole() === "mechanic";
   renderBikeFilterChips();
   if (bikeSearchInput) bikeSearchInput.value = state.bikeSearch || "";
 
@@ -2817,7 +2849,7 @@ function staleActiveCardClass(order) {
 
 function renderWorkOrders() {
   if (!workOrdersBoard || !activeRepairBoard) return;
-  const canManage = getRole() === "mechanic" || getRole() === "owner";
+  const canManage = getRole() === "mechanic";
   renderQueueFilterToolbar();
   const filtered = (state.workOrders || []).filter(matchesQueueFilter);
   const activeOrders = filtered.filter((order) => order.status === "в ремонте");
@@ -4277,6 +4309,10 @@ diagnosticForm.addEventListener("submit", async (event) => {
   }
 
   try {
+    const diagMinutes = state.diagnosticStartedAt && !editingId
+      ? Math.max(1, Math.round((Date.now() - state.diagnosticStartedAt) / 60000))
+      : 0;
+
     const response = await api(editingId ? `/api/diagnostics/${editingId}` : "/api/diagnostics", {
       method: editingId ? "PUT" : "POST",
       body: JSON.stringify({
@@ -4293,6 +4329,7 @@ diagnosticForm.addEventListener("submit", async (event) => {
             ? `Поставить в очередь: ${String(state.diagnosticQuickFlow.queueReason || "").trim()}`
             : "Взять в ремонт",
         required_parts_text: String(formData.get("requiredParts")).trim(),
+        diagnosticMinutes: diagMinutes,
       }),
       notifyError: true,
     });

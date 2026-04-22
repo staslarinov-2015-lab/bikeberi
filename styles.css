@@ -3182,6 +3182,59 @@ textarea:focus-visible {
   }
 }
 
+/* ─── OWNER DIAGNOSTIC VIEW ────────────────────────────────────────────────── */
+
+.diagnostic-owner-card {
+  padding: 14px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.diag-owner-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.diag-time-badge {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-faint);
+  padding: 2px 9px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+
+.diag-owner-meta {
+  font-size: 0.8rem;
+}
+
+.diag-owner-mechanic {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.diag-owner-rec {
+  font-size: 0.82rem;
+  color: var(--text);
+  margin-top: 4px;
+  padding: 5px 10px;
+  background: var(--surface-elevated);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+}
+
+.diagnostic-mini-meta {
+  font-size: 0.76rem;
+  margin-top: 2px;
+}
+
 /* ─── DASHBOARD STATUS ROWS ────────────────────────────────────────────────── */
 
 .status-bars {
