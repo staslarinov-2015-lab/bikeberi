@@ -89,6 +89,52 @@ textarea {
   margin: 0 auto;
 }
 
+/* ─── iOS slide transitions ──────────────────────────────────────────────── */
+
+@keyframes slide-from-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes slide-from-left {
+  from { transform: translateX(-40%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+.screen-section.slide-in-right {
+  animation: slide-from-right 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.screen-section.slide-in-left {
+  animation: slide-from-left 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* ─── Back button ────────────────────────────────────────────────────────── */
+
+.topbar-back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  border-radius: 10px;
+  flex-shrink: 0;
+  padding: 0;
+  transition: background 0.15s ease;
+}
+
+.topbar-back-btn:hover {
+  background: var(--accent-faint);
+}
+
+.topbar-back-btn.hidden {
+  display: none;
+}
+
 /* ——— Sidebar ——— */
 
 .sidebar {

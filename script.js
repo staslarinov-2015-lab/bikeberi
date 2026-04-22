@@ -1,6 +1,7 @@
 const state = {
   user: null,
   activeSection: "overview",
+  navHistory: [],
   search: "",
   statusFilter: "all",
   dashboardPeriod: "today",
@@ -792,6 +793,94 @@ async function api(path, options = {}) {
 function getRole() {
   return state.user?.role || "mechanic";
 }
+
+// ─── iOS-style navigation ─────────────────────────────────────────────────────
+
+const ROOT_SECTIONS = new Set(["overview", "repairs", "inventory", "chat", "owner"]);
+
+function navigateTo(section, { direction = "forward", replace = false } = {}) {
+  const from = state.activeSection;
+  if (from === section) return;
+
+  if (!replace && direction === "forward" && !ROOT_SECTIONS.has(section)) {
+    state.navHistory.push(from);
+  } else if (direction === "back") {
+    // nothing to push — going back
+  } else if (ROOT_SECTIONS.has(section)) {
+    // switching to a root tab — clear history
+    state.navHistory = [];
+  }
+
+  state.activeSection = section;
+  renderSectionHeader();
+  animateSectionTransition(direction);
+  renderSections();
+  updateBackBtn();
+}
+
+function navigateBack() {
+  if (!state.navHistory.length) return;
+  const prev = state.navHistory.pop();
+  navigateTo(prev, { direction: "back" });
+}
+
+function updateBackBtn() {
+  const btn = document.getElementById("topbar-back-btn");
+  const menuToggle = document.getElementById("mobile-menu-toggle");
+  if (!btn) return;
+  const hasHistory = state.navHistory.length > 0;
+  btn.classList.toggle("hidden", !hasHistory);
+  if (menuToggle) menuToggle.classList.toggle("hidden", hasHistory);
+}
+
+function animateSectionTransition(direction) {
+  const activeEl = document.querySelector(`#section-${state.activeSection}`);
+  if (!activeEl) return;
+  const cls = direction === "back" ? "slide-in-left" : "slide-in-right";
+  activeEl.classList.remove("slide-in-left", "slide-in-right");
+  // force reflow
+  void activeEl.offsetWidth;
+  activeEl.classList.add(cls);
+  activeEl.addEventListener("animationend", () => activeEl.classList.remove(cls), { once: true });
+}
+
+// Back button click
+document.getElementById("topbar-back-btn")?.addEventListener("click", navigateBack);
+
+// iOS-style swipe from left edge to go back
+(function initSwipeBack() {
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+
+  document.addEventListener("touchstart", (e) => {
+    const touch = e.touches[0];
+    if (touch.clientX < 30) {
+      startX = touch.clientX;
+      startY = touch.clientY;
+      tracking = true;
+    }
+  }, { passive: true });
+
+  document.addEventListener("touchmove", (e) => {
+    if (!tracking) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - startX;
+    const dy = Math.abs(touch.clientY - startY);
+    // cancel if mostly vertical
+    if (dy > dx) tracking = false;
+  }, { passive: true });
+
+  document.addEventListener("touchend", (e) => {
+    if (!tracking) return;
+    tracking = false;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - startX;
+    if (dx > 70 && state.navHistory.length > 0) {
+      navigateBack();
+    }
+  }, { passive: true });
+})();
 
 function getRoleLabel(role = getRole()) {
   return role === "owner" ? "Управляющий" : "Механик";
@@ -3642,17 +3731,13 @@ function renderKnowledgeBase() {
 // ─── HELP BUTTONS IN MODALS ──────────────────────────────────────────────────
 
 document.getElementById("diagnostic-help-btn")?.addEventListener("click", () => {
-  // Close diagnostic overlay temporarily, go to kb
   document.getElementById("diagnostic-overlay")?.classList.add("hidden");
-  state.activeSection = "knowledge-base";
-  renderSections();
+  navigateTo("knowledge-base");
 });
 
 document.getElementById("repair-help-btn")?.addEventListener("click", () => {
-  // Close repair overlay temporarily, go to kb
   document.getElementById("work-order-overlay")?.classList.add("hidden");
-  state.activeSection = "knowledge-base";
-  renderSections();
+  navigateTo("knowledge-base");
 });
 
 function render() {
@@ -4082,7 +4167,7 @@ refreshButton?.addEventListener("click", async () => {
 document.querySelectorAll(".nav-link").forEach((button) => {
   button.addEventListener("click", () => {
     closeAllModals();
-    state.activeSection = button.dataset.section;
+    navigateTo(button.dataset.section);
     closeMobileMenu();
     render();
   });
@@ -4100,7 +4185,7 @@ document.querySelectorAll(".mobile-tab").forEach((button) => {
       return;
     }
     closeAllModals();
-    state.activeSection = button.dataset.section;
+    navigateTo(button.dataset.section);
     closeMobileMenu();
     render();
   });
