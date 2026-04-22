@@ -534,13 +534,11 @@
 
     <div id="work-order-overlay" class="overlay hidden">
       <div class="modal-card">
-        <div class="modal-head">
-          <div>
-            <h2 id="work-order-modal-title">Ремонт байка</h2>
-          </div>
-          <div style="display:flex;gap:8px;">
-            <button id="repair-help-btn" class="ghost-btn mechanic-only" type="button">Помощь ❓</button>
-            <button id="close-work-order-modal" class="ghost-btn" type="button">Закрыть</button>
+        <div class="modal-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <h2 id="work-order-modal-title" style="margin:0;font-size:1.1rem;font-weight:700;">Ремонт байка</h2>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button id="repair-help-btn" class="wo-help-btn mechanic-only" type="button" title="Помощь в ремонте">?</button>
+            <button id="close-work-order-modal" class="wo-close-btn" type="button">Закрыть</button>
           </div>
         </div>
 
@@ -564,24 +562,18 @@
           </article>
 
           <article class="stack-item">
-            <strong>Статус запчастей</strong>
-            <div id="work-order-detail-parts-status"></div>
-          </article>
-
-          <article class="stack-item">
             <strong>Дата диагностики</strong>
             <p id="work-order-detail-date" class="muted">-</p>
-          </article>
-
-          <article class="stack-item">
-            <strong>Время на ремонт</strong>
-            <p id="work-order-detail-minutes" class="muted">-</p>
           </article>
 
           <article class="stack-item wide">
             <strong>План работ</strong>
             <p id="work-order-detail-hint" class="muted">—</p>
           </article>
+
+          <!-- hidden refs kept for JS compatibility -->
+          <span id="work-order-detail-parts-status" class="hidden"></span>
+          <span id="work-order-detail-minutes" class="hidden"></span>
         </div>
 
         <div id="repair-timer-block" class="repair-timer-block hidden mechanic-only">

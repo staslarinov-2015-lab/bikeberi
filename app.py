@@ -1215,6 +1215,9 @@ def init_db():
     ensure_column(cur, "work_orders", "completed_at", "TEXT")
     ensure_column(cur, "work_orders", "actual_minutes", "INTEGER")
     ensure_column(cur, "work_orders", "pause_reason", "TEXT NOT NULL DEFAULT ''")
+    # Track repair time per fault for statistics
+    ensure_column(cur, "repairs", "actual_minutes", "INTEGER")
+    ensure_column(cur, "repairs", "fault_category", "TEXT NOT NULL DEFAULT ''")
 
     now = utc_now().isoformat()
 
@@ -2806,10 +2809,21 @@ class AppHandler(BaseHTTPRequestHandler):
                     notify_inventory_critical_if_needed(conn, part["part_name"], current_stock)
                 repair_id = order["completed_repair_id"]
                 if repair_id is None:
+                    # Calculate total actual minutes for statistics
+                    wo_actual = conn.execute(
+                        "SELECT actual_minutes, started_at FROM work_orders WHERE id = ?", (work_order_id,)
+                    ).fetchone()
+                    total_mins = int(wo_actual["actual_minutes"] or 0) if wo_actual else 0
+                    if wo_actual and wo_actual["started_at"]:
+                        try:
+                            started_dt = datetime.fromisoformat(str(wo_actual["started_at"]))
+                            total_mins += max(0, int((utc_now() - started_dt).total_seconds() / 60))
+                        except Exception:
+                            pass
                     repair_cursor = conn.execute(
                         """
-                        INSERT INTO repairs (date, bike, issue, work, parts_used, needed_parts, status, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO repairs (date, bike, issue, work, parts_used, needed_parts, status, created_at, actual_minutes, fault_category)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             utc_now().date().isoformat(),
@@ -2820,6 +2834,8 @@ class AppHandler(BaseHTTPRequestHandler):
                             "-",
                             "Готов",
                             utc_now().isoformat(),
+                            total_mins or None,
+                            order["category"] or "",
                         ),
                     )
                     repair_id = repair_cursor.lastrowid
