@@ -473,7 +473,7 @@ const bikeForm = document.getElementById("bike-form");
 const diagnosticForm = document.getElementById("diagnostic-form");
 const ownerKpi = document.getElementById("owner-kpi");
 const ownerKpiNote = document.getElementById("owner-kpi-note");
-const ownerNotificationsEl = document.getElementById("owner-notifications");
+// owner-notifications removed — urgent tasks now rendered inline in renderOwnerPanel
 const ownerProcess = document.getElementById("owner-process");
 const ownerPriorityForm = document.getElementById("owner-priority-form");
 const teamChatForm = document.getElementById("team-chat-form");
@@ -3499,58 +3499,124 @@ function renderWorkOrders() {
 
 function renderOwnerPanel() {
   const stats = getDashboardStats();
-  ownerKpi.textContent = `${stats.inRepairNow}`;
-  ownerKpiNote.textContent = "Байков в ремонте сейчас";
+  const orders = state.workOrders || [];
 
-  const notifications = state.ownerNotifications || [];
-  ownerNotificationsEl.innerHTML = notifications.length
-    ? notifications
-        .slice(0, 10)
-        .map((item) => `<div class="stack-item"><strong>${item.severity === "high" ? "Срочно" : "Внимание"}</strong><p class="muted">${escapeHtml(item.text)}</p></div>`)
-        .join("")
-    : '<div class="stack-item muted">Уведомлений нет.</div>';
+  // ── KPI block ──────────────────────────────────────────────
+  if (ownerKpi) ownerKpi.textContent = stats.inRepairNow;
+  if (ownerKpiNote) ownerKpiNote.textContent = "Байков в ремонте";
 
-  // Paused repairs section
-  const pausedEl = document.getElementById("owner-paused-repairs");
-  if (pausedEl) {
-    const paused = (state.workOrders || []).filter((o) => o.status === "приостановлен");
-    if (!paused.length) {
-      pausedEl.innerHTML = '<div class="stack-item muted">Все ремонты активны.</div>';
-    } else {
-      pausedEl.innerHTML = paused
-        .map((o) => {
-          const timeSpent = o.actual_minutes ? `${o.actual_minutes} мин` : "нет данных";
-          const reason = o.pause_reason || "причина не указана";
-          // Get last history entry for context
-          return `
-            <div class="paused-repair-card">
-              <div class="paused-repair-top">
-                <strong class="paused-repair-code">${escapeHtml(o.bike_code || "—")}</strong>
-                <span class="paused-repair-time">⏱ ${escapeHtml(timeSpent)}</span>
-              </div>
-              <div class="paused-repair-fault muted">${escapeHtml(o.fault || o.issue || "—")}</div>
-              <div class="paused-repair-mechanic muted">Механик: ${escapeHtml(o.mechanic_name || "—")}</div>
-              <div class="paused-repair-reason">
-                <span class="paused-reason-label">Причина паузы:</span>
-                <span>${escapeHtml(reason)}</span>
-              </div>
-              <button class="ghost-btn paused-resume-btn" type="button"
-                data-action="open-work-order" data-id="${o.id}">
-                Открыть заявку →
-              </button>
-            </div>
-          `;
-        })
-        .join("");
-    }
+  // ── Load block ─────────────────────────────────────────────
+  if (ownerProcess) {
+    ownerProcess.innerHTML = [
+      `<div class="stack-item"><strong>Диагностик за период</strong><p class="muted">${stats.diagnosedInPeriod}</p></div>`,
+      `<div class="stack-item"><strong>ТО / проверка</strong><p class="muted">${stats.inspectionNow}</p></div>`,
+      `<div class="stack-item"><strong>Ждут запчасти</strong><p class="muted">${stats.waitingPartsNow}</p></div>`,
+      `<div class="stack-item"><strong>Приостановлено</strong><p class="muted">${orders.filter((o) => o.status === "приостановлен").length}</p></div>`,
+    ].join("");
   }
 
-  ownerProcess.innerHTML = [
-    `<div class="stack-item"><strong>Диагностика (период)</strong><p class="muted">${stats.diagnosedInPeriod}</p></div>`,
-    `<div class="stack-item"><strong>ТО / проверка</strong><p class="muted">${stats.inspectionNow}</p></div>`,
-    `<div class="stack-item"><strong>Ждут запчасти</strong><p class="muted">${stats.waitingPartsNow}</p></div>`,
-    `<div class="stack-item"><strong>Приостановлено</strong><p class="muted">${(state.workOrders || []).filter((o) => o.status === "приостановлен").length}</p></div>`,
-  ].join("");
+  // ── Shift summary pills ────────────────────────────────────
+  const summaryEl = document.getElementById("owner-shift-summary");
+  if (summaryEl) {
+    const waitParts = orders.filter((o) => o.status === "ждет запчасти");
+    const paused    = orders.filter((o) => o.status === "приостановлен");
+    const ready     = orders.filter((o) => o.status === "готов");
+    const urgent    = waitParts.length + paused.length;
+    summaryEl.innerHTML = urgent === 0
+      ? `<span class="shift-pill shift-pill--ok">Всё под контролем</span>`
+      : [
+          waitParts.length ? `<span class="shift-pill shift-pill--red">🛒 ${waitParts.length} на закупку</span>` : "",
+          paused.length    ? `<span class="shift-pill shift-pill--yellow">⏸ ${paused.length} на паузе</span>` : "",
+          ready.length     ? `<span class="shift-pill shift-pill--ok">✅ ${ready.length} готово</span>` : "",
+        ].filter(Boolean).join("");
+  }
+
+  // ── Urgent: parts to purchase ──────────────────────────────
+  const partsCountEl = document.getElementById("urgent-parts-count");
+  const partsListEl  = document.getElementById("urgent-parts-list");
+  const waitingParts = orders.filter((o) => o.status === "ждет запчасти");
+  if (partsCountEl) partsCountEl.textContent = waitingParts.length;
+  if (partsListEl) {
+    const partsBlock = document.getElementById("urgent-parts-block");
+    if (partsBlock) partsBlock.classList.toggle("urgent-block--empty", !waitingParts.length);
+    partsListEl.innerHTML = waitingParts.length
+      ? waitingParts.map((o) => {
+          const parts = (o.required_parts_text || "").trim() || "запчасти не указаны";
+          const since = o.intake_date ? new Date(o.intake_date).toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) : "";
+          return `
+            <div class="urgent-item" data-action="open-work-order" data-id="${o.id}">
+              <div class="urgent-item-top">
+                <strong class="urgent-item-bike">${escapeHtml(o.bike_code || "—")}</strong>
+                ${since ? `<span class="urgent-item-date">${since}</span>` : ""}
+              </div>
+              <div class="urgent-item-fault muted">${escapeHtml(o.fault || o.issue || "—")}</div>
+              <div class="urgent-item-parts">
+                <span class="urgent-parts-label">Нужно:</span>
+                <span class="urgent-parts-value">${escapeHtml(parts)}</span>
+              </div>
+              <span class="urgent-item-arrow">›</span>
+            </div>
+          `;
+        }).join("")
+      : `<div class="urgent-item-empty">Нет байков в ожидании запчастей</div>`;
+  }
+
+  // ── Urgent: paused repairs ─────────────────────────────────
+  const pausedCountEl = document.getElementById("urgent-paused-count");
+  const pausedListEl  = document.getElementById("urgent-paused-list");
+  const paused        = orders.filter((o) => o.status === "приостановлен");
+  if (pausedCountEl) pausedCountEl.textContent = paused.length;
+  if (pausedListEl) {
+    const pausedBlock = document.getElementById("urgent-paused-block");
+    if (pausedBlock) pausedBlock.classList.toggle("urgent-block--empty", !paused.length);
+    pausedListEl.innerHTML = paused.length
+      ? paused.map((o) => {
+          const timeSpent = o.actual_minutes ? `${o.actual_minutes} мин` : "";
+          const reason    = (o.pause_reason || "").trim() || "причина не указана";
+          return `
+            <div class="urgent-item" data-action="open-work-order" data-id="${o.id}">
+              <div class="urgent-item-top">
+                <strong class="urgent-item-bike">${escapeHtml(o.bike_code || "—")}</strong>
+                ${timeSpent ? `<span class="urgent-item-date">⏱ ${timeSpent}</span>` : ""}
+              </div>
+              <div class="urgent-item-fault muted">${escapeHtml(o.fault || o.issue || "—")}</div>
+              <div class="urgent-item-parts">
+                <span class="urgent-parts-label">Причина:</span>
+                <span class="urgent-parts-value">${escapeHtml(reason)}</span>
+              </div>
+              <span class="urgent-item-arrow">›</span>
+            </div>
+          `;
+        }).join("")
+      : `<div class="urgent-item-empty">Приостановленных ремонтов нет</div>`;
+  }
+
+  // ── Ready for handover ─────────────────────────────────────
+  const readyCountEl = document.getElementById("urgent-ready-count");
+  const readyListEl  = document.getElementById("urgent-ready-list");
+  const readyOrders  = orders.filter((o) => o.status === "готов");
+  if (readyCountEl) readyCountEl.textContent = readyOrders.length;
+  if (readyListEl) {
+    const readyBlock = document.getElementById("urgent-ready-block");
+    if (readyBlock) readyBlock.classList.toggle("urgent-block--empty", !readyOrders.length);
+    readyListEl.innerHTML = readyOrders.length
+      ? readyOrders.map((o) => {
+          const completedAt = o.completed_at
+            ? new Date(o.completed_at).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+            : "";
+          return `
+            <div class="urgent-item" data-action="open-work-order" data-id="${o.id}">
+              <div class="urgent-item-top">
+                <strong class="urgent-item-bike">${escapeHtml(o.bike_code || "—")}</strong>
+                ${completedAt ? `<span class="urgent-item-date">${completedAt}</span>` : ""}
+              </div>
+              <div class="urgent-item-fault muted">${escapeHtml(o.fault || o.issue || "—")}</div>
+              <span class="urgent-item-arrow">›</span>
+            </div>
+          `;
+        }).join("")
+      : `<div class="urgent-item-empty">Готовых байков пока нет</div>`;
+  }
 }
 
 function renderTeamChat() {

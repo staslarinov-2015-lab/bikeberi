@@ -364,21 +364,49 @@
         </section>
 
         <section id="section-owner" class="screen-section hidden owner-only">
-          <div class="owner-grid">
+
+          <!-- ── Фокус смены ─────────────────────────────────── -->
+          <div class="owner-focus-header">
+            <span class="owner-focus-title">Фокус смены</span>
+            <div id="owner-shift-summary" class="owner-shift-summary"></div>
+          </div>
+
+          <!-- Закупка запчастей (срочно) -->
+          <div class="urgent-block" id="urgent-parts-block">
+            <div class="urgent-block-header">
+              <span class="urgent-block-icon">🛒</span>
+              <span class="urgent-block-label">Закупка запчастей</span>
+              <span class="urgent-block-count" id="urgent-parts-count">0</span>
+            </div>
+            <div class="urgent-block-list" id="urgent-parts-list"></div>
+          </div>
+
+          <!-- Приостановленные ремонты -->
+          <div class="urgent-block" id="urgent-paused-block">
+            <div class="urgent-block-header">
+              <span class="urgent-block-icon">⏸</span>
+              <span class="urgent-block-label">Приостановленные ремонты</span>
+              <span class="urgent-block-count" id="urgent-paused-count">0</span>
+            </div>
+            <div class="urgent-block-list" id="urgent-paused-list"></div>
+          </div>
+
+          <!-- Готово к выдаче -->
+          <div class="urgent-block urgent-block--ok" id="urgent-ready-block">
+            <div class="urgent-block-header">
+              <span class="urgent-block-icon">✅</span>
+              <span class="urgent-block-label">Готово к выдаче</span>
+              <span class="urgent-block-count" id="urgent-ready-count">0</span>
+            </div>
+            <div class="urgent-block-list" id="urgent-ready-list"></div>
+          </div>
+
+          <!-- ── Обзор / метрики ─────────────────────────────── -->
+          <div class="owner-grid" style="margin-top:20px;">
             <article class="content-card owner-card">
-              <h3 class="panel-title">Ремонт сейчас</h3>
+              <h3 class="panel-title">В ремонте</h3>
               <div id="owner-kpi" class="big-number">0</div>
               <p id="owner-kpi-note" class="muted"></p>
-            </article>
-
-            <article class="content-card owner-card">
-              <h3 class="panel-title">Закупка</h3>
-              <div id="owner-notifications" class="stack-list"></div>
-            </article>
-
-            <article class="content-card owner-card">
-              <h3 class="panel-title">⏸ Приостановленные ремонты</h3>
-              <div id="owner-paused-repairs" class="stack-list"></div>
             </article>
 
             <article class="content-card owner-card">
@@ -402,7 +430,7 @@
                   </select>
                 </label>
                 <label class="wide">
-                  <span>Комментарий владельца</span>
+                  <span>Комментарий</span>
                   <input name="ownerNote" type="text" maxlength="220" placeholder="Например: сделать до 14:00" />
                 </label>
                 <button class="primary-btn wide" type="submit">Поставить приоритет</button>
