@@ -606,70 +606,71 @@
           <button id="close-diagnostic-modal" class="ghost-btn" type="button">Закрыть</button>
         </div>
 
-        <div class="diagnostic-wizard">
-          <div class="diagnostic-stepper">
-            <div id="diagnostic-step-categories" class="diagnostic-step-chip is-active">1. Раздел</div>
-            <div id="diagnostic-step-faults" class="diagnostic-step-chip">2. Поломка</div>
-            <div id="diagnostic-step-details" class="diagnostic-step-chip">3. Карточка</div>
+        <div id="diagnostic-quick-wizard" class="diagnostic-quick-wizard">
+          <div class="diagnostic-quick-progress-row">
+            <div id="diagnostic-quick-progress-text" class="diagnostic-quick-progress-text">Шаг 1/6</div>
+            <div id="diagnostic-quick-progress-counter" class="diagnostic-quick-progress-counter">1/6</div>
+          </div>
+          <div class="diagnostic-quick-progress-track">
+            <div id="diagnostic-quick-progress-fill" class="diagnostic-quick-progress-fill"></div>
           </div>
 
-          <section id="diagnostic-step-view-categories" class="diagnostic-step-view">
+          <section id="diagnostic-quick-step-question" class="diagnostic-step-view">
             <div class="diagnostic-step-head">
               <div>
-                <h3>Выбери узел байка</h3>
+                <h3 id="diagnostic-quick-title">Где проблема?</h3>
+                <p id="diagnostic-quick-subtitle" class="muted">Выбери один вариант</p>
               </div>
             </div>
-            <div id="diagnostic-wizard-category-grid" class="diagnostic-category-grid diagnostic-category-grid-modal"></div>
+            <div id="diagnostic-quick-options" class="diagnostic-quick-options"></div>
           </section>
 
-          <section id="diagnostic-step-view-faults" class="diagnostic-step-view hidden">
+          <section id="diagnostic-quick-step-summary" class="diagnostic-step-view hidden">
             <div class="diagnostic-step-head">
               <div>
-                <h3 id="diagnostic-faults-title">Выбери типовую поломку</h3>
+                <h3>Готово</h3>
+                <p class="muted">Проверь итог и сохрани</p>
               </div>
-              <button id="diagnostic-back-to-categories" class="ghost-btn" type="button">Назад</button>
             </div>
-            <div id="diagnostic-fault-grid" class="diagnostic-fault-grid"></div>
+            <div id="diagnostic-quick-summary-card" class="diagnostic-quick-summary-card"></div>
+            <div class="form-grid diagnostic-quick-final-grid">
+              <label>
+                <span>Байк</span>
+                <div class="bike-code-builder" data-bike-code-root="diagnostic">
+                  <input
+                    data-bike-code-input
+                    type="text"
+                    inputmode="text"
+                    autocapitalize="characters"
+                    autocomplete="off"
+                    spellcheck="false"
+                    maxlength="6"
+                    placeholder="РЕ123У"
+                    aria-label="Номер байка"
+                    id="diagnostic-quick-bike-input"
+                  />
+                </div>
+              </label>
+              <label>
+                <span>Кто проверял</span>
+                <input id="diagnostic-quick-mechanic-input" type="text" placeholder="Имя механика" required />
+              </label>
+            </div>
           </section>
+
+          <div class="diagnostic-quick-actions">
+            <button id="diagnostic-quick-back" class="ghost-btn" type="button">Назад</button>
+            <button id="diagnostic-quick-save-open" class="ghost-btn hidden" type="button">Сохранить и открыть ремонт</button>
+            <button id="diagnostic-quick-next" class="primary-btn" type="button">Далее</button>
+          </div>
         </div>
 
-        <form id="diagnostic-form" class="form-grid">
+        <form id="diagnostic-form" class="form-grid hidden">
           <input name="category" type="hidden" />
           <input name="fault" type="hidden" />
-          <div class="diagnostic-selection-summary wide">
-            <div class="diagnostic-selection-card">
-              <strong id="diagnostic-selected-category">Не выбран</strong>
-            </div>
-            <div class="diagnostic-selection-card">
-              <strong id="diagnostic-selected-fault">Не выбрана</strong>
-            </div>
-            <button id="diagnostic-back-to-faults" class="ghost-btn" type="button">Изменить выбор</button>
-          </div>
-          <label>
-            <span>Дата</span>
-            <input name="date" type="date" />
-          </label>
-          <label>
-            <span>Байк</span>
-            <input name="bike" type="hidden" required />
-            <div class="bike-code-builder" data-bike-code-root="diagnostic">
-              <input
-                data-bike-code-input
-                type="text"
-                inputmode="text"
-                autocapitalize="characters"
-                autocomplete="off"
-                spellcheck="false"
-                maxlength="6"
-                placeholder="РЕ123У"
-                aria-label="Номер байка"
-              />
-            </div>
-          </label>
-          <label>
-            <span>Кто проверял</span>
-            <input name="mechanicName" type="text" placeholder="Имя механика" required />
-          </label>
+          <input name="bike" type="hidden" required />
+          <input name="mechanicName" type="hidden" required />
+          <input name="date" type="hidden" />
           <label class="wide">
             <span>Симптомы</span>
             <textarea name="symptoms" rows="4" placeholder="Что заметил механик" required></textarea>
@@ -682,7 +683,6 @@
             <span>Нужные запчасти</span>
             <input name="requiredParts" type="text" placeholder="Например: Колодки:1, Камера:1" />
           </label>
-          <button class="primary-btn wide" type="submit">Сохранить диагностику</button>
         </form>
       </div>
     </div>
