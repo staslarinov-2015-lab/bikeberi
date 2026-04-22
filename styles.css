@@ -1912,6 +1912,19 @@ tbody tr:hover {
   gap: 8px;
 }
 
+.diagnostic-parts-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.diagnostic-parts-toolbar span {
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
 .diagnostic-scenario-card {
   border: 1px solid var(--border);
   border-radius: var(--radius);

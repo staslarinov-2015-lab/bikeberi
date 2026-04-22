@@ -41,6 +41,7 @@ const state = {
     fault: "",
     criticality: "",
     selectedParts: [],
+    selectedPartsCategory: "",
     decision: "",
     queueReason: "",
   },
@@ -1611,6 +1612,23 @@ function getQuickInventoryOptions() {
     .sort((a, b) => a.localeCompare(b, "ru"));
 }
 
+function getQuickInventoryGroupedOptions() {
+  const grouped = new Map();
+  [...INVENTORY_GROUPS.map((group) => group.key), "other"].forEach((key) => grouped.set(key, []));
+  (state.inventory || []).forEach((item) => {
+    const name = String(item.name || "").trim();
+    if (!name) return;
+    const key = resolveInventoryCategory(item);
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(name);
+  });
+  grouped.forEach((items, key) => {
+    const uniqueSorted = Array.from(new Set(items)).sort((a, b) => a.localeCompare(b, "ru"));
+    grouped.set(key, uniqueSorted);
+  });
+  return grouped;
+}
+
 function getQuickRecommendation() {
   if (state.diagnosticQuickFlow.criticality === "Можно ездить") {
     return "Можно ездить: требуемые запчасти автоматически добавлены в заказ.";
@@ -1708,20 +1726,42 @@ function renderQuickSummaryCard() {
   const selectedParts = new Set(state.diagnosticQuickFlow.selectedParts || []);
   const decision = state.diagnosticQuickFlow.decision || "";
   const queueReason = state.diagnosticQuickFlow.queueReason || "";
-  const inventoryButtons = getQuickInventoryOptions().map((partName) => {
-    const active = selectedParts.has(partName);
-    return `
-      <button
-        class="diagnostic-scenario-card ${active ? "is-active" : ""}"
-        type="button"
-        data-action="diagnostic-quick-part"
-        data-part="${escapeHtml(partName)}"
-      >
-        <strong>${escapeHtml(partName)}</strong>
-        <span>Добавить в необходимые запчасти</span>
-      </button>
-    `;
-  }).join("");
+  const groupedParts = getQuickInventoryGroupedOptions();
+  const activePartsCategory = state.diagnosticQuickFlow.selectedPartsCategory || "";
+  const activeCategoryItems = groupedParts.get(activePartsCategory) || [];
+  const hasActiveCategory = Boolean(activePartsCategory && activeCategoryItems.length);
+  const categoryButtons = Array.from(groupedParts.entries())
+    .filter(([, items]) => items.length > 0)
+    .map(
+      ([categoryKey, items]) => `
+        <button
+          class="diagnostic-scenario-card ${activePartsCategory === categoryKey ? "is-active" : ""}"
+          type="button"
+          data-action="diagnostic-quick-part-category"
+          data-category="${escapeHtml(categoryKey)}"
+        >
+          <strong>${escapeHtml(INVENTORY_GROUP_TITLE.get(categoryKey) || "Прочее")}</strong>
+          <span>${items.length} позиций</span>
+        </button>
+      `
+    )
+    .join("");
+  const partButtons = activeCategoryItems
+    .map((partName) => {
+      const active = selectedParts.has(partName);
+      return `
+        <button
+          class="diagnostic-scenario-card ${active ? "is-active" : ""}"
+          type="button"
+          data-action="diagnostic-quick-part"
+          data-part="${escapeHtml(partName)}"
+        >
+          <strong>${escapeHtml(partName)}</strong>
+          <span>Добавить в необходимые запчасти</span>
+        </button>
+      `;
+    })
+    .join("");
   diagnosticQuickSummaryCard.innerHTML = `
     <div class="diagnostic-quick-summary-row"><strong>Узел:</strong> ${escapeHtml(state.diagnosticQuickFlow.category || "-")}</div>
     <div class="diagnostic-quick-summary-row"><strong>Поломка:</strong> ${escapeHtml(buildQuickFaultTitle())}</div>
@@ -1745,7 +1785,15 @@ function renderQuickSummaryCard() {
     </div>
     <div class="diagnostic-scenario-block">
       <div class="diagnostic-quick-summary-row"><strong>Выбор запчастей со склада:</strong></div>
-      <div class="diagnostic-scenario-grid">${inventoryButtons}</div>
+      ${
+        hasActiveCategory
+          ? `<div class="diagnostic-parts-toolbar">
+              <button class="ghost-btn" type="button" data-action="diagnostic-quick-part-category-back">Вернуться к категориям</button>
+              <span>${escapeHtml(INVENTORY_GROUP_TITLE.get(activePartsCategory) || "Прочее")}</span>
+            </div>
+            <div class="diagnostic-scenario-grid">${partButtons}</div>`
+          : `<div class="diagnostic-scenario-grid">${categoryButtons}</div>`
+      }
     </div>
     <div class="diagnostic-quick-summary-row"><strong>Запчасти:</strong> ${escapeHtml(getQuickRequiredPartsText())}</div>
   `;
@@ -1836,6 +1884,7 @@ function resetDiagnosticFlow() {
     fault: "",
     criticality: "",
     selectedParts: [],
+    selectedPartsCategory: "",
     decision: "",
     queueReason: "",
   };
@@ -3037,10 +3086,12 @@ diagnosticQuickOptions?.addEventListener("click", (event) => {
     if (cfg.key === "category") {
       state.diagnosticQuickFlow.fault = "";
       state.diagnosticQuickFlow.selectedParts = [];
+      state.diagnosticQuickFlow.selectedPartsCategory = "";
       state.diagnosticQuickFlow.criticality = "";
     }
     if (cfg.key === "fault") {
       state.diagnosticQuickFlow.selectedParts = [];
+      state.diagnosticQuickFlow.selectedPartsCategory = "";
     }
     if (cfg.key === "criticality" && value === "Можно ездить") {
       const defaults = getQuickDefaultPartsByFault();
@@ -3066,15 +3117,26 @@ diagnosticQuickSummaryCard?.addEventListener("click", (event) => {
     return;
   }
   const button = event.target.closest('[data-action="diagnostic-quick-part"]');
+  const categoryButton = event.target.closest('[data-action="diagnostic-quick-part-category"]');
+  if (categoryButton) {
+    state.diagnosticQuickFlow.selectedPartsCategory = String(categoryButton.dataset.category || "").trim();
+    showDiagnosticQuickErrors([]);
+    syncDiagnosticWizard();
+    return;
+  }
+  const categoryBackButton = event.target.closest('[data-action="diagnostic-quick-part-category-back"]');
+  if (categoryBackButton) {
+    state.diagnosticQuickFlow.selectedPartsCategory = "";
+    showDiagnosticQuickErrors([]);
+    syncDiagnosticWizard();
+    return;
+  }
   if (!button) return;
   const partName = String(button.dataset.part || "").trim();
   if (!partName) return;
   const current = new Set(state.diagnosticQuickFlow.selectedParts || []);
-  if (current.has(partName)) {
-    current.delete(partName);
-  } else {
-    current.add(partName);
-  }
+  if (current.has(partName)) current.delete(partName);
+  else current.add(partName);
   state.diagnosticQuickFlow.selectedParts = Array.from(current);
   showDiagnosticQuickErrors([]);
   syncDiagnosticWizard();
@@ -3669,6 +3731,7 @@ document.addEventListener("click", async (event) => {
           : "Нужен ремонт";
     state.diagnosticQuickFlow.fault = item.fault || "";
     state.diagnosticQuickFlow.selectedParts = [];
+    state.diagnosticQuickFlow.selectedPartsCategory = "";
     state.diagnosticQuickFlow.decision = String(item.recommendation || "").toLowerCase().includes("очеред")
       ? "queue"
       : "take_repair";
@@ -3701,6 +3764,7 @@ document.addEventListener("click", async (event) => {
           : "Нужен ремонт";
     state.diagnosticQuickFlow.fault = diagnostic.fault || "";
     state.diagnosticQuickFlow.selectedParts = [];
+    state.diagnosticQuickFlow.selectedPartsCategory = "";
     state.diagnosticQuickFlow.decision = String(diagnostic.recommendation || "").toLowerCase().includes("очеред")
       ? "queue"
       : "take_repair";
