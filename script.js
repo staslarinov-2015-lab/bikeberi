@@ -1801,7 +1801,8 @@ function syncDiagnosticWizard() {
     diagnosticQuickSaveOpen.disabled = !canProceed || state.diagnosticQuickFlow.decision !== "take_repair";
   }
   if (diagnosticQuickNext) {
-    diagnosticQuickNext.textContent = isSummary ? "Сохранить диагностику" : "Далее";
+    diagnosticQuickNext.classList.toggle("hidden", !isSummary);
+    diagnosticQuickNext.textContent = "Сохранить диагностику";
     diagnosticQuickNext.disabled = !canProceed;
   }
 
@@ -3015,7 +3016,8 @@ diagnosticQuickOptions?.addEventListener("click", (event) => {
   const button = event.target.closest('[data-action="diagnostic-quick-option"]');
   if (!button) return;
   const value = button.dataset.value || "";
-  const cfg = DIAGNOSTIC_QUICK_STEPS[state.diagnosticQuickFlow.step];
+  const currentStep = state.diagnosticQuickFlow.step;
+  const cfg = DIAGNOSTIC_QUICK_STEPS[currentStep];
   if (!cfg) return;
   if (cfg.multi) {
     const current = new Set(state.diagnosticQuickFlow[cfg.key] || []);
@@ -3041,6 +3043,9 @@ diagnosticQuickOptions?.addEventListener("click", (event) => {
     }
   }
   showDiagnosticQuickErrors([]);
+  if (!cfg.multi && currentStep < DIAGNOSTIC_QUICK_TOTAL_STEPS) {
+    state.diagnosticQuickFlow.step = Math.min(DIAGNOSTIC_QUICK_TOTAL_STEPS, currentStep + 1);
+  }
   syncDiagnosticWizard();
 });
 
