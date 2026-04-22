@@ -425,7 +425,9 @@ def mirror_internal_chat_to_telegram(sender_role: str, sender_name: str, message
 def chat_display_name(raw_name: str, role: str = "") -> str:
     source = str(raw_name or "").strip()
     if source:
-        return source.split()[0]
+        parts = [part for part in source.split() if part]
+        # Users often store "Фамилия Имя"; for chat we need a friendly first-name display.
+        return parts[-1]
     return "Управляющий" if role == "owner" else "Механик"
 
 
