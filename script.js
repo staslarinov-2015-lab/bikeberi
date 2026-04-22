@@ -1030,7 +1030,7 @@ function getDashboardJumpPayload(jump) {
     return { title: "🔧 В ремонте сейчас", rows };
   }
 
-  if (jump === "diagnostics" || jump === "in-diagnostics") {
+  if (jump === "in-diagnostics") {
     const rows = (state.bikes || [])
       .filter((b) => b.status === "на диагностике")
       .map((b) => {
@@ -1041,6 +1041,20 @@ function getDashboardJumpPayload(jump) {
         return { bike: b.code, text: detail, bikeId: b.id };
       });
     return { title: "🔍 На диагностике", rows };
+  }
+
+  if (jump === "diagnostics") {
+    const periodLabel = { today: "сегодня", yesterday: "вчера", week: "7 дней", month: "30 дней" }[state.dashboardPeriod] || "период";
+    const allDiags = [...(state.diagnostics || [])]
+      .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    const inPeriod = allDiags.filter((item) => isDateInDashboardPeriod(item.date));
+    const source = inPeriod.length ? inPeriod : allDiags.slice(0, 20);
+    const rows = source.map((item) => ({
+      bike: item.bike || "-",
+      text: [item.category, item.fault].filter(Boolean).join(" · ") || "Поломка не указана",
+      bikeId: bikeIdByCode(item.bike),
+    }));
+    return { title: inPeriod.length ? `Диагностика за ${periodLabel}` : "Все диагностики", rows };
   }
 
   if (jump === "accepted") {
@@ -1100,18 +1114,7 @@ function getDashboardJumpPayload(jump) {
     return { title: "⏸ Приостановленные ремонты", rows };
   }
 
-  // diagnostics: all recent, newest first
-  const periodLabel = { today: "сегодня", yesterday: "вчера", week: "7 дней", month: "30 дней" }[state.dashboardPeriod] || "период";
-  const allDiags = [...(state.diagnostics || [])]
-    .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
-    .slice(0, 80);
-  const inPeriod = allDiags.filter((item) => isDateInDashboardPeriod(item.date));
-  const rows = (inPeriod.length ? inPeriod : allDiags.slice(0, 20)).map((item) => ({
-    bike: item.bike || "-",
-    text: [item.category, item.fault].filter(Boolean).join(" · ") || "Поломка не указана",
-    bikeId: bikeIdByCode(item.bike),
-  }));
-  return { title: inPeriod.length ? `Диагностика за ${periodLabel}` : "Все диагностики", rows };
+  return { title: "Нет данных", rows: [] };
 }
 
 function openDashboardJumpModal(jump) {
