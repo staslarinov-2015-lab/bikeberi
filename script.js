@@ -3198,8 +3198,8 @@ diagnosticQuickSummaryCard?.addEventListener("input", (event) => {
   const textarea = event.target.closest("#diagnostic-queue-reason");
   if (!textarea) return;
   state.diagnosticQuickFlow.queueReason = textarea.value || "";
+  // Do not re-render on every keystroke: it recreates textarea and drops mobile keyboard focus.
   showDiagnosticQuickErrors([]);
-  syncDiagnosticWizard();
 });
 
 diagnosticQuickNext?.addEventListener("click", () => {
