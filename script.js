@@ -4721,6 +4721,147 @@ inventoryDeleteInModal?.addEventListener("click", async () => {
   }
 });
 
+// ─── RECEIVE PARTS MODAL ────────────────────────────────────────────────────
+
+const receivePartsOverlay = document.getElementById("receive-parts-overlay");
+const receivePartsList = document.getElementById("receive-parts-list");
+const receivePartsSearch = document.getElementById("receive-parts-search");
+const receivePartsLowOnly = document.getElementById("receive-parts-low-only");
+const receivePartsCount = document.getElementById("receive-parts-count");
+const receivePartsSubmit = document.getElementById("receive-parts-submit");
+const receivePartsNote = document.getElementById("receive-parts-note");
+
+let _receivePartsQtys = {};
+
+function renderReceivePartsList() {
+  if (!receivePartsList) return;
+  const search = (receivePartsSearch?.value || "").toLowerCase().trim();
+  const lowOnly = receivePartsLowOnly?.checked || false;
+  let items = [...(state.inventory || [])];
+
+  if (lowOnly) items = items.filter((it) => (it.stock || 0) <= (it.min || 1));
+  if (search) items = items.filter((it) => (it.name || "").toLowerCase().includes(search));
+
+  // Sort: low stock first, then alphabetical
+  items.sort((a, b) => {
+    const aLow = (a.stock || 0) <= (a.min || 1) ? 0 : 1;
+    const bLow = (b.stock || 0) <= (b.min || 1) ? 0 : 1;
+    if (aLow !== bLow) return aLow - bLow;
+    return (a.name || "").localeCompare(b.name || "", "ru");
+  });
+
+  if (!items.length) {
+    receivePartsList.innerHTML = `<p class="muted receive-parts-empty">Позиции не найдены</p>`;
+    return;
+  }
+
+  receivePartsList.innerHTML = items
+    .map((it) => {
+      const qty = _receivePartsQtys[it.name] || 0;
+      const isLow = (it.stock || 0) <= (it.min || 1);
+      return `
+        <div class="receive-row ${qty > 0 ? "receive-row-active" : ""} ${isLow ? "receive-row-low" : ""}" data-name="${escapeHtml(it.name)}">
+          <div class="receive-row-info">
+            <span class="receive-row-name">${escapeHtml(it.name)}</span>
+            <span class="receive-row-stock ${isLow ? "receive-row-stock-low" : ""}">на складе: ${it.stock || 0} шт.</span>
+          </div>
+          <div class="receive-row-controls">
+            <button class="receive-qty-btn" type="button" data-action="receive-decrement" data-name="${escapeHtml(it.name)}">−</button>
+            <input
+              class="receive-qty-input"
+              type="number"
+              min="0"
+              max="999"
+              value="${qty}"
+              inputmode="numeric"
+              data-name="${escapeHtml(it.name)}"
+              aria-label="Количество для ${escapeHtml(it.name)}"
+            />
+            <button class="receive-qty-btn receive-qty-btn-plus" type="button" data-action="receive-increment" data-name="${escapeHtml(it.name)}">+</button>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  updateReceivePartsCount();
+}
+
+function updateReceivePartsCount() {
+  const total = Object.values(_receivePartsQtys).filter((v) => v > 0).length;
+  if (receivePartsCount) receivePartsCount.textContent = `${total} позиц${total === 1 ? "ия" : total < 5 ? "ии" : "ий"} выбрано`;
+  if (receivePartsSubmit) receivePartsSubmit.disabled = total === 0;
+}
+
+function openReceivePartsModal() {
+  _receivePartsQtys = {};
+  if (receivePartsSearch) receivePartsSearch.value = "";
+  if (receivePartsLowOnly) receivePartsLowOnly.checked = true;
+  if (receivePartsNote) receivePartsNote.value = "";
+  renderReceivePartsList();
+  receivePartsOverlay?.classList.remove("hidden");
+}
+
+document.getElementById("open-receive-parts-modal")?.addEventListener("click", openReceivePartsModal);
+document.getElementById("close-receive-parts-modal")?.addEventListener("click", () => receivePartsOverlay?.classList.add("hidden"));
+
+receivePartsSearch?.addEventListener("input", renderReceivePartsList);
+receivePartsLowOnly?.addEventListener("change", renderReceivePartsList);
+
+receivePartsList?.addEventListener("click", (event) => {
+  const btn = event.target.closest("[data-action]");
+  if (!btn) return;
+  const name = btn.dataset.name;
+  const action = btn.dataset.action;
+  if (!name) return;
+
+  if (action === "receive-increment") {
+    _receivePartsQtys[name] = (_receivePartsQtys[name] || 0) + 1;
+  } else if (action === "receive-decrement") {
+    _receivePartsQtys[name] = Math.max(0, (_receivePartsQtys[name] || 0) - 1);
+    if (_receivePartsQtys[name] === 0) delete _receivePartsQtys[name];
+  }
+  renderReceivePartsList();
+});
+
+receivePartsList?.addEventListener("input", (event) => {
+  const input = event.target.closest(".receive-qty-input");
+  if (!input) return;
+  const name = input.dataset.name;
+  const val = Math.max(0, Math.min(999, parseInt(input.value, 10) || 0));
+  if (val > 0) {
+    _receivePartsQtys[name] = val;
+  } else {
+    delete _receivePartsQtys[name];
+  }
+  input.closest(".receive-row").classList.toggle("receive-row-active", val > 0);
+  updateReceivePartsCount();
+});
+
+receivePartsSubmit?.addEventListener("click", async () => {
+  const items = Object.entries(_receivePartsQtys)
+    .filter(([, qty]) => qty > 0)
+    .map(([name, addedQty]) => ({ name, addedQty }));
+  if (!items.length) return;
+
+  receivePartsSubmit.disabled = true;
+  receivePartsSubmit.textContent = "Принимаем…";
+
+  try {
+    const result = await api("/api/inventory/receive", {
+      method: "POST",
+      body: JSON.stringify({ items, supplierNote: receivePartsNote?.value?.trim() || "" }),
+      notifyError: true,
+    });
+    receivePartsOverlay?.classList.add("hidden");
+    notify(`Принято ${result.acceptedCount || items.length} позиций`);
+    await bootstrap();
+  } catch {
+    receivePartsSubmit.disabled = false;
+    receivePartsSubmit.textContent = "Принять";
+  }
+});
+
 // Timer save button
 document.addEventListener("click", async (event) => {
   const btn = event.target.closest("[data-action='save-repair-time']");

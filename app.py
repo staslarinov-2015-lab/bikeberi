@@ -2248,6 +2248,52 @@ class AppHandler(BaseHTTPRequestHandler):
             conn.close()
             return json_response(self, 201, {"ok": True})
 
+        if parsed.path == "/api/inventory/receive":
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            payload = read_json(self)
+            items = payload.get("items", [])
+            if not isinstance(items, list) or not items:
+                return json_response(self, 400, {"error": "Список позиций пуст"})
+            supplier_note = str(payload.get("supplierNote", "")).strip()[:200]
+            conn = get_db()
+            accepted_count = 0
+            notifications_sent = []
+            for item in items:
+                name = str(item.get("name", "")).strip()
+                try:
+                    added_qty = max(0, int(item.get("addedQty", 0) or 0))
+                except (TypeError, ValueError):
+                    continue
+                if not name or added_qty <= 0:
+                    continue
+                row = conn.execute("SELECT id, stock FROM inventory WHERE name = ?", (name,)).fetchone()
+                if not row:
+                    continue
+                new_stock = int(row["stock"] or 0) + added_qty
+                conn.execute(
+                    "UPDATE inventory SET stock = ?, updated_at = ? WHERE id = ?",
+                    (new_stock, utc_now().isoformat(), row["id"]),
+                )
+                notify_inventory_critical_if_needed(conn, name, new_stock)
+                result = notify_parts_arrived_for_waiting_orders(conn, name, new_stock)
+                accepted_count += 1
+            conn.commit()
+            # Telegram summary to owner
+            config = get_telegram_config()
+            if accepted_count > 0 and telegram_is_enabled(config):
+                note_part = f"\nКомментарий: {supplier_note}" if supplier_note else ""
+                names_preview = ", ".join(
+                    str(i.get("name", ""))[:24]
+                    for i in items[:5]
+                    if int(i.get("addedQty", 0) or 0) > 0
+                )
+                msg = f"📦 Приёмка запчастей завершена: {accepted_count} позиций.{note_part}\n{names_preview}"
+                telegram_notify_role("owner", msg, config)
+            conn.close()
+            return json_response(self, 200, {"ok": True, "acceptedCount": accepted_count})
+
         if parsed.path == "/api/inventory":
             user = require_role(self, {"mechanic", "owner"})
             if not user:

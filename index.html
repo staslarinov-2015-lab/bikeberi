@@ -317,6 +317,10 @@
                 </label>
               </div>
               <div class="toolbar-right">
+                <button id="open-receive-parts-modal" class="receive-parts-btn" type="button">
+                  <svg viewBox="0 0 24 24" fill="none" width="16" height="16" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><rect x="3" y="16" width="18" height="5" rx="1.5"/></svg>
+                  Принять запчасти
+                </button>
                 <button id="open-inventory-modal" class="primary-btn" type="button">Добавить запчасть</button>
               </div>
             </div>
@@ -599,6 +603,39 @@
           <button id="close-dashboard-jump-modal" class="ghost-btn" type="button">Закрыть</button>
         </div>
         <div id="dashboard-jump-list" class="stack-list"></div>
+      </div>
+    </div>
+
+    <div id="receive-parts-overlay" class="overlay hidden">
+      <div class="modal-card modal-card-wide">
+        <div class="modal-head">
+          <div>
+            <h2>Принять запчасти</h2>
+            <p class="muted" style="font-size:0.82rem;margin-top:2px">Введи количество прибывших единиц для каждой позиции</p>
+          </div>
+          <button id="close-receive-parts-modal" class="ghost-btn" type="button">Закрыть</button>
+        </div>
+
+        <div class="receive-parts-toolbar">
+          <input id="receive-parts-search" type="search" placeholder="Поиск по названию…" autocomplete="off" />
+          <label class="receive-parts-filter-label">
+            <input type="checkbox" id="receive-parts-low-only" />
+            Только с нехваткой
+          </label>
+        </div>
+
+        <div id="receive-parts-list" class="receive-parts-list"></div>
+
+        <div class="receive-parts-footer">
+          <label class="wide">
+            <span class="receive-parts-footer-label">Комментарий (поставщик, накладная)</span>
+            <input id="receive-parts-note" type="text" placeholder="Необязательно" maxlength="200" />
+          </label>
+          <div class="receive-parts-summary">
+            <span id="receive-parts-count">0 позиций выбрано</span>
+            <button id="receive-parts-submit" class="primary-btn" type="button" disabled>Принять</button>
+          </div>
+        </div>
       </div>
     </div>
 
