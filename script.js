@@ -3733,13 +3733,23 @@ loginForm.addEventListener("submit", async (event) => {
   }
 });
 
-logoutButton.addEventListener("click", async () => {
+async function doLogout() {
   try {
     await api("/api/logout", { method: "POST", body: JSON.stringify({}) });
   } finally {
     state.user = null;
     render();
   }
+}
+
+logoutButton.addEventListener("click", doLogout);
+
+document.getElementById("switch-account-button")?.addEventListener("click", async () => {
+  await doLogout();
+  // Focus the login username field for quick re-login
+  setTimeout(() => {
+    document.getElementById("login-username")?.focus();
+  }, 100);
 });
 
 function openPasswordModal() {

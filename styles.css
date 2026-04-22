@@ -246,6 +246,16 @@ textarea {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.sidebar-footer-btn-switch {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.sidebar-footer-btn-switch:hover {
+  background: rgba(79, 95, 207, 0.15);
+  color: #a0aaff;
+}
+
 /* ——— Top bar ——— */
 
 .topbar {
