@@ -957,10 +957,13 @@ function openWorkOrderDetail(order) {
     workOrderDetailHint.textContent = plan || "—";
   }
 
-  // Repair timer
+  // Repair timer (active repair)
   const timerBlock = document.getElementById("repair-timer-block");
+  const pauseBlock = document.getElementById("pause-repair-block");
+  const isActive = order.status === "в ремонте" && order.started_at;
+  const isPaused = order.status === "приостановлен";
+
   if (timerBlock) {
-    const isActive = order.status === "в ремонте" && order.started_at;
     timerBlock.classList.toggle("hidden", !isActive);
     if (isActive) {
       timerBlock.dataset.orderId = order.id;
@@ -972,9 +975,22 @@ function openWorkOrderDetail(order) {
       } else if (actualEl) {
         actualEl.classList.add("hidden");
       }
+      // Store order id on pause button
+      timerBlock.querySelector(".repair-pause-btn")?.setAttribute("data-order-id", order.id);
       startRepairTimer(order.id, order.started_at);
     } else {
       stopRepairTimer();
+    }
+  }
+
+  if (pauseBlock) {
+    pauseBlock.classList.toggle("hidden", !isPaused);
+    if (isPaused) {
+      pauseBlock.dataset.orderId = order.id;
+      const reasonEl = document.getElementById("pause-info-reason");
+      const minutesEl = document.getElementById("pause-info-minutes");
+      if (reasonEl) reasonEl.textContent = order.pause_reason || "не указана";
+      if (minutesEl) minutesEl.textContent = order.actual_minutes ? `${order.actual_minutes} мин` : "нет данных";
     }
   }
 
@@ -1066,6 +1082,21 @@ function getDashboardJumpPayload(jump) {
       .filter((b) => b.status === "в аренде")
       .map((b) => ({ bike: b.code, text: b.model || "Wenbox U2", bikeId: b.id }));
     return { title: "🛴 В аренде", rows };
+  }
+
+  if (jump === "paused") {
+    const rows = (state.workOrders || [])
+      .filter((o) => o.status === "приостановлен")
+      .map((o) => ({
+        bike: o.bike_code || "-",
+        text: [
+          o.fault || o.issue,
+          o.actual_minutes ? `${o.actual_minutes} мин` : null,
+          o.pause_reason ? `«${o.pause_reason}»` : null,
+        ].filter(Boolean).join(" · "),
+        bikeId: bikeIdByCode(o.bike_code),
+      }));
+    return { title: "⏸ Приостановленные ремонты", rows };
   }
 
   // fallback: generic diagnostics period
@@ -2234,13 +2265,14 @@ function getBikeStatusRows() {
 }
 
 const BIKE_STATUS_JUMP_MAP = {
-  "готов":          { jump: "ready",         icon: "✅", accent: "#22a85a" },
-  "в ремонте":      { jump: "repair",        icon: "🔧", accent: "#e07c2e" },
-  "на диагностике": { jump: "in-diagnostics",icon: "🔍", accent: "#4f5fcf" },
-  "принят":         { jump: "accepted",      icon: "📋", accent: "#4f5fcf" },
-  "проверка":       { jump: "inspection",    icon: "🔎", accent: "#8a5cf6" },
-  "ждет запчасти":  { jump: "waiting-parts", icon: "⏳", accent: "#e05c5c" },
-  "в аренде":       { jump: "rented",        icon: "🛴", accent: "#2ebbc1" },
+  "готов":           { jump: "ready",         icon: "✅", accent: "#22a85a" },
+  "в ремонте":       { jump: "repair",        icon: "🔧", accent: "#e07c2e" },
+  "на диагностике":  { jump: "in-diagnostics",icon: "🔍", accent: "#4f5fcf" },
+  "принят":          { jump: "accepted",      icon: "📋", accent: "#4f5fcf" },
+  "проверка":        { jump: "inspection",    icon: "🔎", accent: "#8a5cf6" },
+  "ждет запчасти":   { jump: "waiting-parts", icon: "⏳", accent: "#e05c5c" },
+  "в аренде":        { jump: "rented",        icon: "🛴", accent: "#2ebbc1" },
+  "приостановлен":   { jump: "paused",        icon: "⏸", accent: "#f59e0b" },
 };
 
 function renderBikeStatuses() {
@@ -2884,7 +2916,6 @@ function renderWorkOrders() {
 }
 
 function renderOwnerPanel() {
-  // Owner view is also service-focused (no financial KPIs).
   const stats = getDashboardStats();
   ownerKpi.textContent = `${stats.inRepairNow}`;
   ownerKpiNote.textContent = "Байков в ремонте сейчас";
@@ -2897,10 +2928,46 @@ function renderOwnerPanel() {
         .join("")
     : '<div class="stack-item muted">Уведомлений нет.</div>';
 
+  // Paused repairs section
+  const pausedEl = document.getElementById("owner-paused-repairs");
+  if (pausedEl) {
+    const paused = (state.workOrders || []).filter((o) => o.status === "приостановлен");
+    if (!paused.length) {
+      pausedEl.innerHTML = '<div class="stack-item muted">Все ремонты активны.</div>';
+    } else {
+      pausedEl.innerHTML = paused
+        .map((o) => {
+          const timeSpent = o.actual_minutes ? `${o.actual_minutes} мин` : "нет данных";
+          const reason = o.pause_reason || "причина не указана";
+          // Get last history entry for context
+          return `
+            <div class="paused-repair-card">
+              <div class="paused-repair-top">
+                <strong class="paused-repair-code">${escapeHtml(o.bike_code || "—")}</strong>
+                <span class="paused-repair-time">⏱ ${escapeHtml(timeSpent)}</span>
+              </div>
+              <div class="paused-repair-fault muted">${escapeHtml(o.fault || o.issue || "—")}</div>
+              <div class="paused-repair-mechanic muted">Механик: ${escapeHtml(o.mechanic_name || "—")}</div>
+              <div class="paused-repair-reason">
+                <span class="paused-reason-label">Причина паузы:</span>
+                <span>${escapeHtml(reason)}</span>
+              </div>
+              <button class="ghost-btn paused-resume-btn" type="button"
+                data-action="open-work-order" data-id="${o.id}">
+                Открыть заявку →
+              </button>
+            </div>
+          `;
+        })
+        .join("");
+    }
+  }
+
   ownerProcess.innerHTML = [
     `<div class="stack-item"><strong>Диагностика (период)</strong><p class="muted">${stats.diagnosedInPeriod}</p></div>`,
     `<div class="stack-item"><strong>ТО / проверка</strong><p class="muted">${stats.inspectionNow}</p></div>`,
     `<div class="stack-item"><strong>Ждут запчасти</strong><p class="muted">${stats.waitingPartsNow}</p></div>`,
+    `<div class="stack-item"><strong>Приостановлено</strong><p class="muted">${(state.workOrders || []).filter((o) => o.status === "приостановлен").length}</p></div>`,
   ].join("");
 }
 
@@ -4925,6 +4992,68 @@ receivePartsSubmit?.addEventListener("click", async () => {
     receivePartsSubmit.disabled = false;
     receivePartsSubmit.textContent = "Принять";
   }
+});
+
+// Pause repair flow
+const pauseRepairOverlay = document.getElementById("pause-repair-overlay");
+const pauseReasonInput = document.getElementById("pause-reason-input");
+const confirmPauseBtn = document.getElementById("confirm-pause-repair");
+let _pauseTargetOrderId = null;
+
+document.addEventListener("click", (event) => {
+  const btn = event.target.closest("[data-action='open-pause-repair']");
+  if (!btn) return;
+  const timerBlock = document.getElementById("repair-timer-block");
+  _pauseTargetOrderId = timerBlock?.dataset.orderId || btn.dataset.orderId || null;
+  if (!_pauseTargetOrderId) return;
+  if (pauseReasonInput) pauseReasonInput.value = "";
+  pauseRepairOverlay?.classList.remove("hidden");
+});
+
+document.getElementById("close-pause-repair-modal")?.addEventListener("click", () => {
+  pauseRepairOverlay?.classList.add("hidden");
+  _pauseTargetOrderId = null;
+});
+
+confirmPauseBtn?.addEventListener("click", async () => {
+  if (!_pauseTargetOrderId) return;
+  confirmPauseBtn.disabled = true;
+  confirmPauseBtn.textContent = "Сохраняю…";
+  try {
+    await api(`/api/work-orders/${_pauseTargetOrderId}/transition`, {
+      method: "POST",
+      body: JSON.stringify({ action: "pause_repair", pauseReason: pauseReasonInput?.value?.trim() || "" }),
+      notifyError: true,
+    });
+    pauseRepairOverlay?.classList.add("hidden");
+    workOrderOverlay?.classList.add("hidden");
+    stopRepairTimer();
+    _pauseTargetOrderId = null;
+    notify("Ремонт приостановлен, байк возвращён в очередь");
+    await bootstrap();
+  } catch {
+    confirmPauseBtn.disabled = false;
+    confirmPauseBtn.textContent = "⏸ Подтвердить паузу";
+  }
+});
+
+// Resume repair
+document.addEventListener("click", async (event) => {
+  const btn = event.target.closest("[data-action='resume-repair-btn']");
+  if (!btn) return;
+  const block = document.getElementById("pause-repair-block");
+  const orderId = block?.dataset.orderId;
+  if (!orderId) return;
+  try {
+    await api(`/api/work-orders/${orderId}/transition`, {
+      method: "POST",
+      body: JSON.stringify({ action: "resume_repair" }),
+      notifyError: true,
+    });
+    workOrderOverlay?.classList.add("hidden");
+    notify("Байк возвращён в очередь — можно начать ремонт снова");
+    await bootstrap();
+  } catch { /* shown */ }
 });
 
 // Timer save button

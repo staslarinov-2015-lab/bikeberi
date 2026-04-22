@@ -362,6 +362,11 @@
             </article>
 
             <article class="content-card owner-card">
+              <h3 class="panel-title">⏸ Приостановленные ремонты</h3>
+              <div id="owner-paused-repairs" class="stack-list"></div>
+            </article>
+
+            <article class="content-card owner-card">
               <h3 class="panel-title">Нагрузка</h3>
               <div id="owner-process" class="stack-list"></div>
             </article>
@@ -587,8 +592,48 @@
             <span class="repair-timer-actual hidden"></span>
           </div>
           <div id="repair-timer-display" class="repair-timer-display">00:00:00</div>
-          <button class="repair-timer-save-btn" type="button" data-action="save-repair-time">
-            Сохранить время
+          <div class="repair-timer-actions">
+            <button class="repair-timer-save-btn" type="button" data-action="save-repair-time">
+              Сохранить время
+            </button>
+            <button class="repair-pause-btn" type="button" data-action="open-pause-repair">
+              ⏸ Приостановить ремонт
+            </button>
+          </div>
+        </div>
+
+        <div id="pause-repair-block" class="pause-repair-block hidden">
+          <button class="work-order-resume-btn" type="button" data-action="resume-repair-btn">
+            ▶ Возобновить ремонт
+          </button>
+          <div class="pause-info">
+            <span class="pause-info-label">Причина паузы:</span>
+            <span id="pause-info-reason" class="pause-info-text">—</span>
+          </div>
+          <div class="pause-info">
+            <span class="pause-info-label">Затрачено:</span>
+            <span id="pause-info-minutes" class="pause-info-text">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="pause-repair-overlay" class="overlay hidden">
+      <div class="modal-card modal-card-compact">
+        <div class="modal-head">
+          <div>
+            <h2>Приостановить ремонт</h2>
+            <p class="muted" style="font-size:0.82rem;margin-top:2px">Байк вернётся в очередь, время будет сохранено</p>
+          </div>
+          <button id="close-pause-repair-modal" class="ghost-btn" type="button">Закрыть</button>
+        </div>
+        <div style="padding:0 20px 20px">
+          <label style="display:block;margin-bottom:6px;font-size:0.84rem;font-weight:600;color:var(--muted)">
+            Причина (необязательно)
+          </label>
+          <textarea id="pause-reason-input" rows="3" placeholder="Нет нужных инструментов, жду запчасть, другая срочная задача…" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:0.9rem;resize:none;background:var(--surface-elevated);color:var(--text);outline:none;box-sizing:border-box" maxlength="300"></textarea>
+          <button id="confirm-pause-repair" class="pause-confirm-btn" type="button">
+            ⏸ Подтвердить паузу
           </button>
         </div>
       </div>

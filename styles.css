@@ -3294,6 +3294,164 @@ textarea:focus-visible {
   flex-shrink: 0;
 }
 
+/* ─── PAUSE REPAIR ─────────────────────────────────────────────────────────── */
+
+.modal-card-compact {
+  max-width: 440px;
+  width: 100%;
+}
+
+.repair-timer-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.repair-pause-btn {
+  display: inline-block;
+  padding: 10px 22px;
+  border: 1.5px solid rgba(255,255,255,0.25);
+  border-radius: 99px;
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.85);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  touch-action: manipulation;
+}
+
+.repair-pause-btn:hover {
+  background: rgba(255,255,255,0.16);
+}
+
+.pause-confirm-btn {
+  display: block;
+  width: 100%;
+  padding: 13px;
+  margin-top: 14px;
+  border: none;
+  border-radius: 12px;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  touch-action: manipulation;
+}
+
+.pause-confirm-btn:hover { opacity: 0.88; }
+.pause-confirm-btn:disabled { opacity: 0.5; }
+
+/* Paused block inside work order */
+.pause-repair-block {
+  margin-top: 16px;
+  padding: 16px;
+  background: #fffbeb;
+  border: 1.5px solid #f59e0b;
+  border-radius: 14px;
+}
+
+.work-order-resume-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 99px;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  margin-bottom: 12px;
+  transition: opacity 0.15s;
+}
+
+.work-order-resume-btn:hover { opacity: 0.88; }
+
+.pause-info {
+  display: flex;
+  gap: 8px;
+  font-size: 0.84rem;
+  margin-top: 6px;
+  align-items: baseline;
+}
+
+.pause-info-label {
+  color: var(--muted);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.pause-info-text {
+  color: var(--text);
+}
+
+/* Owner panel paused cards */
+.paused-repair-card {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.paused-repair-card:last-child { border-bottom: none; }
+
+.paused-repair-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.paused-repair-code {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.paused-repair-time {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #f59e0b;
+  background: #fffbeb;
+  padding: 2px 8px;
+  border-radius: 99px;
+  border: 1px solid #f59e0b;
+}
+
+.paused-repair-fault,
+.paused-repair-mechanic {
+  font-size: 0.82rem;
+  margin-top: 2px;
+}
+
+.paused-repair-reason {
+  font-size: 0.82rem;
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: #fffbeb;
+  border-radius: 8px;
+  border-left: 3px solid #f59e0b;
+  display: flex;
+  gap: 6px;
+}
+
+.paused-reason-label {
+  font-weight: 600;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.paused-resume-btn {
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* ─── REPAIR TIMER ─────────────────────────────────────────────────────────── */
 
 .repair-timer-block {

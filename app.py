@@ -87,6 +87,7 @@ BIKE_STATUSES = {
     "принят",
     "ждет запчасти",
     "в ремонте",
+    "приостановлен",
     "проверка",
     "готов",
 }
@@ -96,6 +97,7 @@ WORK_ORDER_STATUSES = {
     "диагностика",
     "ждет запчасти",
     "в ремонте",
+    "приостановлен",
     "проверка",
     "готов",
 }
@@ -1153,6 +1155,7 @@ def init_db():
     ensure_column(cur, "work_orders", "started_at", "TEXT")
     ensure_column(cur, "work_orders", "completed_at", "TEXT")
     ensure_column(cur, "work_orders", "actual_minutes", "INTEGER")
+    ensure_column(cur, "work_orders", "pause_reason", "TEXT NOT NULL DEFAULT ''")
 
     now = utc_now().isoformat()
 
@@ -1680,7 +1683,8 @@ def hydrate_work_orders(conn):
             work_orders.started_at,
             work_orders.created_at,
             work_orders.completed_at,
-            work_orders.actual_minutes
+            work_orders.actual_minutes,
+            work_orders.pause_reason
         FROM work_orders
         JOIN bikes ON bikes.id = work_orders.bike_id
         ORDER BY
@@ -2636,6 +2640,69 @@ class AppHandler(BaseHTTPRequestHandler):
                     user["full_name"],
                     "status",
                     f"Механик начал ремонт, таймер запущен на {int(order['estimated_minutes'] or 0)} мин",
+                )
+
+            elif action == "pause_repair":
+                if order["status"] != "в ремонте":
+                    conn.close()
+                    return json_response(self, 400, {"error": "Ремонт не запущен"})
+                pause_reason = str(payload.get("pauseReason", "")).strip()[:300]
+                elapsed_minutes = 0
+                if order["started_at"]:
+                    try:
+                        started_dt = datetime.fromisoformat(str(order["started_at"]))
+                        elapsed_minutes = max(0, int((utc_now() - started_dt).total_seconds() / 60))
+                    except Exception:
+                        pass
+                # Accumulate time if there were previous sessions
+                prev_actual = conn.execute(
+                    "SELECT actual_minutes FROM work_orders WHERE id = ?", (work_order_id,)
+                ).fetchone()
+                prev_minutes = int((prev_actual["actual_minutes"] or 0) if prev_actual else 0)
+                total_minutes = prev_minutes + elapsed_minutes
+                conn.execute(
+                    "UPDATE work_orders SET status = 'приостановлен', actual_minutes = ?, pause_reason = ?, started_at = NULL WHERE id = ?",
+                    (total_minutes, pause_reason, work_order_id),
+                )
+                set_bike_status(conn, order["bike_id"], "приостановлен")
+                reason_note = f": «{pause_reason}»" if pause_reason else ""
+                add_work_order_history(
+                    conn,
+                    int(work_order_id),
+                    user["full_name"],
+                    "paused",
+                    f"Ремонт приостановлен{reason_note}. Затраченное время: {total_minutes} мин",
+                )
+                config = get_telegram_config()
+                if telegram_is_enabled(config):
+                    bike_code = conn.execute(
+                        "SELECT code FROM bikes WHERE id = ?", (order["bike_id"],)
+                    ).fetchone()["code"]
+                    msg = (
+                        f"⏸ Ремонт приостановлен\n"
+                        f"Байк: {bike_code} · {order['fault'] or order['issue']}\n"
+                        f"Механик: {user['full_name']}\n"
+                        f"Затрачено: {total_minutes} мин"
+                        + (f"\nПричина: {pause_reason}" if pause_reason else "")
+                    )
+                    telegram_notify_role("owner", msg, config)
+
+            elif action == "resume_repair":
+                if order["status"] != "приостановлен":
+                    conn.close()
+                    return json_response(self, 400, {"error": "Заявка не приостановлена"})
+                next_status = "принят"
+                conn.execute(
+                    "UPDATE work_orders SET status = ?, pause_reason = '' WHERE id = ?",
+                    (next_status, work_order_id),
+                )
+                set_bike_status(conn, order["bike_id"], next_status)
+                add_work_order_history(
+                    conn,
+                    int(work_order_id),
+                    user["full_name"],
+                    "status",
+                    "Ремонт возобновлён — байк возвращён в очередь",
                 )
 
             elif action == "mark_ready":
