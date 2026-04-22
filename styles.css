@@ -1154,6 +1154,51 @@ tbody tr:hover {
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 }
 
+.inventory-category-editor {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-elevated);
+  padding: 10px 12px;
+}
+
+.inventory-category-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.86rem;
+}
+
+.inventory-category-editor-head strong {
+  font-size: 0.9rem;
+}
+
+.inventory-transfer-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.inventory-transfer-option {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.inventory-transfer-option.is-active {
+  border-color: rgba(10, 43, 255, 0.35);
+  background: var(--accent-faint);
+  color: var(--accent);
+}
+
 .inventory-category-grid {
   display: grid;
   gap: 10px;

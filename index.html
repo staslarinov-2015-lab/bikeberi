@@ -539,6 +539,15 @@
             <span>Остаток</span>
             <input name="stock" type="number" min="0" required />
           </label>
+          <input name="category" type="hidden" />
+          <div id="inventory-category-editor" class="inventory-category-editor wide hidden">
+            <div class="inventory-category-editor-head">
+              <span>Категория</span>
+              <strong id="inventory-current-category">Не выбрана</strong>
+            </div>
+            <button id="inventory-transfer-toggle" class="ghost-btn" type="button">Перенести в категорию</button>
+            <div id="inventory-transfer-options" class="inventory-transfer-options hidden"></div>
+          </div>
           <button class="primary-btn wide" type="submit">Сохранить позицию</button>
         </form>
       </div>

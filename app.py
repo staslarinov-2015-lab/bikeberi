@@ -484,6 +484,12 @@ def inventory_alert_level(stock_value: int) -> int:
     return 0
 
 
+def normalize_inventory_category(raw_value) -> str:
+    category = str(raw_value or "").strip().lower()
+    allowed = {"plastic", "brakes", "electrics", "motor", "suspension", "other"}
+    return category if category in allowed else ""
+
+
 def notify_inventory_critical_if_needed(conn, part_name: str, stock_value: int):
     part = normalize_inventory_name(part_name)
     level = inventory_alert_level(stock_value)
@@ -860,6 +866,7 @@ def init_db():
     ensure_column(cur, "users", "notes", "TEXT")
     ensure_column(cur, "inventory", "updated_at", "TEXT")
     ensure_column(cur, "inventory", "reserved", "INTEGER NOT NULL DEFAULT 0")
+    ensure_column(cur, "inventory", "category", "TEXT NOT NULL DEFAULT ''")
     ensure_column(cur, "diagnostics", "category", "TEXT")
     ensure_column(cur, "diagnostics", "fault", "TEXT")
     ensure_column(cur, "diagnostics", "severity", "TEXT")
@@ -1479,7 +1486,7 @@ def fetch_bootstrap_payload(user):
     ]
     inventory = []
     for row in conn.execute(
-        "SELECT id, name, stock, min, reserved FROM inventory ORDER BY name COLLATE NOCASE ASC"
+        "SELECT id, name, stock, min, reserved, category FROM inventory ORDER BY name COLLATE NOCASE ASC"
     ).fetchall():
         item = dict(row)
         item["available"] = max(int(item["stock"]) - int(item["reserved"] or 0), 0)
@@ -1957,22 +1964,24 @@ class AppHandler(BaseHTTPRequestHandler):
             except (TypeError, ValueError):
                 return json_response(self, 400, {"error": "Остаток должен быть числом"})
             minimum = 1
+            category = normalize_inventory_category(payload.get("category"))
 
             conn = get_db()
             existing = conn.execute(
-                "SELECT id, stock FROM inventory WHERE name = ?",
+                "SELECT id, stock, category FROM inventory WHERE name = ?",
                 (name,),
             ).fetchone()
             if existing:
+                next_category = category or str(existing["category"] or "")
                 conn.execute(
-                    "UPDATE inventory SET stock = ?, min = ?, updated_at = ? WHERE id = ?",
-                    (stock, minimum, utc_now().isoformat(), existing["id"]),
+                    "UPDATE inventory SET stock = ?, min = ?, category = ?, updated_at = ? WHERE id = ?",
+                    (stock, minimum, next_category, utc_now().isoformat(), existing["id"]),
                 )
                 notify_inventory_critical_if_needed(conn, name, stock)
             else:
                 conn.execute(
-                    "INSERT INTO inventory (name, stock, min, updated_at) VALUES (?, ?, ?, ?)",
-                    (name, stock, minimum, utc_now().isoformat()),
+                    "INSERT INTO inventory (name, stock, min, category, updated_at) VALUES (?, ?, ?, ?, ?)",
+                    (name, stock, minimum, category, utc_now().isoformat()),
                 )
                 notify_inventory_critical_if_needed(conn, name, stock)
             conn.commit()
@@ -2429,11 +2438,12 @@ class AppHandler(BaseHTTPRequestHandler):
             except ValueError as error:
                 return json_response(self, 400, {"error": str(error)})
             minimum = 1
+            category = normalize_inventory_category(payload.get("category"))
 
             conn = get_db()
             conn.execute(
-                "UPDATE inventory SET name = ?, stock = ?, min = ?, updated_at = ? WHERE id = ?",
-                (name, stock, minimum, utc_now().isoformat(), inventory_id),
+                "UPDATE inventory SET name = ?, stock = ?, min = ?, category = ?, updated_at = ? WHERE id = ?",
+                (name, stock, minimum, category, utc_now().isoformat(), inventory_id),
             )
             notify_inventory_critical_if_needed(conn, name, stock)
             conn.commit()

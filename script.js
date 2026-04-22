@@ -467,6 +467,10 @@ const openRepairModalButton = document.getElementById("open-repair-modal");
 const closeRepairModalButton = document.getElementById("close-repair-modal");
 const openInventoryModalButton = document.getElementById("open-inventory-modal");
 const closeInventoryModalButton = document.getElementById("close-inventory-modal");
+const inventoryCategoryEditor = document.getElementById("inventory-category-editor");
+const inventoryCurrentCategory = document.getElementById("inventory-current-category");
+const inventoryTransferToggle = document.getElementById("inventory-transfer-toggle");
+const inventoryTransferOptions = document.getElementById("inventory-transfer-options");
 const openBikeModalButton = document.getElementById("open-bike-modal");
 const closeBikeModalButton = document.getElementById("close-bike-modal");
 const bikeModalTitle = document.getElementById("bike-modal-title");
@@ -2261,6 +2265,38 @@ const INVENTORY_GROUPS = [
 const INVENTORY_GROUP_TITLE = new Map(INVENTORY_GROUPS.map((group) => [group.key, group.title]));
 INVENTORY_GROUP_TITLE.set("other", "Прочее");
 
+function normalizeInventoryCategoryKey(rawValue) {
+  const key = String(rawValue || "").trim().toLowerCase();
+  return INVENTORY_GROUP_TITLE.has(key) ? key : "";
+}
+
+function resolveInventoryCategory(item) {
+  const explicit = normalizeInventoryCategoryKey(item?.category);
+  return explicit || getInventoryGroupForName(item?.name);
+}
+
+function setInventoryCategoryInForm(categoryKey) {
+  if (!inventoryForm?.elements?.category) return;
+  const normalized = normalizeInventoryCategoryKey(categoryKey);
+  inventoryForm.elements.category.value = normalized;
+  if (inventoryCurrentCategory) {
+    inventoryCurrentCategory.textContent = INVENTORY_GROUP_TITLE.get(normalized) || "Не выбрана";
+  }
+}
+
+function renderInventoryTransferOptions(selectedKey) {
+  if (!inventoryTransferOptions) return;
+  const options = [...INVENTORY_GROUPS.map((g) => g.key), "other"];
+  inventoryTransferOptions.innerHTML = options
+    .map((key) => {
+      const active = key === selectedKey;
+      return `<button class="inventory-transfer-option ${active ? "is-active" : ""}" type="button" data-action="inventory-transfer-select" data-category="${key}">${escapeHtml(
+        INVENTORY_GROUP_TITLE.get(key) || "Прочее"
+      )}</button>`;
+    })
+    .join("");
+}
+
 function getInventoryGroupForName(rawName) {
   const name = String(rawName || "").toLowerCase();
   const match = INVENTORY_GROUPS.find((group) => group.keywords.some((keyword) => name.includes(keyword)));
@@ -2291,7 +2327,7 @@ function renderInventory() {
   const grouped = new Map();
   [...INVENTORY_GROUPS.map((g) => g.key), "other"].forEach((key) => grouped.set(key, []));
   rows.forEach((item) => {
-    grouped.get(getInventoryGroupForName(item.name)).push(item);
+    grouped.get(resolveInventoryCategory(item)).push(item);
   });
 
   const nonEmptyGroups = Array.from(grouped.entries()).filter(([, items]) => items.length > 0);
@@ -2894,6 +2930,10 @@ closeRepairModalButton?.addEventListener("click", () => {
 openInventoryModalButton?.addEventListener("click", () => {
   inventoryForm.reset();
   delete inventoryForm.dataset.editId;
+  setInventoryCategoryInForm("");
+  inventoryCategoryEditor?.classList.add("hidden");
+  inventoryTransferOptions?.classList.add("hidden");
+  if (inventoryTransferOptions) inventoryTransferOptions.innerHTML = "";
   const inventoryModalTitle = inventoryOverlay?.querySelector("h2");
   if (inventoryModalTitle) inventoryModalTitle.textContent = "Добавить запчасть";
   inventoryOverlay.classList.remove("hidden");
@@ -2903,6 +2943,10 @@ closeInventoryModalButton?.addEventListener("click", () => {
   inventoryOverlay.classList.add("hidden");
   inventoryForm.reset();
   delete inventoryForm.dataset.editId;
+  setInventoryCategoryInForm("");
+  inventoryCategoryEditor?.classList.add("hidden");
+  inventoryTransferOptions?.classList.add("hidden");
+  if (inventoryTransferOptions) inventoryTransferOptions.innerHTML = "";
 });
 
 inventoryOverlay?.addEventListener("click", (event) => {
@@ -2910,6 +2954,15 @@ inventoryOverlay?.addEventListener("click", (event) => {
   inventoryOverlay.classList.add("hidden");
   inventoryForm.reset();
   delete inventoryForm.dataset.editId;
+  setInventoryCategoryInForm("");
+  inventoryCategoryEditor?.classList.add("hidden");
+  inventoryTransferOptions?.classList.add("hidden");
+  if (inventoryTransferOptions) inventoryTransferOptions.innerHTML = "";
+});
+
+inventoryTransferToggle?.addEventListener("click", () => {
+  if (!inventoryTransferOptions) return;
+  inventoryTransferOptions.classList.toggle("hidden");
 });
 
 openBikeModalButton?.addEventListener("click", () => {
@@ -3226,12 +3279,17 @@ inventoryForm.addEventListener("submit", async (event) => {
       body: JSON.stringify({
         name: String(formData.get("name")).trim(),
         stock: Number(formData.get("stock")),
+        category: normalizeInventoryCategoryKey(formData.get("category")),
       }),
       notifyError: true,
     });
 
     inventoryForm.reset();
     delete inventoryForm.dataset.editId;
+    setInventoryCategoryInForm("");
+    inventoryCategoryEditor?.classList.add("hidden");
+    inventoryTransferOptions?.classList.add("hidden");
+    if (inventoryTransferOptions) inventoryTransferOptions.innerHTML = "";
     inventoryOverlay.classList.add("hidden");
     state.activeSection = "inventory";
     await bootstrap();
@@ -3522,7 +3580,46 @@ document.addEventListener("click", async (event) => {
     inventoryForm.dataset.editId = id;
     inventoryForm.elements.name.value = item.name;
     inventoryForm.elements.stock.value = item.stock;
+    const categoryKey = resolveInventoryCategory(item);
+    setInventoryCategoryInForm(categoryKey);
+    inventoryCategoryEditor?.classList.remove("hidden");
+    inventoryTransferOptions?.classList.add("hidden");
+    renderInventoryTransferOptions(categoryKey);
     inventoryOverlay.classList.remove("hidden");
+  }
+
+  if (action === "inventory-transfer-select") {
+    const editingId = inventoryForm.dataset.editId;
+    if (!editingId) return;
+    const nextCategory = normalizeInventoryCategoryKey(target.dataset.category);
+    const currentCategory = normalizeInventoryCategoryKey(inventoryForm.elements.category.value);
+    if (!nextCategory || nextCategory === currentCategory) return;
+    const name = String(inventoryForm.elements.name.value || "").trim();
+    const stock = Number(inventoryForm.elements.stock.value || 0);
+    if (!name) return;
+    try {
+      await api(`/api/inventory/${editingId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name,
+          stock,
+          category: nextCategory,
+        }),
+        notifyError: true,
+      });
+      setInventoryCategoryInForm(nextCategory);
+      renderInventoryTransferOptions(nextCategory);
+      inventoryOverlay?.classList.add("hidden");
+      inventoryForm.reset();
+      delete inventoryForm.dataset.editId;
+      inventoryCategoryEditor?.classList.add("hidden");
+      inventoryTransferOptions?.classList.add("hidden");
+      if (inventoryTransferOptions) inventoryTransferOptions.innerHTML = "";
+      await bootstrap();
+    } catch {
+      // Ошибка уже показана через notifyError в api()
+    }
+    return;
   }
 
   if (action === "open-inventory-group") {
