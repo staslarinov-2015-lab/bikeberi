@@ -1783,12 +1783,16 @@ function renderSections() {
   });
 
   document.querySelectorAll(".mobile-tab").forEach((button) => {
+    const isMechanicOnly = button.classList.contains("mechanic-only");
+    const isOwnerOnly = button.classList.contains("owner-only");
+    const role = getRole();
+    if (isMechanicOnly && role !== "mechanic") { button.classList.add("hidden"); return; }
+    if (isOwnerOnly && role !== "owner") { button.classList.add("hidden"); return; }
+    button.classList.remove("hidden");
     if (button.classList.contains("mobile-tab-cta")) {
       button.classList.remove("is-active");
       return;
     }
-    const allowed = !button.classList.contains("owner-only") || getRole() === "owner";
-    button.classList.toggle("hidden", !allowed);
     button.classList.toggle("is-active", button.dataset.section === state.activeSection);
   });
 
