@@ -350,6 +350,8 @@ const BIKE_CODE_NORMALIZE_MAP = {
 
 const ISSUE_CHECKLIST_STORAGE_KEY = "bikeberi.issueChecklist.v1";
 const CHAT_LAST_READ_STORAGE_KEY = "bikeberi.teamChatLastReadAt.v1";
+const TEAM_CHAT_POLL_INTERVAL_MS = 5000;
+let teamChatPollInFlight = false;
 const ISSUE_CHECKLIST = [
   {
     title: "Техническое состояние",
@@ -2857,6 +2859,25 @@ function renderChatUnreadBadges() {
   });
 }
 
+async function refreshTeamChat() {
+  if (!state.user || teamChatPollInFlight) return;
+  teamChatPollInFlight = true;
+  try {
+    const payload = await api("/api/team-chat", { method: "GET", headers: {}, notifyError: false });
+    state.teamChat = payload.teamChat || [];
+    renderTeamChat();
+    markChatAsRead();
+    renderChatUnreadBadges();
+  } catch (error) {
+    if (String(error.message).includes("Авторизация")) {
+      state.user = null;
+      render();
+    }
+  } finally {
+    teamChatPollInFlight = false;
+  }
+}
+
 function render() {
   const isAuthorized = Boolean(state.user);
   loginOverlay.classList.toggle("hidden", isAuthorized);
@@ -4043,5 +4064,6 @@ inventoryDeleteInModal?.addEventListener("click", async () => {
 
 syncBikeCodeBuilders();
 window.setInterval(refreshRepairTimers, 1000);
+window.setInterval(refreshTeamChat, TEAM_CHAT_POLL_INTERVAL_MS);
 loadIssueChecklistDraft();
 bootstrap();

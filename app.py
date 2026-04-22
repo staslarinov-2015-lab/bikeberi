@@ -453,6 +453,26 @@ def store_chat_message(sender_role: str, sender_name: str, message: str):
     return True
 
 
+def fetch_recent_team_chat(limit: int = 60):
+    safe_limit = min(max(int(limit or 60), 1), 200)
+    conn = get_db()
+    rows = [
+        dict(row)
+        for row in conn.execute(
+            """
+            SELECT id, sender_role, sender_name, message, created_at
+            FROM team_chat_messages
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (safe_limit,),
+        ).fetchall()
+    ]
+    conn.close()
+    rows.reverse()
+    return rows
+
+
 def telegram_chat_id_for_role(role: str, config: dict | None = None) -> str:
     cfg = config or get_telegram_config()
     if role == "owner":
@@ -1545,18 +1565,7 @@ def fetch_bootstrap_payload(user):
         for row in conn.execute("SELECT key, value FROM settings").fetchall()
     }
     work_orders = hydrate_work_orders(conn)
-    team_chat = [
-        dict(row)
-        for row in conn.execute(
-            """
-            SELECT id, sender_role, sender_name, message, created_at
-            FROM team_chat_messages
-            ORDER BY id DESC
-            LIMIT 60
-            """
-        ).fetchall()
-    ]
-    team_chat.reverse()
+    team_chat = fetch_recent_team_chat(limit=60)
     owner_notifications = []
     for order in work_orders:
         for missing in order.get("missing_parts", []):
@@ -1673,6 +1682,11 @@ class AppHandler(BaseHTTPRequestHandler):
             if not user:
                 return
             return json_response(self, 200, fetch_bootstrap_payload(user))
+        if parsed.path == "/api/team-chat":
+            user = require_role(self, {"mechanic", "owner"})
+            if not user:
+                return
+            return json_response(self, 200, {"teamChat": fetch_recent_team_chat(limit=60)})
         if parsed.path == "/api/system/storage-health":
             user = require_role(self, {"owner"})
             if not user:
