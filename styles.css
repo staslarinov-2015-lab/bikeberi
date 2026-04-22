@@ -2018,7 +2018,7 @@ tbody tr:hover {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
-  padding: 9px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  padding: 8px 10px calc(14px + env(safe-area-inset-bottom, 0px));
   background: rgba(255, 255, 255, 0.9);
   border-top: 1px solid rgba(31, 37, 50, 0.08);
   box-shadow: 0 -6px 20px rgba(19, 28, 45, 0.08);
@@ -2038,7 +2038,7 @@ tbody tr:hover {
   justify-items: center;
   gap: 4px;
   font-weight: 700;
-  min-height: 56px;
+  min-height: 62px;
   outline: none;
   appearance: none;
   -webkit-appearance: none;
@@ -2103,7 +2103,7 @@ tbody tr:hover {
   background: #5c6ae0;
   color: #fff;
   box-shadow: 0 0 0 0 rgba(92, 106, 224, 0.35), 0 12px 24px rgba(51, 64, 157, 0.28);
-  transform: translateY(-14px);
+  transform: translateY(-10px);
   animation: diagnostic-cta-glow 2.1s ease-in-out infinite;
 }
 
@@ -2607,7 +2607,7 @@ textarea:focus-visible {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 6px;
-    padding: 9px 8px 10px;
+    padding: 8px 8px calc(14px + env(safe-area-inset-bottom, 0px));
     background: rgba(255, 255, 255, 0.9);
     border-top: 1px solid rgba(31, 37, 50, 0.08);
     box-shadow: 0 -6px 20px rgba(19, 28, 45, 0.08);
@@ -2627,7 +2627,7 @@ textarea:focus-visible {
     justify-items: center;
     gap: 6px;
     font-weight: 800;
-    min-height: 60px;
+    min-height: 64px;
     height: 100%;
   }
 
@@ -2673,8 +2673,8 @@ textarea:focus-visible {
   }
 
   .mobile-tab-label {
-    font-size: 0.68rem;
-    line-height: 1.15;
+    font-size: 0.72rem;
+    line-height: 1.2;
     letter-spacing: 0.01em;
     text-align: center;
     max-width: 100%;
