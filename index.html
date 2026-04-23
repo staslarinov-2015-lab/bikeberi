@@ -490,15 +490,7 @@
     </div>
 
     <nav class="mobile-tabbar" aria-label="Навигация">
-      <button class="mobile-tab mechanic-only" type="button" data-action="start-diagnostic" aria-label="Диагностика">
-        <span class="mobile-tab-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M14.7 6.3a3.5 3.5 0 0 0-4.9 4.9l-5.4 5.4a1.2 1.2 0 1 0 1.7 1.7l5.4-5.4a3.5 3.5 0 0 0 4.9-4.9l-2.2 2.2-2.7-2.7z" />
-          </svg>
-        </span>
-        <span class="mobile-tab-label">Диагностики</span>
-      </button>
-      <button class="mobile-tab owner-only is-active" type="button" data-section="overview" aria-label="Дашборд">
+      <button class="mobile-tab is-active mechanic-only" type="button" data-section="overview" aria-label="Дашборд">
         <span class="mobile-tab-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
             <path d="M4 19h16" />
@@ -509,7 +501,33 @@
         </span>
         <span class="mobile-tab-label">Дашборд</span>
       </button>
-      <button id="quick-dashboard-tab" class="mobile-tab mobile-tab-cta mechanic-only" type="button" data-section="overview" aria-label="Дашборд">
+      <button class="mobile-tab mechanic-only" type="button" data-section="repairs" aria-label="Очередь">
+        <span class="mobile-tab-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="6" y="4" width="12" height="16" rx="2" />
+            <path d="M9 9h6" />
+            <path d="M9 13h6" />
+          </svg>
+        </span>
+        <span class="mobile-tab-label">Очередь</span>
+      </button>
+      <button id="quick-diagnostic-tab" class="mobile-tab mobile-tab-cta mechanic-only" type="button" data-action="start-diagnostic" aria-label="Начать диагностику">
+        <span class="mobile-tab-cta-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M14.7 6.3a3.5 3.5 0 0 0-4.9 4.9l-5.4 5.4a1.2 1.2 0 1 0 1.7 1.7l5.4-5.4a3.5 3.5 0 0 0 4.9-4.9l-2.2 2.2-2.7-2.7z" />
+          </svg>
+        </span>
+        <span class="mobile-tab-label">Диагностика</span>
+      </button>
+      <button class="mobile-tab owner-only" type="button" data-section="diagnostics" aria-label="Диагностики">
+        <span class="mobile-tab-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M14.7 6.3a3.5 3.5 0 0 0-4.9 4.9l-5.4 5.4a1.2 1.2 0 1 0 1.7 1.7l5.4-5.4a3.5 3.5 0 0 0 4.9-4.9l-2.2 2.2-2.7-2.7z" />
+          </svg>
+        </span>
+        <span class="mobile-tab-label">Диагностики</span>
+      </button>
+      <button class="mobile-tab mobile-tab-cta owner-only" type="button" data-section="overview" aria-label="Дашборд">
         <span class="mobile-tab-cta-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
             <path d="M4 19h16" />
@@ -520,7 +538,7 @@
         </span>
         <span class="mobile-tab-label">Дашборд</span>
       </button>
-      <button class="mobile-tab" type="button" data-section="repairs" aria-label="Очередь">
+      <button class="mobile-tab owner-only" type="button" data-section="repairs" aria-label="Очередь">
         <span class="mobile-tab-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
             <rect x="6" y="4" width="12" height="16" rx="2" />
