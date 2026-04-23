@@ -850,7 +850,9 @@ function renderIssueChecklist() {
 
   // Attach click handlers for photo slots (delegated via document)
   issueChecklistGroups.querySelectorAll(".handover-photo-slot").forEach((slot) => {
-    slot.addEventListener("click", () => {
+    slot.addEventListener("click", (event) => {
+      // Label with `for=...` opens picker natively; avoid double-open on mobile Safari.
+      if (event.target.closest(".handover-photo-label") || event.target.closest(".handover-photo-input")) return;
       const input = slot.querySelector(".handover-photo-input");
       if (input) input.click();
     });
