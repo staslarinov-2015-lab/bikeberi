@@ -2942,9 +2942,14 @@ class AppHandler(BaseHTTPRequestHandler):
                     telegram_notify_role("owner", msg, config)
 
             elif action == "resume_repair":
+                # Be lenient: if the order was already moved out of "приостановлен"
+                # (e.g. the client had a stale view and clicked Resume after another
+                # action), don't surface a confusing error — just return the current
+                # status so the client can refresh its state.
                 if order["status"] != "приостановлен":
+                    conn.commit()
                     conn.close()
-                    return json_response(self, 400, {"error": "Заявка не приостановлена"})
+                    return json_response(self, 200, {"ok": True, "status": order["status"], "unchanged": True})
                 next_status = "принят"
                 conn.execute(
                     "UPDATE work_orders SET status = ?, pause_reason = '' WHERE id = ?",

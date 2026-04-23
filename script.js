@@ -3604,7 +3604,8 @@ function renderWorkOrders() {
             <div class="table-actions">
               ${canManage ? `<button class="icon-btn" type="button" data-action="edit-work-order-diagnostic" data-id="${order.id}">Ред. диагн.</button>` : ""}
               ${canManage ? `<button class="icon-btn" type="button" data-action="edit-work-order-repair" data-id="${order.id}">Ред. ремонт</button>` : ""}
-              ${order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">На выдачу</button>` : ""}
+              ${order.status === "приостановлен" && canManage ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-resume" data-id="${order.id}">▶ Возобновить</button>` : ""}
+              ${order.status === "в ремонте" && order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">На выдачу</button>` : ""}
             </div>
           </article>
         `;
@@ -5917,6 +5918,7 @@ document.addEventListener("click", async (event) => {
     const actionMap = {
       "work-order-start": "start_repair",
       "work-order-ready": "mark_ready",
+      "work-order-resume": "resume_repair",
     };
     if (action === "work-order-start") {
       await ensureNotificationPermission();
@@ -6205,15 +6207,22 @@ document.addEventListener("click", async (event) => {
   const orderId = block?.dataset.orderId;
   if (!orderId) return;
   try {
-    await api(`/api/work-orders/${orderId}/transition`, {
+    const resp = await api(`/api/work-orders/${orderId}/transition`, {
       method: "POST",
       body: JSON.stringify({ action: "resume_repair" }),
       notifyError: true,
     });
     workOrderOverlay?.classList.add("hidden");
-    notify("Байк возвращён в очередь — можно начать ремонт снова");
+    if (resp?.unchanged) {
+      notify(`Статус заявки уже «${resp.status}» — страница обновлена`);
+    } else {
+      notify("Байк возвращён в очередь — можно начать ремонт снова");
+    }
     await bootstrap();
-  } catch { /* shown */ }
+  } catch {
+    // Сервер вернул ошибку — перечитаем состояние, чтобы экран и бэк были в синхроне.
+    try { await bootstrap(); } catch { /* ignore */ }
+  }
 });
 
 // Timer save button
