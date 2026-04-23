@@ -1542,11 +1542,22 @@ function notifyRepairDeadline(order) {
   }
   repairDeadlineNotifications.add(order.id);
   if ("Notification" in window && Notification.permission === "granted") {
-    new Notification("Пора завершать ремонт", {
+    const notification = new Notification("Пора завершать ремонт", {
       body: `${order.bike_code}: ${order.issue}`,
     });
+    notification.onclick = () => {
+      try {
+        window.focus();
+      } catch {
+        /* ignore */
+      }
+      navigateTo("repairs");
+      const liveOrder = (state.workOrders || []).find((entry) => String(entry.id) === String(order.id));
+      if (liveOrder) openWorkOrderDetail(liveOrder);
+      notification.close();
+    };
   }
-  showRepairAlert(`Пора завершать ремонт: ${order.bike_code} — ${order.issue}`);
+  showRepairAlert(`Пора завершать ремонт: ${order.bike_code} — ${order.issue}`, order.id);
 }
 
 function refreshRepairTimers() {
@@ -1558,13 +1569,22 @@ function refreshRepairTimers() {
   state.workOrders.forEach((order) => notifyRepairDeadline(order));
 }
 
-function showRepairAlert(message) {
+function showRepairAlert(message, workOrderId = null) {
   const alert = document.createElement("div");
   alert.className = "repair-alert";
+  if (workOrderId != null) alert.dataset.workOrderId = String(workOrderId);
   alert.innerHTML = `
     <strong>Ремонт требует внимания</strong>
     <p>${escapeHtml(message)}</p>
   `;
+  alert.addEventListener("click", () => {
+    navigateTo("repairs");
+    const targetOrderId = alert.dataset.workOrderId;
+    const liveOrder = (state.workOrders || []).find((entry) => String(entry.id) === String(targetOrderId));
+    if (liveOrder) openWorkOrderDetail(liveOrder);
+    alert.classList.remove("is-visible");
+    window.setTimeout(() => alert.remove(), 150);
+  });
   repairAlerts.appendChild(alert);
   window.setTimeout(() => {
     alert.classList.add("is-visible");
