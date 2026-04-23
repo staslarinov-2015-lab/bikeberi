@@ -3170,18 +3170,17 @@ class AppHandler(BaseHTTPRequestHandler):
                     current_stock = int(updated_item["stock"] or 0) if updated_item else 0
                     notify_inventory_critical_if_needed(conn, part["part_name"], current_stock)
                 repair_id = order["completed_repair_id"]
+                wo_actual = conn.execute(
+                    "SELECT actual_minutes, started_at FROM work_orders WHERE id = ?", (work_order_id,)
+                ).fetchone()
+                total_mins = int(wo_actual["actual_minutes"] or 0) if wo_actual else 0
+                if wo_actual and wo_actual["started_at"]:
+                    try:
+                        started_dt = datetime.fromisoformat(str(wo_actual["started_at"]))
+                        total_mins += max(0, int((utc_now() - started_dt).total_seconds() / 60))
+                    except Exception:
+                        pass
                 if repair_id is None:
-                    # Calculate total actual minutes for statistics
-                    wo_actual = conn.execute(
-                        "SELECT actual_minutes, started_at FROM work_orders WHERE id = ?", (work_order_id,)
-                    ).fetchone()
-                    total_mins = int(wo_actual["actual_minutes"] or 0) if wo_actual else 0
-                    if wo_actual and wo_actual["started_at"]:
-                        try:
-                            started_dt = datetime.fromisoformat(str(wo_actual["started_at"]))
-                            total_mins += max(0, int((utc_now() - started_dt).total_seconds() / 60))
-                        except Exception:
-                            pass
                     repair_cursor = conn.execute(
                         """
                         INSERT INTO repairs (date, bike, issue, work, parts_used, needed_parts, status, created_at, actual_minutes, fault_category)
@@ -3201,10 +3200,15 @@ class AppHandler(BaseHTTPRequestHandler):
                         ),
                     )
                     repair_id = repair_cursor.lastrowid
+                else:
+                    conn.execute(
+                        "UPDATE repairs SET actual_minutes = ? WHERE id = ?",
+                        (total_mins or None, repair_id),
+                    )
                 next_status = "проверка"
                 conn.execute(
-                    "UPDATE work_orders SET status = ?, completed_repair_id = ?, completed_at = ?, parts_ready = 1, pause_reason = '', started_at = NULL WHERE id = ?",
-                    (next_status, repair_id, utc_now().isoformat(), work_order_id),
+                    "UPDATE work_orders SET status = ?, completed_repair_id = ?, completed_at = ?, actual_minutes = ?, parts_ready = 1, pause_reason = '', started_at = NULL WHERE id = ?",
+                    (next_status, repair_id, utc_now().isoformat(), total_mins, work_order_id),
                 )
                 conn.execute(
                     "UPDATE bikes SET status = ?, last_service_at = ?, updated_at = ? WHERE id = ?",
