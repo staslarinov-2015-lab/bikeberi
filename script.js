@@ -4055,31 +4055,21 @@ function renderDiagPhotoGrid() {
 }
 
 function refreshDiagPhotoGrid() {
-  // Re-render only the photo grid portion inside the already-rendered summary
+  // Re-render only the photo grid portion inside the already-rendered summary.
+  // Clicks are handled via the delegated listener below — do NOT attach per-slot
+  // listeners here, otherwise the same click triggers `input.click()` twice and
+  // iOS Safari blocks the file picker.
   const wrapper = document.querySelector(".diag-photo-slot-grid")?.closest(".diagnostic-scenario-block");
   if (!wrapper) return;
-  const slotGrid = wrapper.querySelector(".diag-photo-slot-grid");
-  const statusEl = wrapper.querySelector(".diag-photo-slot-status");
-  const photos = state.diagnosticQuickFlow.photos || {};
-  if (slotGrid) {
-    slotGrid.outerHTML; // just check it exists
-    wrapper.innerHTML = `
-      <div class="diagnostic-quick-summary-row"><strong>Фотоконтроль байка (4 стороны):</strong></div>
-      <p class="handover-photo-hint muted">Сделай фото байка с 4 сторон перед взятием в ремонт</p>
-      ${renderDiagPhotoGrid()}
-    `;
-    // re-attach click listeners
-    attachDiagPhotoSlotListeners();
-  }
+  wrapper.innerHTML = `
+    <div class="diagnostic-quick-summary-row"><strong>Фотоконтроль байка (4 стороны):</strong></div>
+    <p class="handover-photo-hint muted">Сделай фото байка с 4 сторон перед взятием в ремонт</p>
+    ${renderDiagPhotoGrid()}
+  `;
 }
 
 function attachDiagPhotoSlotListeners() {
-  document.querySelectorAll(".diag-photo-slot").forEach((slot) => {
-    slot.addEventListener("click", () => {
-      const input = slot.querySelector(".diag-photo-slot-input");
-      if (input) input.click();
-    });
-  });
+  // Kept as a no-op for backwards compatibility — clicks are delegated on document.
 }
 
 function renderPhotoPreview() {
@@ -6170,8 +6160,10 @@ document.getElementById("queue-sort-select")?.addEventListener("change", (event)
 document.addEventListener("click", (event) => {
   const slot = event.target.closest(".diag-photo-slot");
   if (!slot) return;
-  // Don't trigger if user clicked directly on the hidden input
+  // Don't trigger if user clicked directly on the hidden input (avoids loop)
   if (event.target.classList.contains("diag-photo-slot-input")) return;
+  // The <label for=...> already opens the file picker natively — don't do it again.
+  if (event.target.closest("label.diag-photo-slot-label")) return;
   const input = slot.querySelector(".diag-photo-slot-input");
   if (input) input.click();
 });
