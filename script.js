@@ -488,6 +488,7 @@ const issueChecklistCompletedAt = document.getElementById("issue-checklist-compl
 const resetIssueChecklistButton = document.getElementById("reset-issue-checklist");
 const printIssueChecklistButton = document.getElementById("print-issue-checklist");
 const repairForm = document.getElementById("repair-form");
+const repairDeleteInModal = document.getElementById("repair-delete-in-modal");
 const inventoryForm = document.getElementById("inventory-form");
 const bikeForm = document.getElementById("bike-form");
 const diagnosticForm = document.getElementById("diagnostic-form");
@@ -4947,6 +4948,10 @@ openRepairModalButton?.addEventListener("click", () => {
   } else {
     resetBikeCodeValue("repair");
   }
+  if (repairDeleteInModal) {
+    repairDeleteInModal.classList.add("hidden");
+    delete repairDeleteInModal.dataset.id;
+  }
   repairOverlay.classList.remove("hidden");
 });
 
@@ -4955,6 +4960,10 @@ closeRepairModalButton?.addEventListener("click", () => {
   repairForm.reset();
   resetBikeCodeValue("repair");
   delete repairForm.dataset.editId;
+  if (repairDeleteInModal) {
+    repairDeleteInModal.classList.add("hidden");
+    delete repairDeleteInModal.dataset.id;
+  }
   state.repairDraftFromDiagnostic = null;
 });
 
@@ -5755,6 +5764,10 @@ document.addEventListener("click", async (event) => {
     if (!repair) return;
     state.repairDraftFromDiagnostic = null;
     repairForm.dataset.editId = id;
+    if (repairDeleteInModal) {
+      repairDeleteInModal.classList.remove("hidden");
+      repairDeleteInModal.dataset.id = String(id);
+    }
     repairForm.elements.date.value = repair.date;
     setBikeCodeValue("repair", repair.bike);
     repairForm.elements.issue.value = repair.issue;
@@ -5903,6 +5916,10 @@ document.addEventListener("click", async (event) => {
           : "Ожидает запчасти";
     state.repairDraftFromDiagnostic = null;
     delete repairForm.dataset.editId;
+    if (repairDeleteInModal) {
+      repairDeleteInModal.classList.add("hidden");
+      delete repairDeleteInModal.dataset.id;
+    }
     repairForm.elements.date.value = String(order.intake_date || "").slice(0, 10) || new Date().toISOString().slice(0, 10);
     setBikeCodeValue("repair", order.bike_code || "");
     repairForm.elements.issue.value = order.fault || order.issue || "";
@@ -5947,6 +5964,10 @@ document.addEventListener("click", async (event) => {
     repairForm.elements.partsUsed.value = state.repairDraftFromDiagnostic.partsUsed || "";
     repairForm.elements.neededParts.value = state.repairDraftFromDiagnostic.neededParts || "";
     repairForm.elements.status.value = state.repairDraftFromDiagnostic.status || "В ремонте";
+    if (repairDeleteInModal) {
+      repairDeleteInModal.classList.add("hidden");
+      delete repairDeleteInModal.dataset.id;
+    }
     repairOverlay.classList.remove("hidden");
   }
 
@@ -6138,6 +6159,25 @@ inventoryDeleteInModal?.addEventListener("click", async () => {
     inventoryTransferOptions?.classList.add("hidden");
     if (inventoryTransferOptions) inventoryTransferOptions.innerHTML = "";
     inventoryDeleteInModal.classList.add("hidden");
+    await bootstrap();
+  } catch {
+    // Ошибка уже показана через notifyError в api()
+  }
+});
+
+repairDeleteInModal?.addEventListener("click", async () => {
+  const editingId = String(repairDeleteInModal.dataset.id || repairForm?.dataset?.editId || "").trim();
+  if (!editingId) return;
+  if (!window.confirm("Удалить эту запись ремонта?")) return;
+  try {
+    await api(`/api/repairs/${editingId}`, { method: "DELETE", headers: {}, notifyError: true });
+    repairOverlay?.classList.add("hidden");
+    repairForm?.reset();
+    if (repairForm) delete repairForm.dataset.editId;
+    if (repairDeleteInModal) {
+      repairDeleteInModal.classList.add("hidden");
+      delete repairDeleteInModal.dataset.id;
+    }
     await bootstrap();
   } catch {
     // Ошибка уже показана через notifyError в api()
