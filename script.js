@@ -27,6 +27,8 @@ const state = {
   queueSort: "default",
   inventorySearch: "",
   inventoryActiveGroup: "",
+  inventoryUsagePeriod: "7d",
+  inventoryUsagePart: "",
   teamChat: [],
   telegramTransport: { state: "disabled", label: "Telegram: off" },
   ownerNotifications: [],
@@ -62,6 +64,7 @@ const state = {
     fault: "",
     criticality: "",
     selectedParts: [],
+    selectedPartsQty: {},
     selectedPartsCategory: "",
     decision: "",
     queueReason: "",
@@ -468,6 +471,7 @@ const repairsTable = document.getElementById("repairs-table");
 const diagnosticsGrid = document.getElementById("diagnostics-grid");
 const diagnosticCategoryGrid = document.getElementById("diagnostic-category-grid");
 const inventoryGrid = document.getElementById("inventory-grid");
+const inventoryPartsStats = document.getElementById("inventory-parts-stats");
 const inventorySearchInput = document.getElementById("inventory-search");
 const bikeSearchInput = document.getElementById("bike-search");
 const bikeFilterChips = document.getElementById("bike-filter-chips");
@@ -499,6 +503,8 @@ const ownerProcess = document.getElementById("owner-process");
 const ownerPriorityForm = document.getElementById("owner-priority-form");
 const teamChatForm = document.getElementById("team-chat-form");
 const teamChatList = document.getElementById("team-chat-list");
+const teamChatPhotoInput = document.getElementById("team-chat-photo-input");
+const teamChatPhotoButton = document.getElementById("team-chat-photo-btn");
 const chatUnreadBadges = Array.from(document.querySelectorAll("[data-chat-unread-badge]"));
 const currentUser = document.getElementById("current-user");
 const sidebarRoleTitle = document.getElementById("sidebar-role-title");
@@ -512,6 +518,10 @@ const closeSettingsButton = document.getElementById("close-settings-button");
 const accountButton = document.getElementById("account-button");
 const accountOverlay = document.getElementById("account-overlay");
 const closeAccountButton = document.getElementById("close-account-button");
+const photoViewerOverlay = document.getElementById("photo-viewer-overlay");
+const closePhotoViewerButton = document.getElementById("close-photo-viewer");
+const photoViewerImage = document.getElementById("photo-viewer-image");
+const photoViewerTitle = document.getElementById("photo-viewer-title");
 const passwordForm = document.getElementById("password-form");
 const passwordMessage = document.getElementById("password-message");
 const passwordError = document.getElementById("password-error");
@@ -1371,7 +1381,7 @@ function openWorkOrderDetail(order) {
         } else {
           handoverGrid.innerHTML = photos.map((p) => `
             <div class="diag-view-photo-thumb">
-              <img src="${p.photoData}" alt="${SIDE_LABELS[p.side] || p.side}" loading="lazy" />
+              <img src="${p.photoData}" alt="${SIDE_LABELS[p.side] || p.side}" loading="lazy" data-action="open-photo-viewer" data-photo-title="Выдача · ${escapeHtml(SIDE_LABELS[p.side] || p.side)}" />
               <div class="handover-thumb-label">${escapeHtml(SIDE_LABELS[p.side] || p.side)}</div>
             </div>
           `).join("");
@@ -2356,7 +2366,8 @@ function getQuickRecommendation() {
 function getQuickRequiredPartsText() {
   const selectedParts = state.diagnosticQuickFlow.selectedParts || [];
   if (!selectedParts.length) return "-";
-  return selectedParts.map((name) => `${name}:1`).join(", ");
+  const qtyMap = state.diagnosticQuickFlow.selectedPartsQty || {};
+  return selectedParts.map((name) => `${name}:${Math.max(1, Number(qtyMap[name]) || 1)}`).join(", ");
 }
 
 function buildQuickFaultTitle() {
@@ -2449,6 +2460,8 @@ function getDiagnosticSubmitErrors(bikeCode, mechanicName) {
 function renderQuickSummaryCard() {
   if (!diagnosticQuickSummaryCard) return;
   const selectedParts = new Set(state.diagnosticQuickFlow.selectedParts || []);
+  const selectedPartsList = state.diagnosticQuickFlow.selectedParts || [];
+  const qtyMap = state.diagnosticQuickFlow.selectedPartsQty || {};
   const decision = state.diagnosticQuickFlow.decision || "";
   const queueReason = state.diagnosticQuickFlow.queueReason || "";
   const groupedParts = getQuickInventoryGroupedOptions();
@@ -2487,6 +2500,26 @@ function renderQuickSummaryCard() {
       `;
     })
     .join("");
+  const selectedPartsQtyHtml = selectedPartsList.length
+    ? `
+      <div class="diagnostic-scenario-block">
+        <div class="diagnostic-quick-summary-row"><strong>Количество запчастей:</strong></div>
+        ${selectedPartsList.map((partName) => {
+          const qty = Math.max(1, Number(qtyMap[partName]) || 1);
+          return `
+            <div class="diagnostic-quick-summary-row" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <span style="flex:1;min-width:0;">${escapeHtml(partName)}</span>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <button class="ghost-btn" type="button" data-action="diagnostic-quick-part-qty-dec" data-part="${escapeHtml(partName)}">−</button>
+                <strong>${qty}</strong>
+                <button class="ghost-btn" type="button" data-action="diagnostic-quick-part-qty-inc" data-part="${escapeHtml(partName)}">+</button>
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `
+    : "";
   const summaryCats = state.diagnosticQuickFlow.categories || [];
   const summaryFaults = state.diagnosticQuickFlow.faults || [];
   const categorySummaryHtml = summaryCats.length > 1
@@ -2532,6 +2565,7 @@ function renderQuickSummaryCard() {
       }
     </div>
     <div class="diagnostic-quick-summary-row"><strong>Запчасти:</strong> ${escapeHtml(getQuickRequiredPartsText())}</div>
+    ${selectedPartsQtyHtml}
     <div class="diagnostic-scenario-block">
       <div class="diagnostic-quick-summary-row"><strong>Фотоконтроль байка (4 стороны):</strong></div>
       <p class="handover-photo-hint muted">Сделай фото байка с 4 сторон перед взятием в ремонт</p>
@@ -2705,6 +2739,7 @@ function resetDiagnosticFlow() {
     fault: "",
     criticality: "",
     selectedParts: [],
+    selectedPartsQty: {},
     selectedPartsCategory: "",
     decision: "",
     queueReason: "",
@@ -2747,6 +2782,23 @@ function closeAllModals() {
     delete bikeForm.dataset.editId;
   }
   accountOverlay?.classList.add("hidden");
+  photoViewerOverlay?.classList.add("hidden");
+}
+
+function openPhotoViewer(src, title = "Фото") {
+  if (!photoViewerOverlay || !photoViewerImage) return;
+  const imageSrc = String(src || "").trim();
+  if (!imageSrc) return;
+  photoViewerImage.src = imageSrc;
+  photoViewerImage.alt = String(title || "Фото");
+  if (photoViewerTitle) photoViewerTitle.textContent = String(title || "Фото");
+  photoViewerOverlay.classList.remove("hidden");
+}
+
+function closePhotoViewer() {
+  if (!photoViewerOverlay || !photoViewerImage) return;
+  photoViewerOverlay.classList.add("hidden");
+  photoViewerImage.src = "";
 }
 
 function openDiagnosticOverlay() {
@@ -2842,7 +2894,7 @@ async function openDiagnosticViewForOwner(item) {
       photosEl.innerHTML = photos
         .map((p) => `
           <div class="diag-view-photo-thumb">
-            <img src="${p.photoData}" alt="${sideLabels[p.side] || "Фото"}" loading="lazy" />
+            <img src="${p.photoData}" alt="${sideLabels[p.side] || "Фото"}" loading="lazy" data-action="open-photo-viewer" data-photo-title="Диагностика · ${escapeHtml(sideLabels[p.side] || "Фото")}" />
             ${p.side ? `<div class="handover-thumb-label">${sideLabels[p.side] || p.side}</div>` : ""}
           </div>
         `)
@@ -3270,8 +3322,206 @@ function getInventoryGroupForName(rawName) {
   return match?.key || "other";
 }
 
+function parsePartsUsageText(partsText) {
+  const raw = String(partsText || "").trim();
+  if (!raw || raw === "-") return [];
+  return raw
+    .split(",")
+    .map((chunk) => String(chunk || "").trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const colonMatch = entry.match(/^(.*?):\s*(\d+)\s*$/);
+      if (colonMatch) {
+        return {
+          name: String(colonMatch[1] || "").trim(),
+          qty: Math.max(1, Number(colonMatch[2]) || 1),
+        };
+      }
+      const xMatch = entry.match(/^(.*?)\s*[xх×]\s*(\d+)\s*$/i);
+      if (xMatch) {
+        return {
+          name: String(xMatch[1] || "").trim(),
+          qty: Math.max(1, Number(xMatch[2]) || 1),
+        };
+      }
+      return { name: entry, qty: 1 };
+    })
+    .filter((item) => item.name);
+}
+
+function formatInventoryUsageDate(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "—";
+  const dt = new Date(raw);
+  if (Number.isNaN(dt.getTime())) return raw;
+  return dt.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function isRepairInUsagePeriod(value, periodKey) {
+  const dt = new Date(String(value || "").trim());
+  if (Number.isNaN(dt.getTime())) return false;
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (periodKey === "today") {
+    return dt >= startToday;
+  }
+  const days = periodKey === "30d" ? 30 : 7;
+  const start = new Date(startToday);
+  start.setDate(start.getDate() - (days - 1));
+  return dt >= start;
+}
+
+function renderInventoryPartsStats() {
+  if (!inventoryPartsStats) return;
+  if (getRole() !== "owner") {
+    inventoryPartsStats.classList.add("hidden");
+    inventoryPartsStats.innerHTML = "";
+    return;
+  }
+  const source = (state.repairs || [])
+    .filter((repair) => String(repair.status || "").trim().toLowerCase() === "готов")
+    .map((repair) => ({
+      id: repair.id,
+      date: repair.date || repair.created_at || "",
+      bike: repair.bike || "—",
+      issue: repair.issue || "—",
+      parts: parsePartsUsageText(repair.parts_used),
+    }))
+    .filter((row) => row.parts.length > 0)
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+
+  if (!source.length) {
+    inventoryPartsStats.classList.remove("hidden");
+    inventoryPartsStats.innerHTML = '<p class="muted">Статистика расхода запчастей пока пустая.</p>';
+    return;
+  }
+
+  const allPartNames = Array.from(
+    new Set(
+      source.flatMap((row) => row.parts.map((part) => String(part.name || "").trim())).filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, "ru"));
+  if (state.inventoryUsagePart && !allPartNames.includes(state.inventoryUsagePart)) {
+    state.inventoryUsagePart = "";
+  }
+
+  const filteredSource = source
+    .filter((row) => isRepairInUsagePeriod(row.date, state.inventoryUsagePeriod))
+    .map((row) => ({
+      ...row,
+      parts: state.inventoryUsagePart
+        ? row.parts.filter((part) => String(part.name || "").trim() === state.inventoryUsagePart)
+        : row.parts,
+    }))
+    .filter((row) => row.parts.length > 0);
+
+  if (!filteredSource.length) {
+    inventoryPartsStats.classList.remove("hidden");
+    inventoryPartsStats.innerHTML = `
+      <div class="inventory-usage-card">
+        <div class="inventory-usage-head">
+          <h3>Расход запчастей по ремонтам</h3>
+          <span class="muted">Только завершённые ремонты</span>
+        </div>
+        <div class="inventory-usage-filters">
+          <div class="segmented inventory-usage-segmented">
+            <button class="segmented-btn ${state.inventoryUsagePeriod === "today" ? "is-active" : ""}" type="button" data-action="inventory-usage-period" data-period="today">Сегодня</button>
+            <button class="segmented-btn ${state.inventoryUsagePeriod === "7d" ? "is-active" : ""}" type="button" data-action="inventory-usage-period" data-period="7d">7 дней</button>
+            <button class="segmented-btn ${state.inventoryUsagePeriod === "30d" ? "is-active" : ""}" type="button" data-action="inventory-usage-period" data-period="30d">30 дней</button>
+          </div>
+          <label class="inventory-usage-part-filter">
+            <span class="visually-hidden">Фильтр по запчасти</span>
+            <select data-action="inventory-usage-part">
+              <option value="">Все запчасти</option>
+              ${allPartNames
+                .map((partName) => `<option value="${escapeHtml(partName)}" ${partName === state.inventoryUsagePart ? "selected" : ""}>${escapeHtml(partName)}</option>`)
+                .join("")}
+            </select>
+          </label>
+        </div>
+        <p class="muted">По выбранным фильтрам данных нет.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const usageMap = new Map();
+  filteredSource.forEach((row) => {
+    row.parts.forEach((part) => {
+      const key = String(part.name || "").trim();
+      if (!key) return;
+      usageMap.set(key, (usageMap.get(key) || 0) + Math.max(1, Number(part.qty) || 1));
+    });
+  });
+  const topRows = Array.from(usageMap.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ru"))
+    .slice(0, 8);
+  const latestRows = filteredSource.slice(0, 20);
+
+  inventoryPartsStats.classList.remove("hidden");
+  inventoryPartsStats.innerHTML = `
+    <div class="inventory-usage-card">
+      <div class="inventory-usage-head">
+        <h3>Расход запчастей по ремонтам</h3>
+        <span class="muted">Только завершённые ремонты</span>
+      </div>
+      <div class="inventory-usage-filters">
+        <div class="segmented inventory-usage-segmented">
+          <button class="segmented-btn ${state.inventoryUsagePeriod === "today" ? "is-active" : ""}" type="button" data-action="inventory-usage-period" data-period="today">Сегодня</button>
+          <button class="segmented-btn ${state.inventoryUsagePeriod === "7d" ? "is-active" : ""}" type="button" data-action="inventory-usage-period" data-period="7d">7 дней</button>
+          <button class="segmented-btn ${state.inventoryUsagePeriod === "30d" ? "is-active" : ""}" type="button" data-action="inventory-usage-period" data-period="30d">30 дней</button>
+        </div>
+        <label class="inventory-usage-part-filter">
+          <span class="visually-hidden">Фильтр по запчасти</span>
+          <select data-action="inventory-usage-part">
+            <option value="">Все запчасти</option>
+            ${allPartNames
+              .map((partName) => `<option value="${escapeHtml(partName)}" ${partName === state.inventoryUsagePart ? "selected" : ""}>${escapeHtml(partName)}</option>`)
+              .join("")}
+          </select>
+        </label>
+      </div>
+      <div class="inventory-usage-top">
+        ${topRows
+          .map(
+            ([name, qty]) => `
+              <div class="inventory-usage-chip">
+                <strong>${escapeHtml(name)}</strong>
+                <span>${escapeHtml(String(qty))} шт</span>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+      <div class="inventory-usage-list">
+        ${latestRows
+          .map((row) =>
+            row.parts
+              .map(
+                (part) => `
+                  <article class="inventory-usage-row">
+                    <div>
+                      <strong>${escapeHtml(part.name)}</strong>
+                      <p class="muted">Байк ${escapeHtml(row.bike)} · ${escapeHtml(row.issue)}</p>
+                    </div>
+                    <div class="inventory-usage-meta">
+                      <span>${escapeHtml(String(part.qty))} шт</span>
+                      <time>${escapeHtml(formatInventoryUsageDate(row.date))}</time>
+                    </div>
+                  </article>
+                `
+              )
+              .join("")
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
 function renderInventory() {
   const canManage = true; // both mechanic and owner can add/edit inventory
+  renderInventoryPartsStats();
   if (inventorySearchInput) {
     inventorySearchInput.value = state.inventorySearch || "";
   }
@@ -4131,7 +4381,8 @@ function renderTeamChat() {
       return `
         <article class="team-chat-item ${mine ? "is-mine" : ""}">
           <div class="team-chat-meta">${escapeHtml(item.sender_name)} · ${new Date(item.created_at).toLocaleString("ru-RU")}</div>
-          <div class="team-chat-text">${escapeHtml(item.message)}</div>
+          ${item.photo_data ? `<img class="team-chat-photo" src="${item.photo_data}" alt="Фото из чата" loading="lazy" data-action="open-photo-viewer" data-photo-title="Фото из чата" />` : ""}
+          ${String(item.message || "").trim() ? `<div class="team-chat-text">${escapeHtml(item.message)}</div>` : ""}
         </article>
       `;
     })
@@ -5149,6 +5400,7 @@ diagnosticQuickOptions?.addEventListener("click", (event) => {
     if (cfg.key === "categories") {
       state.diagnosticQuickFlow.faults = [];
       state.diagnosticQuickFlow.selectedParts = [];
+      state.diagnosticQuickFlow.selectedPartsQty = {};
       state.diagnosticQuickFlow.selectedPartsCategory = "";
       state.diagnosticQuickFlow.criticality = "";
       state.diagnosticQuickFlow.decision = "";
@@ -5156,6 +5408,7 @@ diagnosticQuickOptions?.addEventListener("click", (event) => {
     }
     if (cfg.key === "faults") {
       state.diagnosticQuickFlow.selectedParts = [];
+      state.diagnosticQuickFlow.selectedPartsQty = {};
       state.diagnosticQuickFlow.selectedPartsCategory = "";
       state.diagnosticQuickFlow.decision = "";
       state.diagnosticQuickFlow.queueReason = "";
@@ -5181,6 +5434,27 @@ diagnosticQuickSummaryCard?.addEventListener("click", (event) => {
     syncDiagnosticWizard();
     return;
   }
+  const qtyIncButton = event.target.closest('[data-action="diagnostic-quick-part-qty-inc"]');
+  if (qtyIncButton) {
+    const partName = String(qtyIncButton.dataset.part || "").trim();
+    if (!partName) return;
+    const qtyMap = state.diagnosticQuickFlow.selectedPartsQty || {};
+    qtyMap[partName] = Math.max(1, Number(qtyMap[partName]) || 1) + 1;
+    state.diagnosticQuickFlow.selectedPartsQty = qtyMap;
+    syncDiagnosticWizard();
+    return;
+  }
+  const qtyDecButton = event.target.closest('[data-action="diagnostic-quick-part-qty-dec"]');
+  if (qtyDecButton) {
+    const partName = String(qtyDecButton.dataset.part || "").trim();
+    if (!partName) return;
+    const qtyMap = state.diagnosticQuickFlow.selectedPartsQty || {};
+    const next = Math.max(1, (Number(qtyMap[partName]) || 1) - 1);
+    qtyMap[partName] = next;
+    state.diagnosticQuickFlow.selectedPartsQty = qtyMap;
+    syncDiagnosticWizard();
+    return;
+  }
   const button = event.target.closest('[data-action="diagnostic-quick-part"]');
   const categoryButton = event.target.closest('[data-action="diagnostic-quick-part-category"]');
   if (categoryButton) {
@@ -5200,8 +5474,15 @@ diagnosticQuickSummaryCard?.addEventListener("click", (event) => {
   const partName = String(button.dataset.part || "").trim();
   if (!partName) return;
   const current = new Set(state.diagnosticQuickFlow.selectedParts || []);
-  if (current.has(partName)) current.delete(partName);
-  else current.add(partName);
+  const qtyMap = state.diagnosticQuickFlow.selectedPartsQty || {};
+  if (current.has(partName)) {
+    current.delete(partName);
+    delete qtyMap[partName];
+  } else {
+    current.add(partName);
+    qtyMap[partName] = Math.max(1, Number(qtyMap[partName]) || 1);
+  }
+  state.diagnosticQuickFlow.selectedPartsQty = qtyMap;
   state.diagnosticQuickFlow.selectedParts = Array.from(current);
   showDiagnosticQuickErrors([]);
   syncDiagnosticWizard();
@@ -5397,6 +5678,13 @@ bikeSearchInput?.addEventListener("input", (event) => {
 inventorySearchInput?.addEventListener("input", (event) => {
   state.inventorySearch = event.target.value;
   renderInventory();
+});
+
+inventoryPartsStats?.addEventListener("change", (event) => {
+  const select = event.target.closest('select[data-action="inventory-usage-part"]');
+  if (!select) return;
+  state.inventoryUsagePart = String(select.value || "").trim();
+  renderInventoryPartsStats();
 });
 
 statusFilter?.addEventListener("change", (event) => {
@@ -5739,24 +6027,44 @@ if (teamChatForm) {
     event.preventDefault();
     const formData = new FormData(teamChatForm);
     const message = String(formData.get("message") || "").trim();
-    if (!message) return;
+    const file = teamChatPhotoInput?.files?.[0] || null;
+    let photoData = "";
+    if (file) {
+      photoData = String(await resizePhotoToBase64(file, 1280, 0.82) || "").trim();
+    }
+    if (!message && !photoData) return;
     const submitBtn = teamChatForm.querySelector('button[type="submit"]');
     try {
       if (submitBtn) submitBtn.disabled = true;
+      if (teamChatPhotoButton) teamChatPhotoButton.disabled = true;
       await api("/api/team-chat", {
         method: "POST",
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, photoData }),
         notifyError: true,
       });
       teamChatForm.reset();
+      if (teamChatPhotoInput) teamChatPhotoInput.value = "";
+      if (teamChatPhotoButton) teamChatPhotoButton.textContent = "Фото";
       await refreshTeamChat();
     } catch {
       // Ошибка уже показана через notifyError в api()
     } finally {
       if (submitBtn) submitBtn.disabled = false;
+      if (teamChatPhotoButton) teamChatPhotoButton.disabled = false;
     }
   });
 }
+
+teamChatPhotoButton?.addEventListener("click", () => {
+  teamChatPhotoInput?.click();
+});
+
+teamChatPhotoInput?.addEventListener("change", () => {
+  const hasFile = Boolean(teamChatPhotoInput.files?.[0]);
+  if (teamChatPhotoButton) {
+    teamChatPhotoButton.textContent = hasFile ? "Фото ✓" : "Фото";
+  }
+});
 
 if (profileForm) {
   profileForm.addEventListener("submit", async (event) => {
@@ -5911,6 +6219,14 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  if (action === "inventory-usage-period") {
+    const period = String(target.dataset.period || "").trim();
+    if (!["today", "7d", "30d"].includes(period)) return;
+    state.inventoryUsagePeriod = period;
+    renderInventoryPartsStats();
+    return;
+  }
+
   if (action === "close-inventory-group") {
     state.inventoryActiveGroup = "";
     renderInventory();
@@ -5991,6 +6307,8 @@ document.addEventListener("click", async (event) => {
     repairForm.elements.partsUsed.value = "-";
     repairForm.elements.neededParts.value = inventoryParts || fallbackParts;
     repairForm.elements.status.value = mappedStatus;
+    // Ensure repair editor is visible above order details modal.
+    workOrderOverlay?.classList.add("hidden");
     repairOverlay.classList.remove("hidden");
     return;
   }
@@ -6572,6 +6890,27 @@ document.addEventListener("click", async (event) => {
     notify("Шаблон сохранён");
     await bootstrap();
   } catch { /* shown */ }
+});
+
+// Photo viewer for owner diagnostics/handover photos
+document.addEventListener("click", (event) => {
+  const img = event.target.closest('[data-action="open-photo-viewer"]');
+  if (!img) return;
+  openPhotoViewer(img.getAttribute("src"), img.dataset.photoTitle || img.getAttribute("alt") || "Фото");
+});
+
+closePhotoViewerButton?.addEventListener("click", () => {
+  closePhotoViewer();
+});
+
+photoViewerOverlay?.addEventListener("click", (event) => {
+  if (event.target === photoViewerOverlay) closePhotoViewer();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && photoViewerOverlay && !photoViewerOverlay.classList.contains("hidden")) {
+    closePhotoViewer();
+  }
 });
 
 // KB search

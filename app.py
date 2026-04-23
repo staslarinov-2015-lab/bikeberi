@@ -475,22 +475,28 @@ def chat_display_name(raw_name: str, role: str = "") -> str:
     return "Управляющий" if role == "owner" else "Механик"
 
 
-def store_chat_message(sender_role: str, sender_name: str, message: str):
+def store_chat_message(sender_role: str, sender_name: str, message: str, photo_data: str = ""):
     role = str(sender_role or "").strip()
     if role not in {"owner", "mechanic"}:
         return False
     name = chat_display_name(sender_name, role)
     text = str(message or "").strip()
-    if not text:
+    photo = str(photo_data or "").strip()
+    if not text and not photo:
         return False
     text = text[:400]
+    if photo and not photo.startswith("data:image/"):
+        return False
+    if photo and len(photo) > 3_000_000:
+        return False
+    message_type = "photo" if photo else "text"
     conn = get_db()
     conn.execute(
         """
-        INSERT INTO team_chat_messages (sender_role, sender_name, message, created_at)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO team_chat_messages (sender_role, sender_name, message, message_type, photo_data, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (role, name, text, utc_now().isoformat()),
+        (role, name, text, message_type, photo, utc_now().isoformat()),
     )
     conn.commit()
     conn.close()
@@ -712,7 +718,7 @@ def fetch_recent_team_chat(limit: int = 60):
         dict(row)
         for row in conn.execute(
             """
-            SELECT id, sender_role, sender_name, message, created_at
+            SELECT id, sender_role, sender_name, message, message_type, photo_data, created_at
             FROM team_chat_messages
             ORDER BY id DESC
             LIMIT ?
@@ -1254,6 +1260,8 @@ def init_db():
     ensure_column(cur, "repairs", "actual_minutes", "INTEGER")
     ensure_column(cur, "repairs", "fault_category", "TEXT NOT NULL DEFAULT ''")
     ensure_column(cur, "diagnostic_photos", "side", "TEXT")
+    ensure_column(cur, "team_chat_messages", "message_type", "TEXT NOT NULL DEFAULT 'text'")
+    ensure_column(cur, "team_chat_messages", "photo_data", "TEXT NOT NULL DEFAULT ''")
 
     now = utc_now().isoformat()
 
@@ -2994,14 +3002,21 @@ class AppHandler(BaseHTTPRequestHandler):
                 return
             payload = read_json(self)
             message = str(payload.get("message", "")).strip()
-            if not message:
-                return json_response(self, 400, {"error": "Сообщение пустое"})
+            photo_data = str(payload.get("photoData", "")).strip()
+            if not message and not photo_data:
+                return json_response(self, 400, {"error": "Добавьте текст или фото"})
             if len(message) > 400:
                 return json_response(self, 400, {"error": "Сообщение должно быть до 400 символов"})
+            if photo_data:
+                if not photo_data.startswith("data:image/"):
+                    return json_response(self, 400, {"error": "Некорректные данные фото"})
+                if len(photo_data) > 3_000_000:
+                    return json_response(self, 400, {"error": "Фото слишком большое (макс. 2 МБ)"})
             sender_name = chat_display_name(user["full_name"], user["role"])
-            if not store_chat_message(user["role"], sender_name, message):
+            if not store_chat_message(user["role"], sender_name, message, photo_data):
                 return json_response(self, 400, {"error": "Сообщение не сохранено"})
-            mirror_internal_chat_to_telegram(user["role"], sender_name, message)
+            mirror_text = message if message else "📷 Фото в чате"
+            mirror_internal_chat_to_telegram(user["role"], sender_name, mirror_text)
             return json_response(self, 201, {"ok": True})
 
         if parsed.path.startswith("/api/diagnostics/") and parsed.path.endswith("/photos"):

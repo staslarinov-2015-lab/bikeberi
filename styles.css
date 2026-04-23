@@ -1704,6 +1704,108 @@ tbody tr:hover {
   transform: translateY(-1px);
 }
 
+.inventory-parts-stats {
+  margin-bottom: 14px;
+}
+
+.inventory-usage-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.inventory-usage-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.inventory-usage-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.inventory-usage-filters {
+  display: grid;
+  gap: 8px;
+}
+
+.inventory-usage-segmented {
+  margin-bottom: 0;
+}
+
+.inventory-usage-part-filter select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  padding: 9px 10px;
+  font: inherit;
+}
+
+.inventory-usage-top {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.inventory-usage-chip {
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  background: #f8f9ff;
+  display: grid;
+  gap: 2px;
+}
+
+.inventory-usage-chip strong {
+  font-size: 0.84rem;
+}
+
+.inventory-usage-chip span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.inventory-usage-list {
+  display: grid;
+  gap: 6px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.inventory-usage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.inventory-usage-row p {
+  margin: 2px 0 0;
+}
+
+.inventory-usage-meta {
+  text-align: right;
+  display: grid;
+  gap: 2px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.inventory-usage-meta time {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
 .inventory-delete-btn {
   min-height: 30px;
   padding: 5px 9px;
@@ -3438,10 +3540,26 @@ body:not(.is-auth-locked) .screen-section {
   line-height: 1.35;
 }
 
+.team-chat-photo {
+  display: block;
+  width: min(220px, 100%);
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 10px;
+  margin: 4px 0 6px;
+  cursor: zoom-in;
+}
+
 .team-chat-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 10px;
+}
+
+@media (max-width: 680px) {
+  .team-chat-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
 }
 
 .readonly-badge {
@@ -4340,6 +4458,48 @@ textarea:focus-visible {
   height: 100%;
   object-fit: cover;
   display: block;
+  cursor: zoom-in;
+  transition: transform 0.15s ease;
+}
+
+.diag-view-photo-thumb img:active {
+  transform: scale(0.98);
+}
+
+.photo-viewer-card {
+  width: min(920px, calc(100vw - 20px));
+  max-height: calc(100vh - 20px);
+  background: #0f1117;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+}
+
+.photo-viewer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.photo-viewer-body {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  padding: 10px;
+}
+
+#photo-viewer-image {
+  max-width: 100%;
+  max-height: calc(100vh - 120px);
+  border-radius: 12px;
+  object-fit: contain;
+  background: #000;
 }
 
 /* ─── HANDOVER PHOTO CONTROL (issue checklist) ─────────────────────────────── */

@@ -303,7 +303,9 @@
             </div>
             <div id="team-chat-list" class="team-chat-list" aria-live="polite"></div>
             <form id="team-chat-form" class="team-chat-form">
-              <input name="message" type="text" maxlength="400" placeholder="Сообщение…" required />
+              <input name="message" type="text" maxlength="400" placeholder="Сообщение…" />
+              <input id="team-chat-photo-input" name="photo" type="file" accept="image/*" style="display:none" />
+              <button id="team-chat-photo-btn" class="ghost-btn" type="button">Фото</button>
               <button class="primary-btn" type="submit">Отправить</button>
             </form>
           </section>
@@ -430,6 +432,7 @@
                 <button id="open-inventory-modal" class="primary-btn" type="button" style="padding:12px;border-radius:12px;font-size:14px;">Добавить</button>
               </div>
             </div>
+            <div id="inventory-parts-stats" class="inventory-parts-stats owner-only hidden"></div>
             <div id="inventory-grid" class="inventory-grid"></div>
           </section>
         </section>
@@ -988,6 +991,18 @@
 
         <p id="password-message" class="success-text hidden"></p>
         <p id="password-error" class="error-text hidden"></p>
+      </div>
+    </div>
+
+    <div id="photo-viewer-overlay" class="overlay hidden">
+      <div class="photo-viewer-card" role="dialog" aria-modal="true" aria-label="Просмотр фото">
+        <div class="photo-viewer-head">
+          <strong id="photo-viewer-title">Фото</strong>
+          <button id="close-photo-viewer" class="ghost-btn" type="button">Закрыть</button>
+        </div>
+        <div class="photo-viewer-body">
+          <img id="photo-viewer-image" src="" alt="Фото фотоконтроля" loading="eager" />
+        </div>
       </div>
     </div>
 
