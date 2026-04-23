@@ -643,8 +643,8 @@ def telegram_poll_loop():
 
 
 def pause_reminder_loop():
-    """Every 60 s: send Telegram reminder to mechanic for each paused work order (every 5 min)."""
-    REMIND_INTERVAL_SEC = 5 * 60  # 5 minutes
+    """Every 60 s: send Telegram reminder to mechanic for each paused work order (every 1 hour)."""
+    REMIND_INTERVAL_SEC = 60 * 60  # 1 hour
     while True:
         try:
             config = get_telegram_config()
