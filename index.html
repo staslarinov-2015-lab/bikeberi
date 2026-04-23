@@ -108,40 +108,8 @@
         <section id="section-overview" class="screen-section">
           <div id="mechanic-day-focus" class="mechanic-day-focus hidden"></div>
           <div id="mechanic-efficiency-card" class="efficiency-card owner-only" style="margin-bottom:16px;"></div>
-          <div class="overview-layout">
-            <section class="panel">
-              <h3 class="panel-title">Период</h3>
-              <div class="segmented" role="group" aria-label="Период">
-                <button class="segmented-btn is-active" type="button" data-dashboard-period="today">Сегодня</button>
-                <button class="segmented-btn" type="button" data-dashboard-period="yesterday">Вчера</button>
-                <button class="segmented-btn" type="button" data-dashboard-period="week">7 дней</button>
-                <button class="segmented-btn" type="button" data-dashboard-period="month">30 дней</button>
-              </div>
-              <div id="metrics-grid" class="stat-grid"></div>
-            </section>
-
-            <section class="panel">
-              <h3 class="panel-title">Фокус смены</h3>
-              <div id="timeline" class="simple-rows"></div>
-            </section>
-
-            <section class="panel">
-              <h3 class="panel-title">Что делать сейчас</h3>
-              <div id="alerts-list" class="alert-stack"></div>
-            </section>
-
-            <section class="panel">
-              <h3 class="panel-title">Статусы байков</h3>
-              <div id="bike-statuses" class="status-bars"></div>
-            </section>
-
-            <section class="panel">
-              <h3 class="panel-title">Лента событий</h3>
-              <div id="events-feed" class="events-feed"></div>
-            </section>
-          </div>
           <div class="owner-only">
-            <div class="owner-focus-header" style="margin-top:18px;">
+            <div class="owner-focus-header" style="margin-top:0;">
               <span class="owner-focus-title">Фокус смены</span>
               <div id="owner-shift-summary" class="owner-shift-summary"></div>
             </div>
@@ -172,7 +140,35 @@
               </div>
               <div class="urgent-block-list" id="urgent-ready-list"></div>
             </div>
+          </div>
+          <div class="overview-layout">
+            <section class="panel">
+              <h3 class="panel-title">Период</h3>
+              <div class="segmented" role="group" aria-label="Период">
+                <button class="segmented-btn is-active" type="button" data-dashboard-period="today">Сегодня</button>
+                <button class="segmented-btn" type="button" data-dashboard-period="yesterday">Вчера</button>
+                <button class="segmented-btn" type="button" data-dashboard-period="week">7 дней</button>
+                <button class="segmented-btn" type="button" data-dashboard-period="month">30 дней</button>
+              </div>
+              <div id="metrics-grid" class="stat-grid"></div>
+            </section>
 
+            <section class="panel">
+              <h3 class="panel-title">Что делать сейчас</h3>
+              <div id="alerts-list" class="alert-stack"></div>
+            </section>
+
+            <section class="panel">
+              <h3 class="panel-title">Статусы байков</h3>
+              <div id="bike-statuses" class="status-bars"></div>
+            </section>
+
+            <section class="panel">
+              <h3 class="panel-title">Лента событий</h3>
+              <div id="events-feed" class="events-feed"></div>
+            </section>
+          </div>
+          <div class="owner-only">
             <div class="owner-grid" style="margin-top:20px;">
               <article class="content-card owner-card">
                 <h3 class="panel-title">В ремонте</h3>
