@@ -2333,6 +2333,11 @@ class AppHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
+        # Форма входа: method=post action="#" — браузер шлёт POST на / (иногда с ?query).
+        # Раньше здесь не было обработчика → 404 и белая страница «Not found».
+        post_path = parsed.path or "/"
+        if post_path == "/":
+            return self.serve_index()
 
         if parsed.path.startswith("/api/telegram/webhook/"):
             config = get_telegram_config()
