@@ -898,7 +898,7 @@ function getRole() {
 
 // ─── iOS-style navigation ─────────────────────────────────────────────────────
 
-const ROOT_SECTIONS = new Set(["overview", "repairs", "inventory", "chat", "owner"]);
+const ROOT_SECTIONS = new Set(["overview", "repairs", "inventory", "chat"]);
 
 function navigateTo(section, { direction = "forward", replace = false } = {}) {
   const from = state.activeSection;
@@ -1725,7 +1725,6 @@ function renderSectionHeader() {
     repairs: { title: "Очередь" },
     "issue-checklist": { title: "Выдача" },
     inventory: { title: "Склад" },
-    owner: { title: "Показатели" },
     "knowledge-base": { title: "Учебник — Wenbox U2" },
   };
   const meta = sectionMeta[state.activeSection] || sectionMeta.overview;
@@ -4728,7 +4727,7 @@ async function bootstrap() {
         state.issueChecklist.completedAt = "";
       }
     }
-    if (getRole() !== "owner" && state.activeSection === "owner") {
+    if (state.activeSection === "owner") {
       state.activeSection = "overview";
     }
     render();
@@ -6412,7 +6411,7 @@ window.setInterval(refreshRepairTimers, 1000);
 window.setInterval(refreshTeamChat, TEAM_CHAT_POLL_INTERVAL_MS);
 // Refresh mechanic efficiency card every minute (active repair time ticks up)
 window.setInterval(() => {
-  if (getRole() === "owner" && (state.activeSection === "owner" || state.activeSection === "overview")) {
+  if (getRole() === "owner" && state.activeSection === "overview") {
     renderMechanicEfficiency();
   }
 }, 60_000);

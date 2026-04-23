@@ -72,7 +72,6 @@
           <button class="nav-link" type="button" data-section="diagnostics">Диагностика</button>
           <button class="nav-link" type="button" data-section="inventory">Склад</button>
           <button class="nav-link mechanic-only" type="button" data-section="issue-checklist">Выдача</button>
-          <button class="nav-link owner-only" type="button" data-section="owner">Показатели</button>
         </nav>
 
         <div class="sidebar-footer">
@@ -144,6 +143,98 @@
               <h3 class="panel-title">Лента событий</h3>
               <div id="events-feed" class="events-feed"></div>
             </section>
+          </div>
+          <div class="owner-only">
+            <div class="owner-focus-header" style="margin-top:18px;">
+              <span class="owner-focus-title">Фокус смены</span>
+              <div id="owner-shift-summary" class="owner-shift-summary"></div>
+            </div>
+
+            <div class="urgent-block" id="urgent-parts-block">
+              <div class="urgent-block-header">
+                <span class="urgent-block-icon">🛒</span>
+                <span class="urgent-block-label">Закупка запчастей</span>
+                <span class="urgent-block-count" id="urgent-parts-count">0</span>
+              </div>
+              <div class="urgent-block-list" id="urgent-parts-list"></div>
+            </div>
+
+            <div class="urgent-block" id="urgent-paused-block">
+              <div class="urgent-block-header">
+                <span class="urgent-block-icon">⏸</span>
+                <span class="urgent-block-label">Приостановленные ремонты</span>
+                <span class="urgent-block-count" id="urgent-paused-count">0</span>
+              </div>
+              <div class="urgent-block-list" id="urgent-paused-list"></div>
+            </div>
+
+            <div class="urgent-block urgent-block--ok" id="urgent-ready-block">
+              <div class="urgent-block-header">
+                <span class="urgent-block-icon">✅</span>
+                <span class="urgent-block-label">Готово к выдаче</span>
+                <span class="urgent-block-count" id="urgent-ready-count">0</span>
+              </div>
+              <div class="urgent-block-list" id="urgent-ready-list"></div>
+            </div>
+
+            <div class="owner-grid" style="margin-top:20px;">
+              <article class="content-card owner-card">
+                <h3 class="panel-title">В ремонте</h3>
+                <div id="owner-kpi" class="big-number">0</div>
+                <p id="owner-kpi-note" class="muted"></p>
+              </article>
+
+              <article class="content-card owner-card">
+                <h3 class="panel-title">Нагрузка</h3>
+                <div id="owner-process" class="stack-list"></div>
+              </article>
+
+              <article class="content-card owner-card owner-card-wide">
+                <h3 class="panel-title">🎯 Цели механику</h3>
+                <form id="owner-goals-form" class="goals-form">
+                  <div class="goal-field">
+                    <div class="goal-field-header">
+                      <span class="goal-period-badge goal-period-badge--day">Сегодня</span>
+                      <span class="goal-field-hint">Видит механик в начале смены</span>
+                    </div>
+                    <textarea name="dailyGoal" rows="2" maxlength="160"
+                      placeholder="Например: починить 5163 до 14:00, принять новые запчасти"></textarea>
+                  </div>
+                  <div class="goal-field">
+                    <div class="goal-field-header">
+                      <span class="goal-period-badge goal-period-badge--week">Неделя</span>
+                      <span class="goal-field-hint">Стратегическая задача</span>
+                    </div>
+                    <textarea name="mechanicFocus" rows="2" maxlength="160"
+                      placeholder="Например: подготовить весь парк к сезону, ревизия склада"></textarea>
+                  </div>
+                  <button class="primary-btn wide" type="submit">Сохранить цели</button>
+                </form>
+              </article>
+
+              <article class="content-card owner-card owner-card-wide">
+                <h3 class="panel-title">Приоритет байку</h3>
+                <form id="owner-priority-form" class="form-grid">
+                  <label>
+                    <span>Байк</span>
+                    <input name="bikeCode" type="text" maxlength="6" placeholder="РЕ123У" required />
+                  </label>
+                  <label>
+                    <span>Приоритет</span>
+                    <select name="priority" required>
+                      <option value="высокий">Высокий</option>
+                      <option value="обычный" selected>Обычный</option>
+                      <option value="низкий">Низкий</option>
+                    </select>
+                  </label>
+                  <label class="wide">
+                    <span>Комментарий</span>
+                    <input name="ownerNote" type="text" maxlength="220" placeholder="Например: сделать до 14:00" />
+                  </label>
+                  <button class="primary-btn wide" type="submit">Поставить приоритет</button>
+                </form>
+              </article>
+            </div>
           </div>
         </section>
 
@@ -369,106 +460,6 @@
           </section>
         </section>
 
-        <section id="section-owner" class="screen-section hidden owner-only">
-
-          <!-- ── Фокус смены ─────────────────────────────────── -->
-          <div class="owner-focus-header">
-            <span class="owner-focus-title">Фокус смены</span>
-            <div id="owner-shift-summary" class="owner-shift-summary"></div>
-          </div>
-
-          <!-- Закупка запчастей (срочно) -->
-          <div class="urgent-block" id="urgent-parts-block">
-            <div class="urgent-block-header">
-              <span class="urgent-block-icon">🛒</span>
-              <span class="urgent-block-label">Закупка запчастей</span>
-              <span class="urgent-block-count" id="urgent-parts-count">0</span>
-            </div>
-            <div class="urgent-block-list" id="urgent-parts-list"></div>
-          </div>
-
-          <!-- Приостановленные ремонты -->
-          <div class="urgent-block" id="urgent-paused-block">
-            <div class="urgent-block-header">
-              <span class="urgent-block-icon">⏸</span>
-              <span class="urgent-block-label">Приостановленные ремонты</span>
-              <span class="urgent-block-count" id="urgent-paused-count">0</span>
-            </div>
-            <div class="urgent-block-list" id="urgent-paused-list"></div>
-          </div>
-
-          <!-- Готово к выдаче -->
-          <div class="urgent-block urgent-block--ok" id="urgent-ready-block">
-            <div class="urgent-block-header">
-              <span class="urgent-block-icon">✅</span>
-              <span class="urgent-block-label">Готово к выдаче</span>
-              <span class="urgent-block-count" id="urgent-ready-count">0</span>
-            </div>
-            <div class="urgent-block-list" id="urgent-ready-list"></div>
-          </div>
-
-          <!-- ── Обзор / метрики ─────────────────────────────── -->
-          <div class="owner-grid" style="margin-top:20px;">
-            <article class="content-card owner-card">
-              <h3 class="panel-title">В ремонте</h3>
-              <div id="owner-kpi" class="big-number">0</div>
-              <p id="owner-kpi-note" class="muted"></p>
-            </article>
-
-            <article class="content-card owner-card">
-              <h3 class="panel-title">Нагрузка</h3>
-              <div id="owner-process" class="stack-list"></div>
-            </article>
-
-            <!-- Цели механику -->
-            <article class="content-card owner-card owner-card-wide">
-              <h3 class="panel-title">🎯 Цели механику</h3>
-              <form id="owner-goals-form" class="goals-form">
-                <div class="goal-field">
-                  <div class="goal-field-header">
-                    <span class="goal-period-badge goal-period-badge--day">Сегодня</span>
-                    <span class="goal-field-hint">Видит механик в начале смены</span>
-                  </div>
-                  <textarea name="dailyGoal" rows="2" maxlength="160"
-                    placeholder="Например: починить 5163 до 14:00, принять новые запчасти"></textarea>
-                </div>
-                <div class="goal-field">
-                  <div class="goal-field-header">
-                    <span class="goal-period-badge goal-period-badge--week">Неделя</span>
-                    <span class="goal-field-hint">Стратегическая задача</span>
-                  </div>
-                  <textarea name="mechanicFocus" rows="2" maxlength="160"
-                    placeholder="Например: подготовить весь парк к сезону, ревизия склада"></textarea>
-                </div>
-                <button class="primary-btn wide" type="submit">Сохранить цели</button>
-              </form>
-            </article>
-
-            <article class="content-card owner-card owner-card-wide">
-              <h3 class="panel-title">Приоритет байку</h3>
-              <form id="owner-priority-form" class="form-grid">
-                <label>
-                  <span>Байк</span>
-                  <input name="bikeCode" type="text" maxlength="6" placeholder="РЕ123У" required />
-                </label>
-                <label>
-                  <span>Приоритет</span>
-                  <select name="priority" required>
-                    <option value="высокий">Высокий</option>
-                    <option value="обычный" selected>Обычный</option>
-                    <option value="низкий">Низкий</option>
-                  </select>
-                </label>
-                <label class="wide">
-                  <span>Комментарий</span>
-                  <input name="ownerNote" type="text" maxlength="220" placeholder="Например: сделать до 14:00" />
-                </label>
-                <button class="primary-btn wide" type="submit">Поставить приоритет</button>
-              </form>
-            </article>
-
-          </div>
-        </section>
       </main>
     </div>
 
@@ -499,8 +490,27 @@
     </div>
 
     <nav class="mobile-tabbar" aria-label="Навигация">
-      <button class="mobile-tab is-active" type="button" data-section="overview" aria-label="Дашборд">
+      <button class="mobile-tab mechanic-only" type="button" data-action="start-diagnostic" aria-label="Диагностика">
         <span class="mobile-tab-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M14.7 6.3a3.5 3.5 0 0 0-4.9 4.9l-5.4 5.4a1.2 1.2 0 1 0 1.7 1.7l5.4-5.4a3.5 3.5 0 0 0 4.9-4.9l-2.2 2.2-2.7-2.7z" />
+          </svg>
+        </span>
+        <span class="mobile-tab-label">Диагностики</span>
+      </button>
+      <button class="mobile-tab owner-only is-active" type="button" data-section="overview" aria-label="Дашборд">
+        <span class="mobile-tab-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M4 19h16" />
+            <path d="M7 15v-4" />
+            <path d="M12 15V8" />
+            <path d="M17 15v-2" />
+          </svg>
+        </span>
+        <span class="mobile-tab-label">Дашборд</span>
+      </button>
+      <button id="quick-dashboard-tab" class="mobile-tab mobile-tab-cta mechanic-only" type="button" data-section="overview" aria-label="Дашборд">
+        <span class="mobile-tab-cta-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
             <path d="M4 19h16" />
             <path d="M7 15v-4" />
@@ -519,22 +529,6 @@
           </svg>
         </span>
         <span class="mobile-tab-label">Очередь</span>
-      </button>
-      <button id="quick-diagnostic-tab" class="mobile-tab mobile-tab-cta mechanic-only" type="button" data-action="start-diagnostic" aria-label="Начать диагностику">
-        <span class="mobile-tab-cta-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M14.7 6.3a3.5 3.5 0 0 0-4.9 4.9l-5.4 5.4a1.2 1.2 0 1 0 1.7 1.7l5.4-5.4a3.5 3.5 0 0 0 4.9-4.9l-2.2 2.2-2.7-2.7z" />
-          </svg>
-        </span>
-        <span class="mobile-tab-label">Диагностика</span>
-      </button>
-      <button class="mobile-tab mobile-tab-cta owner-only" type="button" data-section="owner" aria-label="Показатели">
-        <span class="mobile-tab-cta-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M14.7 6.3a3.5 3.5 0 0 0-4.9 4.9l-5.4 5.4a1.2 1.2 0 1 0 1.7 1.7l5.4-5.4a3.5 3.5 0 0 0 4.9-4.9l-2.2 2.2-2.7-2.7z" />
-          </svg>
-        </span>
-        <span class="mobile-tab-label">Показатели</span>
       </button>
       <button class="mobile-tab" type="button" data-section="inventory" aria-label="Склад">
         <span class="mobile-tab-icon" aria-hidden="true">
