@@ -3438,13 +3438,113 @@ function staleActiveCardClass(order) {
   return getRepairStaleness(order) ? " has-stale-warning" : "";
 }
 
+// Status metadata for queue/work order cards — drives colored accents + pills.
+function getWorkOrderStatusMeta(order) {
+  const status = String(order?.status || "").trim().toLowerCase();
+  switch (status) {
+    case "приостановлен":
+      return { key: "paused", tone: "amber", label: "На паузе", emoji: "⏸", urgent: true };
+    case "в ремонте":
+      return { key: "in-repair", tone: "green", label: "В ремонте", emoji: "🔧" };
+    case "проверка":
+      return { key: "check", tone: "violet", label: "Ждёт выдачу", emoji: "📷" };
+    case "готов":
+      return { key: "ready", tone: "bright-green", label: "Готов", emoji: "✅" };
+    case "принят":
+      return { key: "accepted", tone: "blue", label: "Можно начинать", emoji: "🚀" };
+    case "ждет запчасти":
+    case "ждёт запчасти":
+      return { key: "wait-parts", tone: "orange", label: "Нет запчастей", emoji: "📦" };
+    case "диагностика":
+      return { key: "diag", tone: "slate", label: "Диагностика", emoji: "🔍" };
+    default:
+      return { key: "other", tone: "slate", label: status || "—", emoji: "•" };
+  }
+}
+
+function renderWorkOrderStatusPill(order) {
+  const meta = getWorkOrderStatusMeta(order);
+  return `<span class="wo-status-pill wo-tone-${meta.tone} wo-status-${meta.key}">
+    <span class="wo-status-pill-emoji">${meta.emoji}</span>
+    <span class="wo-status-pill-text">${escapeHtml(meta.label)}</span>
+  </span>`;
+}
+
+// Sort: paused first (urgent, keep on top), then active by start time desc.
+function sortWorkForInProgress(orders) {
+  return [...orders].sort((a, b) => {
+    const ap = a.status === "приостановлен" ? 0 : 1;
+    const bp = b.status === "приостановлен" ? 0 : 1;
+    if (ap !== bp) return ap - bp;
+    return String(b.started_at || b.intake_date || "").localeCompare(
+      String(a.started_at || a.intake_date || "")
+    );
+  });
+}
+
+// Sort: ready-to-start (принят) → diagnostics → waiting parts last.
+function sortWorkForWaiting(orders) {
+  const rank = (s) => {
+    if (s === "принят") return 0;
+    if (s === "диагностика") return 1;
+    if (s === "проверка") return 2;
+    if (s === "готов") return 3;
+    if (s === "ждет запчасти" || s === "ждёт запчасти") return 4;
+    return 5;
+  };
+  return [...orders].sort((a, b) => {
+    const rd = rank(a.status) - rank(b.status);
+    if (rd !== 0) return rd;
+    return String(b.intake_date || "").localeCompare(String(a.intake_date || ""));
+  });
+}
+
 function renderWorkOrders() {
   if (!workOrdersBoard || !activeRepairBoard) return;
   const canManage = getRole() === "mechanic";
   renderQueueFilterToolbar();
+  const userSort = state.queueSort && state.queueSort !== "default";
   const filtered = sortOrders((state.workOrders || []).filter(matchesQueueFilter));
-  const activeOrders = filtered.filter((order) => order.status === "в ремонте");
-  const queueOrders = filtered.filter((order) => order.status !== "в ремонте");
+  // Paused repairs live in the "В работе" block (still open work that must resume).
+  let activeOrders = filtered.filter(
+    (order) => order.status === "в ремонте" || order.status === "приостановлен"
+  );
+  let queueOrders = filtered.filter(
+    (order) => order.status !== "в ремонте" && order.status !== "приостановлен"
+  );
+  if (!userSort) {
+    activeOrders = sortWorkForInProgress(activeOrders);
+    queueOrders = sortWorkForWaiting(queueOrders);
+  }
+
+  // Section titles with live counts
+  const pausedCount = activeOrders.filter((o) => o.status === "приостановлен").length;
+  const activeCount = activeOrders.length - pausedCount;
+  const inprogressTitle = document.getElementById("queue-inprogress-title");
+  const inprogressHint = document.getElementById("queue-inprogress-hint");
+  const waitingTitle = document.getElementById("queue-waiting-title");
+  if (inprogressTitle) {
+    inprogressTitle.textContent = activeOrders.length
+      ? `В работе · ${activeOrders.length}`
+      : "В работе";
+  }
+  if (inprogressHint) {
+    if (pausedCount > 0) {
+      inprogressHint.innerHTML = `⏸ <strong>${pausedCount}</strong> на паузе — продолжи их в первую очередь`;
+      inprogressHint.classList.add("has-paused");
+    } else if (activeCount > 0) {
+      inprogressHint.textContent = `🔧 ${activeCount} активн${activeCount === 1 ? "ый" : "ых"} ремонт${activeCount === 1 ? "" : "а"}`;
+      inprogressHint.classList.remove("has-paused");
+    } else {
+      inprogressHint.textContent = "";
+      inprogressHint.classList.remove("has-paused");
+    }
+  }
+  if (waitingTitle) {
+    waitingTitle.textContent = queueOrders.length
+      ? `Ожидают · ${queueOrders.length}`
+      : "Ожидают";
+  }
 
   const getPartsLine = (order) => {
     if (order.missing_parts?.length) {
@@ -3485,15 +3585,21 @@ function renderWorkOrders() {
       .map((order) => {
         const toneClass = getOrderComplexityTone(order);
         const parts = getPartsLine(order);
+        const meta = getWorkOrderStatusMeta(order);
+        const urgentCls = meta.urgent ? " is-urgent-paused" : "";
         return `
-          <article class="content-card owner-card repair-compact-card queue-mini-card ${toneClass}${staleActiveCardClass(order)}" data-action="open-work-order" data-id="${order.id}">
+          <article class="content-card owner-card repair-compact-card queue-mini-card wo-card-accent wo-accent-${meta.tone}${urgentCls} ${toneClass}${staleActiveCardClass(order)}" data-status="${meta.key}" data-action="open-work-order" data-id="${order.id}">
             <div class="queue-mini-head">
               <strong class="queue-mini-bike">${escapeHtml(order.bike_code)}</strong>
-              <div class="queue-mini-badges">${renderStaleBadgesHtml(order)}</div>
+              <div class="queue-mini-badges">
+                ${renderWorkOrderStatusPill(order)}
+                ${renderStaleBadgesHtml(order)}
+              </div>
             </div>
             <p class="queue-mini-line queue-fault">${escapeHtml(order.fault || order.issue || "Поломка не указана")}</p>
             <p class="queue-mini-line queue-parts">${escapeHtml(parts)}</p>
             ${getTimeMetaLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getTimeMetaLine(order))}</p>` : ""}
+            ${order.status === "приостановлен" && order.pause_reason ? `<p class="queue-mini-line queue-pause-reason"><strong>Пауза:</strong> ${escapeHtml(order.pause_reason)}</p>` : ""}
             ${getPriorityBadge(order)}
             <div class="table-actions">
               ${canManage ? `<button class="icon-btn" type="button" data-action="edit-work-order-diagnostic" data-id="${order.id}">Ред. диагн.</button>` : ""}
@@ -3516,10 +3622,12 @@ function renderWorkOrders() {
     .map((order) => {
       const toneClass = getOrderComplexityTone(order);
       const partsSummary = getPartsLine(order);
+      const meta = getWorkOrderStatusMeta(order);
       return `
-        <article class="content-card owner-card repair-compact-card queue-mini-card ${toneClass}" data-action="open-work-order" data-id="${order.id}">
+        <article class="content-card owner-card repair-compact-card queue-mini-card wo-card-accent wo-accent-${meta.tone} ${toneClass}" data-status="${meta.key}" data-action="open-work-order" data-id="${order.id}">
           <div class="queue-mini-head">
             <strong class="queue-mini-bike">${escapeHtml(order.bike_code)}</strong>
+            <div class="queue-mini-badges">${renderWorkOrderStatusPill(order)}</div>
           </div>
           <p class="queue-mini-line queue-fault">${escapeHtml(order.fault || order.issue || "Поломка не указана")}</p>
           <p class="queue-mini-line queue-parts">${escapeHtml(partsSummary)}</p>
@@ -3529,7 +3637,6 @@ function renderWorkOrders() {
             ${canManage ? `<button class="icon-btn" type="button" data-action="edit-work-order-diagnostic" data-id="${order.id}">Ред. диагн.</button>` : ""}
             ${canManage ? `<button class="icon-btn" type="button" data-action="edit-work-order-repair" data-id="${order.id}">Ред. ремонт</button>` : ""}
             ${order.can_start ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-start" data-id="${order.id}">Начать ремонт</button>` : ""}
-            ${order.status === "приостановлен" && canManage ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">На выдачу</button>` : ""}
           </div>
         </article>
       `;

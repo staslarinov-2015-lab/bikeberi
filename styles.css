@@ -1990,6 +1990,142 @@ tbody tr:hover {
   box-shadow: inset 0 3px 0 rgba(217, 60, 53, 0.14);
 }
 
+/* ——— Work-order status indicators (queue cards) ——————————— */
+
+.wo-card-accent {
+  position: relative;
+  padding-left: 18px;
+  overflow: hidden;
+}
+.wo-card-accent::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 5px;
+  border-top-left-radius: inherit;
+  border-bottom-left-radius: inherit;
+  background: var(--wo-accent, #8892a6);
+}
+
+.wo-accent-amber        { --wo-accent: #ff8a00; }
+.wo-accent-orange       { --wo-accent: #f28a2e; }
+.wo-accent-blue         { --wo-accent: #2d66df; }
+.wo-accent-green        { --wo-accent: #16a34a; }
+.wo-accent-bright-green { --wo-accent: #12b26b; }
+.wo-accent-violet       { --wo-accent: #7b61ff; }
+.wo-accent-slate        { --wo-accent: #8892a6; }
+
+/* Status pill (right side of card head) */
+.wo-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  line-height: 1;
+  background: #f3f4f7;
+  color: #4a5670;
+}
+.wo-status-pill-emoji {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.wo-status-pill-text {
+  line-height: 1;
+}
+
+.wo-tone-amber {
+  background: rgba(255, 138, 0, 0.14);
+  color: #b25a00;
+  border-color: rgba(255, 138, 0, 0.32);
+}
+.wo-tone-orange {
+  background: rgba(242, 138, 46, 0.14);
+  color: #a85b10;
+  border-color: rgba(242, 138, 46, 0.3);
+}
+.wo-tone-blue {
+  background: rgba(45, 102, 223, 0.12);
+  color: #1e4bb5;
+  border-color: rgba(45, 102, 223, 0.28);
+}
+.wo-tone-green {
+  background: rgba(22, 163, 74, 0.12);
+  color: #0e7a3a;
+  border-color: rgba(22, 163, 74, 0.28);
+}
+.wo-tone-bright-green {
+  background: rgba(18, 178, 107, 0.16);
+  color: #0a7f4c;
+  border-color: rgba(18, 178, 107, 0.32);
+}
+.wo-tone-violet {
+  background: rgba(123, 97, 255, 0.14);
+  color: #4a37c0;
+  border-color: rgba(123, 97, 255, 0.28);
+}
+.wo-tone-slate {
+  background: rgba(136, 146, 166, 0.14);
+  color: #4a5670;
+  border-color: rgba(136, 146, 166, 0.28);
+}
+
+/* Paused repair — pulse + soft amber glow so mechanic notices immediately */
+.wo-card-accent.is-urgent-paused {
+  background: linear-gradient(180deg, rgba(255, 138, 0, 0.055), var(--surface) 60%);
+  border-color: rgba(255, 138, 0, 0.38);
+  box-shadow: 0 0 0 3px rgba(255, 138, 0, 0.10);
+}
+.wo-card-accent.is-urgent-paused::before {
+  width: 6px;
+  animation: wo-paused-pulse 1.8s ease-in-out infinite;
+}
+.wo-card-accent.is-urgent-paused .wo-status-pill.wo-tone-amber {
+  animation: wo-pill-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes wo-paused-pulse {
+  0%, 100% { background: #ff8a00; box-shadow: 0 0 0 0 rgba(255, 138, 0, 0.45); }
+  50%      { background: #ffb347; box-shadow: 0 0 0 6px rgba(255, 138, 0, 0); }
+}
+@keyframes wo-pill-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.04); }
+}
+
+.queue-pause-reason {
+  color: #a85b10;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.queue-section-hint {
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+.queue-section-hint.has-paused {
+  color: #b25a00;
+  font-weight: 700;
+}
+
+/* Tighter head so the pill has room on narrow screens */
+.queue-mini-head {
+  flex-wrap: wrap;
+}
+.queue-mini-badges {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
 .queue-toolbar-row {
   display: flex;
   align-items: center;
