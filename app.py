@@ -2091,7 +2091,7 @@ def fetch_bootstrap_payload(user):
         dict(row)
         for row in conn.execute(
             """
-            SELECT id, date, bike, issue, work, parts_used, needed_parts, status
+            SELECT id, date, bike, issue, work, parts_used, needed_parts, status, actual_minutes, created_at
             FROM repairs
             ORDER BY date DESC, id DESC
             """

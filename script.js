@@ -3908,31 +3908,48 @@ function fmtMin(m) {
   return `${min}м`;
 }
 
+function getLocalDateKey(value) {
+  if (!value) return "";
+  const dt = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(dt.getTime())) return "";
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const d = String(dt.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function getMechanicEfficiencyData() {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = getLocalDateKey(new Date());
 
   // Diagnostic minutes today
   const diagMin = (state.diagnostics || [])
-    .filter((d) => (d.date || d.created_at || "").slice(0, 10) === todayStr)
+    .filter((d) => {
+      const dateKey = getLocalDateKey(d.date) || getLocalDateKey(d.created_at);
+      return dateKey === todayStr;
+    })
     .reduce((s, d) => s + (Number(d.diagnostic_minutes) || 0), 0);
 
-  // Repair minutes today — completed work orders + currently active ones
-  const orders = state.workOrders || [];
-  let repairMin = 0;
-  orders.forEach((o) => {
-    const startedToday = (o.started_at || "").slice(0, 10) === todayStr;
-    const completedToday = (o.completed_at || "").slice(0, 10) === todayStr;
+  // Repair minutes today — completed repairs + currently active order timer
+  const completedRepairMin = (state.repairs || [])
+    .filter((r) => {
+      const dateKey = getLocalDateKey(r.date) || getLocalDateKey(r.created_at);
+      return dateKey === todayStr;
+    })
+    .reduce((sum, r) => sum + Math.max(0, Number(r.actual_minutes) || 0), 0);
 
+  const orders = state.workOrders || [];
+  let activeRepairMin = 0;
+  orders.forEach((o) => {
     if (o.status === "в ремонте" && o.started_at) {
       // Active repair: add elapsed time since start (or from start of today if started earlier)
       const startMs = new Date(o.started_at).getTime();
-      const todayStart = new Date(todayStr + "T00:00:00").getTime();
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
       const effectiveStart = Math.max(startMs, todayStart);
-      repairMin += Math.floor((Date.now() - effectiveStart) / 60000);
-    } else if (o.actual_minutes && (startedToday || completedToday)) {
-      repairMin += Number(o.actual_minutes) || 0;
+      activeRepairMin += Math.floor((Date.now() - effectiveStart) / 60000);
     }
   });
+  const repairMin = completedRepairMin + activeRepairMin;
 
   const elapsedMin  = getElapsedWorkMinutes();
   const productive  = Math.min(diagMin + repairMin, elapsedMin);
