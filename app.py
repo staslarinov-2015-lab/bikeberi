@@ -1774,6 +1774,99 @@ def refresh_work_order_parts(conn, work_order_id: int):
     return {"all_reserved": all_reserved, "missing": missing}
 
 
+def cleanup_duplicate_diagnostics(conn):
+    duplicate_rows = conn.execute(
+        """
+        SELECT d.id, d.bike, d.fault, d.mechanic_name, d.date, d.recommendation
+        FROM diagnostics d
+        JOIN (
+            SELECT bike, fault, mechanic_name, date, recommendation, MAX(id) AS keep_id, COUNT(*) AS cnt
+            FROM diagnostics
+            GROUP BY bike, fault, mechanic_name, date, recommendation
+            HAVING cnt > 1
+        ) g
+          ON g.bike = d.bike
+         AND g.fault = d.fault
+         AND g.mechanic_name = d.mechanic_name
+         AND g.date = d.date
+         AND g.recommendation = d.recommendation
+        WHERE d.id != g.keep_id
+        ORDER BY d.id ASC
+        """
+    ).fetchall()
+    if not duplicate_rows:
+        return
+
+    affected_bike_ids = set()
+    safe_statuses = {"диагностика", "принят", "ждет запчасти"}
+    for duplicate in duplicate_rows:
+        diagnostic_id = int(duplicate["id"])
+        linked_orders = conn.execute(
+            """
+            SELECT id, bike_id, status, completed_repair_id
+            FROM work_orders
+            WHERE diagnostic_id = ?
+            ORDER BY id DESC
+            """,
+            (diagnostic_id,),
+        ).fetchall()
+        can_delete_diagnostic = True
+        for order in linked_orders:
+            status = str(order["status"] or "").strip()
+            if status not in safe_statuses or order["completed_repair_id"]:
+                can_delete_diagnostic = False
+                break
+
+        if not can_delete_diagnostic:
+            continue
+
+        for order in linked_orders:
+            work_order_id = int(order["id"])
+            bike_id = int(order["bike_id"])
+            affected_bike_ids.add(bike_id)
+            reserved_parts = conn.execute(
+                """
+                SELECT part_name, qty_reserved
+                FROM work_order_parts
+                WHERE work_order_id = ?
+                """,
+                (work_order_id,),
+            ).fetchall()
+            for part in reserved_parts:
+                reserved_qty = safe_int(part["qty_reserved"], 0)
+                if reserved_qty <= 0:
+                    continue
+                conn.execute(
+                    """
+                    UPDATE inventory
+                    SET reserved = MAX(0, reserved - ?), updated_at = ?
+                    WHERE lower(trim(name)) = lower(trim(?))
+                    """,
+                    (reserved_qty, utc_now().isoformat(), str(part["part_name"]).strip()),
+                )
+            conn.execute("DELETE FROM work_order_history WHERE work_order_id = ?", (work_order_id,))
+            conn.execute("DELETE FROM work_order_parts WHERE work_order_id = ?", (work_order_id,))
+            conn.execute("DELETE FROM handover_photos WHERE work_order_id = ?", (work_order_id,))
+            conn.execute("DELETE FROM work_orders WHERE id = ?", (work_order_id,))
+
+        conn.execute("DELETE FROM diagnostic_photos WHERE diagnostic_id = ?", (diagnostic_id,))
+        conn.execute("DELETE FROM diagnostics WHERE id = ?", (diagnostic_id,))
+
+    for bike_id in affected_bike_ids:
+        latest_order = conn.execute(
+            """
+            SELECT status
+            FROM work_orders
+            WHERE bike_id = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (bike_id,),
+        ).fetchone()
+        if latest_order:
+            set_bike_status(conn, bike_id, str(latest_order["status"] or "").strip())
+
+
 def hydrate_work_orders(conn):
     orders = []
     raw_orders = conn.execute(
@@ -1874,6 +1967,8 @@ def hydrate_work_orders(conn):
 
 def fetch_bootstrap_payload(user):
     conn = get_db()
+    cleanup_duplicate_diagnostics(conn)
+    conn.commit()
     repairs = [
         dict(row)
         for row in conn.execute(
@@ -2650,6 +2745,26 @@ class AppHandler(BaseHTTPRequestHandler):
                         409,
                         {"error": "Похоже, такая диагностика уже только что сохранена", "duplicate": True, "diagnosticId": recent_duplicate["id"]},
                     )
+            open_same_fault = conn.execute(
+                """
+                SELECT wo.id
+                FROM work_orders wo
+                JOIN bikes b ON b.id = wo.bike_id
+                WHERE b.code = ?
+                  AND wo.fault = ?
+                  AND wo.status IN ('диагностика', 'принят', 'ждет запчасти', 'в ремонте', 'приостановлен', 'проверка')
+                ORDER BY wo.id DESC
+                LIMIT 1
+                """,
+                (bike_code, fault),
+            ).fetchone()
+            if open_same_fault:
+                conn.close()
+                return json_response(
+                    self,
+                    409,
+                    {"error": "По этому байку уже есть активная заявка с такой поломкой", "duplicate": True, "workOrderId": int(open_same_fault["id"])},
+                )
             cursor = conn.execute(
                 """
                 INSERT INTO diagnostics (date, bike, mechanic_name, category, fault, symptoms, conclusion, severity, recommendation, comment, diagnostic_minutes, created_at)
