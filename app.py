@@ -1868,6 +1868,122 @@ def cleanup_duplicate_diagnostics(conn):
             set_bike_status(conn, bike_id, str(latest_order["status"] or "").strip())
 
 
+def _delete_work_order_with_children(conn, work_order_id: int):
+    reserved_parts = conn.execute(
+        """
+        SELECT part_name, qty_reserved
+        FROM work_order_parts
+        WHERE work_order_id = ?
+        """,
+        (work_order_id,),
+    ).fetchall()
+    for part in reserved_parts:
+        part_name = str(part["part_name"] or "").strip()
+        reserved_qty = safe_int(part["qty_reserved"], 0)
+        if reserved_qty <= 0 or not part_name or part_name in {"-", "—"}:
+            continue
+        conn.execute(
+            """
+            UPDATE inventory
+            SET reserved = MAX(0, reserved - ?), updated_at = ?
+            WHERE lower(trim(name)) = lower(trim(?))
+            """,
+            (reserved_qty, utc_now().isoformat(), part_name),
+        )
+    conn.execute("DELETE FROM work_order_history WHERE work_order_id = ?", (work_order_id,))
+    conn.execute("DELETE FROM work_order_parts WHERE work_order_id = ?", (work_order_id,))
+    conn.execute("DELETE FROM handover_photos WHERE work_order_id = ?", (work_order_id,))
+    conn.execute("DELETE FROM work_orders WHERE id = ?", (work_order_id,))
+
+
+def cleanup_work_order_integrity(conn):
+    # 1) Remove broken part rows such as "-" and non-positive quantities.
+    bad_parts = conn.execute(
+        """
+        SELECT id, part_name, qty_required, qty_reserved
+        FROM work_order_parts
+        """
+    ).fetchall()
+    for part in bad_parts:
+        name = str(part["part_name"] or "").strip()
+        qty_required = safe_int(part["qty_required"], 0)
+        is_bad = (not name) or (name in {"-", "—"}) or qty_required <= 0
+        if not is_bad:
+            continue
+        reserved_qty = safe_int(part["qty_reserved"], 0)
+        if reserved_qty > 0 and name and name not in {"-", "—"}:
+            conn.execute(
+                """
+                UPDATE inventory
+                SET reserved = MAX(0, reserved - ?), updated_at = ?
+                WHERE lower(trim(name)) = lower(trim(?))
+                """,
+                (reserved_qty, utc_now().isoformat(), name),
+            )
+        conn.execute("DELETE FROM work_order_parts WHERE id = ?", (part["id"],))
+
+    # 2) Drop orphaned service orders linked to deleted diagnostics.
+    orphan_orders = conn.execute(
+        """
+        SELECT wo.id
+        FROM work_orders wo
+        LEFT JOIN diagnostics d ON d.id = wo.diagnostic_id
+        WHERE wo.diagnostic_id IS NOT NULL
+          AND d.id IS NULL
+          AND wo.status IN ('диагностика', 'принят', 'ждет запчасти')
+          AND wo.completed_repair_id IS NULL
+        """
+    ).fetchall()
+    for row in orphan_orders:
+        _delete_work_order_with_children(conn, int(row["id"]))
+
+    # 3) If a bike has multiple open orders, keep active/latest and remove stale passive duplicates.
+    bike_rows = conn.execute("SELECT id, status FROM bikes").fetchall()
+    for bike in bike_rows:
+        bike_id = int(bike["id"])
+        bike_status = str(bike["status"] or "").strip()
+        open_orders = conn.execute(
+            """
+            SELECT id, status, completed_repair_id
+            FROM work_orders
+            WHERE bike_id = ?
+              AND status IN ('диагностика', 'принят', 'ждет запчасти', 'в ремонте', 'приостановлен', 'проверка')
+            ORDER BY id DESC
+            """,
+            (bike_id,),
+        ).fetchall()
+        if len(open_orders) <= 1 and bike_status not in {"готов", "в аренде"}:
+            continue
+        keep_id = int(open_orders[0]["id"]) if open_orders else None
+        for order in open_orders:
+            order_id = int(order["id"])
+            status = str(order["status"] or "").strip()
+            can_remove_passive = status in {"диагностика", "принят", "ждет запчасти"} and not order["completed_repair_id"]
+            remove_for_ready_bike = bike_status in {"готов", "в аренде"} and can_remove_passive
+            remove_as_duplicate = (keep_id is not None and order_id != keep_id and can_remove_passive)
+            if remove_for_ready_bike or remove_as_duplicate:
+                _delete_work_order_with_children(conn, order_id)
+
+    # 4) Rebuild required_parts_text from remaining parts.
+    for order in conn.execute("SELECT id FROM work_orders").fetchall():
+        work_order_id = int(order["id"])
+        parts = conn.execute(
+            """
+            SELECT part_name, qty_required
+            FROM work_order_parts
+            WHERE work_order_id = ?
+            ORDER BY id ASC
+            """,
+            (work_order_id,),
+        ).fetchall()
+        parts_text = ", ".join(
+            f"{str(p['part_name']).strip()}:{max(1, safe_int(p['qty_required'], 1))}"
+            for p in parts
+            if str(p["part_name"] or "").strip() and str(p["part_name"]).strip() not in {"-", "—"}
+        ) or "-"
+        conn.execute("UPDATE work_orders SET required_parts_text = ? WHERE id = ?", (parts_text, work_order_id))
+
+
 def hydrate_work_orders(conn):
     orders = []
     raw_orders = conn.execute(
@@ -1969,6 +2085,7 @@ def hydrate_work_orders(conn):
 def fetch_bootstrap_payload(user):
     conn = get_db()
     cleanup_duplicate_diagnostics(conn)
+    cleanup_work_order_integrity(conn)
     conn.commit()
     repairs = [
         dict(row)
