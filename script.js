@@ -1,3 +1,17 @@
+// Сразу убираем логин/пароль из URL (старые закладки с ?username=… не должны светить пароль)
+try {
+  const usp = new URLSearchParams(window.location.search);
+  if (usp.has("password") || usp.has("username")) {
+    usp.delete("password");
+    usp.delete("username");
+    const q = usp.toString();
+    const path = window.location.pathname + (q ? `?${q}` : "") + window.location.hash;
+    window.history.replaceState({}, "", path);
+  }
+} catch {
+  /* ignore */
+}
+
 const state = {
   user: null,
   activeSection: "overview",
@@ -4588,15 +4602,19 @@ async function bootstrap() {
       return;
     }
 
-    loginError.textContent = error.message;
-    loginError.classList.remove("hidden");
+    if (loginError) {
+      loginError.textContent = error.message;
+      loginError.classList.remove("hidden");
+    }
   }
 }
 
-loginForm.addEventListener("submit", async (event) => {
+loginForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  loginError.classList.add("hidden");
-  loginError.textContent = "";
+  event.stopPropagation();
+  if (!loginForm) return;
+  loginError?.classList.add("hidden");
+  if (loginError) loginError.textContent = "";
 
   const formData = new FormData(loginForm);
 
@@ -4623,8 +4641,10 @@ loginForm.addEventListener("submit", async (event) => {
       throw loadErr;
     }
   } catch (error) {
-    loginError.textContent = error.message;
-    loginError.classList.remove("hidden");
+    if (loginError) {
+      loginError.textContent = error.message;
+      loginError.classList.remove("hidden");
+    }
   }
 });
 
@@ -4637,7 +4657,7 @@ async function doLogout() {
   }
 }
 
-logoutButton.addEventListener("click", doLogout);
+logoutButton?.addEventListener("click", doLogout);
 
 document.getElementById("profile-logout-btn")?.addEventListener("click", doLogout);
 document.getElementById("profile-switch-account-btn")?.addEventListener("click", async () => {
@@ -4662,7 +4682,7 @@ function openPasswordModal() {
   accountOverlay.classList.remove("hidden");
 }
 
-accountButton.addEventListener("click", openPasswordModal);
+accountButton?.addEventListener("click", openPasswordModal);
 
 profileOpenPasswordButton?.addEventListener("click", openPasswordModal);
 
@@ -4686,8 +4706,8 @@ openChatButton?.addEventListener("click", () => {
   teamChatList?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
-closeAccountButton.addEventListener("click", () => {
-  accountOverlay.classList.add("hidden");
+closeAccountButton?.addEventListener("click", () => {
+  accountOverlay?.classList.add("hidden");
 });
 
 openRepairModalButton?.addEventListener("click", () => {
@@ -5295,10 +5315,10 @@ diagnosticForm.addEventListener("submit", async (event) => {
   }
 });
 
-passwordForm.addEventListener("submit", async (event) => {
+passwordForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  passwordError.classList.add("hidden");
-  passwordMessage.classList.add("hidden");
+  passwordError?.classList.add("hidden");
+  passwordMessage?.classList.add("hidden");
 
   const formData = new FormData(passwordForm);
 

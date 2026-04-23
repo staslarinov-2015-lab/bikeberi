@@ -26,14 +26,15 @@
         </div>
 
         <div class="auth-content">
-          <form id="login-form" class="form-grid auth-form">
+          <!-- method=post: без JS пароль не уходит в query string (никогда не используй GET для входа) -->
+          <form id="login-form" class="form-grid auth-form" method="post" action="#" autocomplete="on" novalidate>
             <label class="wide">
               <span>Логин</span>
-              <input name="username" type="text" autocomplete="username" required />
+              <input id="login-username" name="username" type="text" autocomplete="username" required />
             </label>
             <label class="wide">
               <span>Пароль</span>
-              <input name="password" type="password" autocomplete="current-password" required />
+              <input id="login-password" name="password" type="password" autocomplete="current-password" required />
             </label>
             <button class="primary-btn wide" type="submit">Войти</button>
           </form>
@@ -954,6 +955,6 @@
       </div>
     </div>
 
-    <script src="./script.js"></script>
+    <script src="/script.js"></script>
   </body>
   </html>
