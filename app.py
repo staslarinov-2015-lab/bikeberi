@@ -1235,6 +1235,7 @@ def init_db():
     ensure_column(cur, "diagnostics", "fault", "TEXT")
     ensure_column(cur, "diagnostics", "severity", "TEXT")
     ensure_column(cur, "diagnostics", "diagnostic_minutes", "INTEGER")
+    ensure_column(cur, "diagnostics", "comment", "TEXT NOT NULL DEFAULT ''")
     ensure_column(cur, "bikes", "notes", "TEXT")
     ensure_column(cur, "bikes", "last_service_at", "TEXT")
     ensure_column(cur, "work_orders", "required_parts_text", "TEXT NOT NULL DEFAULT '-'")
@@ -1926,7 +1927,7 @@ def fetch_bootstrap_payload(user):
         dict(row)
         for row in conn.execute(
             """
-            SELECT id, date, bike, mechanic_name, category, fault, symptoms, conclusion, severity, recommendation
+            SELECT id, date, bike, mechanic_name, category, fault, symptoms, conclusion, severity, recommendation, comment, diagnostic_minutes
             FROM diagnostics
             ORDER BY date DESC, id DESC
             """
@@ -2595,11 +2596,14 @@ class AppHandler(BaseHTTPRequestHandler):
                 return json_response(self, 400, {"error": str(error)})
 
             diagnostic_minutes = max(0, int(payload.get("diagnosticMinutes", 0) or 0))
+            comment = str(payload.get("comment", "") or "").strip()
+            if len(comment) > 2000:
+                return json_response(self, 400, {"error": "Комментарий должен быть до 2000 символов"})
             conn = get_db()
             cursor = conn.execute(
                 """
-                INSERT INTO diagnostics (date, bike, mechanic_name, category, fault, symptoms, conclusion, severity, recommendation, diagnostic_minutes, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO diagnostics (date, bike, mechanic_name, category, fault, symptoms, conclusion, severity, recommendation, comment, diagnostic_minutes, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     str(payload["date"]).strip(),
@@ -2611,6 +2615,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     str(payload["conclusion"]).strip(),
                     str(payload["severity"]).strip(),
                     str(payload["recommendation"]).strip(),
+                    comment,
                     diagnostic_minutes,
                     utc_now().isoformat(),
                 ),
@@ -3282,11 +3287,14 @@ class AppHandler(BaseHTTPRequestHandler):
             except ValueError as error:
                 return json_response(self, 400, {"error": str(error)})
 
+            comment = str(payload.get("comment", "") or "").strip()
+            if len(comment) > 2000:
+                return json_response(self, 400, {"error": "Комментарий должен быть до 2000 символов"})
             conn = get_db()
             conn.execute(
                 """
                 UPDATE diagnostics
-                SET date = ?, bike = ?, mechanic_name = ?, category = ?, fault = ?, symptoms = ?, conclusion = ?, severity = ?, recommendation = ?
+                SET date = ?, bike = ?, mechanic_name = ?, category = ?, fault = ?, symptoms = ?, conclusion = ?, severity = ?, recommendation = ?, comment = ?
                 WHERE id = ?
                 """,
                 (
@@ -3299,6 +3307,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     str(payload["conclusion"]).strip(),
                     str(payload["severity"]).strip(),
                     str(payload["recommendation"]).strip(),
+                    comment,
                     diagnostic_id,
                 ),
             )

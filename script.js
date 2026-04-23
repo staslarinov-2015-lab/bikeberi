@@ -65,6 +65,7 @@ const state = {
     selectedPartsCategory: "",
     decision: "",
     queueReason: "",
+    comment: "",
     photos: [],
   },
   repairTemplates: [],
@@ -2443,6 +2444,12 @@ function renderQuickSummaryCard() {
       <p class="handover-photo-hint muted">Сделай фото байка с 4 сторон перед взятием в ремонт</p>
       ${renderDiagPhotoGrid()}
     </div>
+    <div class="diagnostic-scenario-block">
+      <label>
+        <span><strong>Комментарий механика</strong> <span class="muted">(необязательно)</span></span>
+        <textarea id="diagnostic-comment" rows="3" placeholder="Дополнительные детали: что ещё заметил, нюансы, договорённости с клиентом и т.д.">${escapeHtml(state.diagnosticQuickFlow.comment || "")}</textarea>
+      </label>
+    </div>
     <button class="ghost-btn" type="button" data-action="save-as-template" style="margin-top:8px">Сохранить как шаблон</button>
   `;
 }
@@ -2586,6 +2593,7 @@ function loadDiagnosticIntoFlow(item) {
   state.diagnosticQuickFlow.queueReason = state.diagnosticQuickFlow.decision === "queue"
     ? String(item.recommendation || "")
     : "";
+  state.diagnosticQuickFlow.comment = String(item.comment || "");
   state.diagnosticQuickFlow.step = DIAGNOSTIC_QUICK_TOTAL_STEPS;
 }
 
@@ -2607,6 +2615,7 @@ function resetDiagnosticFlow() {
     selectedPartsCategory: "",
     decision: "",
     queueReason: "",
+    comment: "",
     photos: { front: null, left: null, right: null, back: null },
   };
   state.diagnosticStartedAt = null;
@@ -2710,6 +2719,11 @@ async function openDiagnosticViewForOwner(item) {
       <div class="diag-view-row">
         <span class="diag-view-label">Решение</span>
         <span class="diag-view-value">${escapeHtml(item.recommendation)}</span>
+      </div>` : ""}
+      ${item.comment ? `
+      <div class="diag-view-row diag-view-row--comment">
+        <span class="diag-view-label">Комментарий механика</span>
+        <span class="diag-view-value diag-view-value--multiline">${escapeHtml(item.comment)}</span>
       </div>` : ""}
     </div>
     <div class="diag-view-photos-section">
@@ -4911,11 +4925,18 @@ diagnosticQuickSummaryCard?.addEventListener("click", (event) => {
 });
 
 diagnosticQuickSummaryCard?.addEventListener("input", (event) => {
-  const textarea = event.target.closest("#diagnostic-queue-reason");
-  if (!textarea) return;
-  state.diagnosticQuickFlow.queueReason = textarea.value || "";
-  // Do not re-render on every keystroke: it recreates textarea and drops mobile keyboard focus.
-  showDiagnosticQuickErrors([]);
+  const reasonTextarea = event.target.closest("#diagnostic-queue-reason");
+  if (reasonTextarea) {
+    state.diagnosticQuickFlow.queueReason = reasonTextarea.value || "";
+    // Do not re-render on every keystroke: it recreates textarea and drops mobile keyboard focus.
+    showDiagnosticQuickErrors([]);
+    return;
+  }
+  const commentTextarea = event.target.closest("#diagnostic-comment");
+  if (commentTextarea) {
+    state.diagnosticQuickFlow.comment = commentTextarea.value || "";
+    return;
+  }
 });
 
 diagnosticQuickNext?.addEventListener("click", () => {
@@ -5289,6 +5310,7 @@ diagnosticForm.addEventListener("submit", async (event) => {
             : "Взять в ремонт",
         required_parts_text: String(formData.get("requiredParts")).trim(),
         diagnosticMinutes: diagMinutes,
+        comment: String(state.diagnosticQuickFlow.comment || "").trim(),
       }),
       notifyError: true,
     });

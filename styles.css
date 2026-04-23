@@ -4132,6 +4132,20 @@ textarea:focus-visible {
   word-break: break-word;
 }
 
+.diag-view-value--multiline {
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+.diag-view-row--comment {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.diag-view-row--comment .diag-view-label {
+  width: auto;
+}
+
 .diag-view-photos-section {
   margin-top: 4px;
 }
