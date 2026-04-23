@@ -2828,6 +2828,15 @@ body:not(.is-auth-locked) .screen-section {
   gap: 12px;
 }
 
+.issue-checklist-submit-row {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .issue-checklist-group {
   margin: 0;
   padding: 14px 16px;
