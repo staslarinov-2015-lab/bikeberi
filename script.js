@@ -1331,6 +1331,12 @@ function openWorkOrderDetail(order) {
 
   workOrderOverlay.classList.remove("hidden");
 
+  // Wire edit buttons in the modal footer to the current order id
+  const editDiagBtn = document.getElementById("wo-edit-diag-btn");
+  const editRepairBtn = document.getElementById("wo-edit-repair-btn");
+  if (editDiagBtn) editDiagBtn.dataset.id = String(order.id);
+  if (editRepairBtn) editRepairBtn.dataset.id = String(order.id);
+
   // Load handover photos if the order is "готов" (completed)
   const handoverBlock = document.getElementById("work-order-handover-photos");
   const handoverGrid = document.getElementById("work-order-handover-photos-grid");
@@ -3601,12 +3607,15 @@ function renderWorkOrders() {
             ${getTimeMetaLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getTimeMetaLine(order))}</p>` : ""}
             ${order.status === "приостановлен" && order.pause_reason ? `<p class="queue-mini-line queue-pause-reason"><strong>Пауза:</strong> ${escapeHtml(order.pause_reason)}</p>` : ""}
             ${getPriorityBadge(order)}
-            <div class="table-actions">
-              ${canManage ? `<button class="icon-btn" type="button" data-action="edit-work-order-diagnostic" data-id="${order.id}">Ред. диагн.</button>` : ""}
-              ${canManage ? `<button class="icon-btn" type="button" data-action="edit-work-order-repair" data-id="${order.id}">Ред. ремонт</button>` : ""}
-              ${order.status === "приостановлен" && canManage ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-resume" data-id="${order.id}">▶ Возобновить</button>` : ""}
-              ${order.status === "в ремонте" && order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">На выдачу</button>` : ""}
-            </div>
+            ${
+              (order.status === "приостановлен" && canManage) ||
+              (order.status === "в ремонте" && order.can_mark_ready)
+                ? `<div class="table-actions">
+                ${order.status === "приостановлен" && canManage ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-resume" data-id="${order.id}">▶ Возобновить</button>` : ""}
+                ${order.status === "в ремонте" && order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">На выдачу</button>` : ""}
+              </div>`
+                : ""
+            }
           </article>
         `;
       })
@@ -3634,11 +3643,13 @@ function renderWorkOrders() {
           <p class="queue-mini-line queue-parts">${escapeHtml(partsSummary)}</p>
           ${getTimeMetaLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getTimeMetaLine(order))}</p>` : ""}
           ${getPriorityBadge(order)}
-          <div class="table-actions">
-            ${canManage ? `<button class="icon-btn" type="button" data-action="edit-work-order-diagnostic" data-id="${order.id}">Ред. диагн.</button>` : ""}
-            ${canManage ? `<button class="icon-btn" type="button" data-action="edit-work-order-repair" data-id="${order.id}">Ред. ремонт</button>` : ""}
-            ${order.can_start ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-start" data-id="${order.id}">Начать ремонт</button>` : ""}
-          </div>
+          ${
+            order.can_start
+              ? `<div class="table-actions">
+              <button class="primary-btn primary-btn-small" type="button" data-action="work-order-start" data-id="${order.id}">Начать ремонт</button>
+            </div>`
+              : ""
+          }
         </article>
       `;
     })
