@@ -3484,13 +3484,13 @@ function sortWorkForInProgress(orders) {
 
 // Sort: ready-to-start (принят) → diagnostics → waiting parts last.
 function sortWorkForWaiting(orders) {
+  // Order (top → bottom): ждёт выдачу → можно начинать → нет запчастей → готов.
   const rank = (s) => {
-    if (s === "принят") return 0;
-    if (s === "диагностика") return 1;
-    if (s === "проверка") return 2;
-    if (s === "готов") return 3;
-    if (s === "ждет запчасти" || s === "ждёт запчасти") return 4;
-    return 5;
+    if (s === "проверка") return 0;                                 // ждёт выдачу
+    if (s === "принят" || s === "диагностика") return 1;            // можно начинать
+    if (s === "ждет запчасти" || s === "ждёт запчасти") return 2;   // нет запчастей
+    if (s === "готов") return 3;                                    // готов
+    return 4;
   };
   return [...orders].sort((a, b) => {
     const rd = rank(a.status) - rank(b.status);
