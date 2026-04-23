@@ -3930,15 +3930,18 @@ function getMechanicEfficiencyData() {
     .reduce((s, d) => s + (Number(d.diagnostic_minutes) || 0), 0);
 
   // Repair minutes today — completed repairs + currently active order timer
-  const completedRepairMin = (state.repairs || [])
-    .filter((r) => {
-      const dateKey = getLocalDateKey(r.date) || getLocalDateKey(r.created_at);
-      return dateKey === todayStr;
-    })
-    .reduce((sum, r) => sum + Math.max(0, Number(r.actual_minutes) || 0), 0);
+  const completedRepairsToday = (state.repairs || []).filter((r) => {
+    const dateKey = getLocalDateKey(r.date) || getLocalDateKey(r.created_at);
+    return dateKey === todayStr;
+  });
+  const completedRepairMin = completedRepairsToday.reduce(
+    (sum, r) => sum + Math.max(0, Number(r.actual_minutes) || 0),
+    0
+  );
 
   const orders = state.workOrders || [];
   let activeRepairMin = 0;
+  const activeRepairEntries = [];
   orders.forEach((o) => {
     if (o.status === "в ремонте" && o.started_at) {
       // Active repair: add elapsed time since start (or from start of today if started earlier)
@@ -3946,10 +3949,30 @@ function getMechanicEfficiencyData() {
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
       const effectiveStart = Math.max(startMs, todayStart);
-      activeRepairMin += Math.floor((Date.now() - effectiveStart) / 60000);
+      const elapsed = Math.floor((Date.now() - effectiveStart) / 60000);
+      activeRepairMin += elapsed;
+      activeRepairEntries.push({
+        bike: o.bike_code || "—",
+        issue: o.fault || o.issue || "Ремонт",
+        minutes: Math.max(0, elapsed),
+        isActive: true,
+      });
     }
   });
   const repairMin = completedRepairMin + activeRepairMin;
+
+  const completedRepairEntries = completedRepairsToday
+    .map((r) => ({
+      bike: r.bike || "—",
+      issue: r.issue || "Ремонт",
+      minutes: Math.max(0, Number(r.actual_minutes) || 0),
+      isActive: false,
+    }))
+    .filter((r) => r.minutes > 0);
+  const repairEntries = [...activeRepairEntries, ...completedRepairEntries]
+    .sort((a, b) => b.minutes - a.minutes)
+    .slice(0, 8);
+  const repairJobsCount = repairEntries.length;
 
   const elapsedMin  = getElapsedWorkMinutes();
   const productive  = Math.min(diagMin + repairMin, elapsedMin);
@@ -3957,7 +3980,7 @@ function getMechanicEfficiencyData() {
   const effPct      = elapsedMin > 0 ? Math.min(100, Math.round((productive / elapsedMin) * 100)) : 0;
   const dayPct      = Math.min(100, Math.round((elapsedMin / WORKDAY_TOTAL) * 100));
 
-  return { diagMin, repairMin, idleMin, productive, elapsedMin, effPct, dayPct };
+  return { diagMin, repairMin, idleMin, productive, elapsedMin, effPct, dayPct, repairEntries, repairJobsCount };
 }
 
 function renderMechanicEfficiency() {
@@ -3968,7 +3991,7 @@ function renderMechanicEfficiency() {
   const ratePerMin  = dailyCost / WORKDAY_TOTAL;                   // ₽ per minute
   const ratePerHour = ratePerMin * 60;
 
-  const { diagMin, repairMin, idleMin, effPct, elapsedMin, dayPct } = getMechanicEfficiencyData();
+  const { diagMin, repairMin, idleMin, effPct, elapsedMin, dayPct, repairEntries, repairJobsCount } = getMechanicEfficiencyData();
 
   // SVG ring: r=38, circumference ≈ 238.8
   const R  = 38;
@@ -4000,6 +4023,21 @@ function renderMechanicEfficiency() {
   const fmtRub = (v) => (Number(v) || 0).toLocaleString("ru-RU") + " ₽";
   const roiPct = paidSoFar > 0 ? Math.min(100, Math.round((earnedCost / paidSoFar) * 100)) : 0;
   const roiColor = roiPct >= 70 ? "#22a85a" : roiPct >= 40 ? "#f59e0b" : "#e05c5c";
+  const repairRowsHtml = repairEntries.length
+    ? repairEntries
+        .map(
+          (row) => `
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px dashed #e8edf7;">
+        <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          <strong>${escapeHtml(row.bike)}</strong> — ${escapeHtml(row.issue)}
+          ${row.isActive ? '<span style="color:#007aff;font-weight:700;"> (в работе)</span>' : ""}
+        </span>
+        <strong>${fmtMin(row.minutes)}</strong>
+      </div>
+    `
+        )
+        .join("")
+    : `<div style="padding:6px 0;color:#98a4b8;">Сегодня ремонтов пока нет</div>`;
 
   card.innerHTML = `
     <div class="eff-title-row">
@@ -4068,6 +4106,13 @@ function renderMechanicEfficiency() {
         <div class="roi-return-fill" style="width:${roiPct}%;background:${roiColor}"></div>
         <span class="roi-return-label" style="color:${roiColor}">Возврат ${roiPct}%</span>
       </div>
+    </div>
+    <div class="roi-block" style="margin-top:10px;">
+      <div class="roi-summary" style="padding-bottom:6px;">
+        <span class="roi-summary-label">Ремонты за сегодня</span>
+        <span class="roi-summary-value">${repairJobsCount} шт</span>
+      </div>
+      ${repairRowsHtml}
     </div>
   `;
 }
