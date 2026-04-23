@@ -3593,6 +3593,12 @@ body.is-auth-locked #login-overlay {
   transform: translateY(8px);
   transition: opacity 0.2s ease, transform 0.2s ease;
   cursor: pointer;
+  touch-action: pan-y;
+  will-change: transform, opacity;
+}
+
+.repair-alert.is-swiping {
+  transition: none;
 }
 
 .repair-alert.is-visible {

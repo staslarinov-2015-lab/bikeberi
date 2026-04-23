@@ -1579,21 +1579,72 @@ function showRepairAlert(message, workOrderId = null) {
     <strong>Ремонт требует внимания</strong>
     <p>${escapeHtml(message)}</p>
   `;
+  let dismissedBySwipe = false;
+  let touchStartX = 0;
+  let touchDeltaX = 0;
+  let touchActive = false;
+
+  const dismissAlert = (fast = false) => {
+    alert.classList.remove("is-visible");
+    if (fast) {
+      alert.remove();
+      return;
+    }
+    window.setTimeout(() => alert.remove(), 150);
+  };
+
+  alert.addEventListener("touchstart", (event) => {
+    const touch = event.touches?.[0];
+    if (!touch) return;
+    touchStartX = touch.clientX;
+    touchDeltaX = 0;
+    touchActive = true;
+    alert.classList.add("is-swiping");
+  }, { passive: true });
+
+  alert.addEventListener("touchmove", (event) => {
+    if (!touchActive) return;
+    const touch = event.touches?.[0];
+    if (!touch) return;
+    touchDeltaX = touch.clientX - touchStartX;
+    const absDx = Math.abs(touchDeltaX);
+    const opacity = Math.max(0.35, 1 - absDx / 180);
+    alert.style.transform = `translateX(${touchDeltaX}px)`;
+    alert.style.opacity = String(opacity);
+  }, { passive: true });
+
+  alert.addEventListener("touchend", () => {
+    if (!touchActive) return;
+    touchActive = false;
+    alert.classList.remove("is-swiping");
+    const shouldDismiss = Math.abs(touchDeltaX) > 70;
+    if (shouldDismiss) {
+      dismissedBySwipe = true;
+      const finalX = touchDeltaX >= 0 ? 360 : -360;
+      alert.style.transform = `translateX(${finalX}px)`;
+      alert.style.opacity = "0";
+      window.setTimeout(() => dismissAlert(true), 140);
+    } else {
+      alert.style.transform = "";
+      alert.style.opacity = "";
+    }
+  }, { passive: true });
+
   alert.addEventListener("click", () => {
+    if (dismissedBySwipe) return;
     navigateTo("repairs");
     const targetOrderId = alert.dataset.workOrderId;
     const liveOrder = (state.workOrders || []).find((entry) => String(entry.id) === String(targetOrderId));
     if (liveOrder) openWorkOrderDetail(liveOrder);
-    alert.classList.remove("is-visible");
-    window.setTimeout(() => alert.remove(), 150);
+    dismissAlert();
   });
   repairAlerts.appendChild(alert);
   window.setTimeout(() => {
     alert.classList.add("is-visible");
   }, 20);
   window.setTimeout(() => {
-    alert.classList.remove("is-visible");
-    window.setTimeout(() => alert.remove(), 250);
+    if (!alert.isConnected) return;
+    dismissAlert();
   }, 7000);
 }
 
