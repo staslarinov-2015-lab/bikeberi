@@ -3880,14 +3880,14 @@ function renderMechanicEfficiency() {
   const earnedCost = Math.round((repairMin + diagMin) * ratePerMin);
   const idleCost   = Math.round(idleMin * ratePerMin);
   const paidSoFar  = Math.round(elapsedMin * ratePerMin);
-  const fmt₽ = (v) => v.toLocaleString("ru-RU") + " ₽";
+  const fmtRub = (v) => (Number(v) || 0).toLocaleString("ru-RU") + " ₽";
   const roiPct = paidSoFar > 0 ? Math.min(100, Math.round((earnedCost / paidSoFar) * 100)) : 0;
   const roiColor = roiPct >= 70 ? "#22a85a" : roiPct >= 40 ? "#f59e0b" : "#e05c5c";
 
   card.innerHTML = `
     <div class="eff-title-row">
       <span class="eff-title">Механик сегодня</span>
-      <span class="eff-workday">10:00 — 19:00 · ${fmt₽(dailyCost)}/день</span>
+      <span class="eff-workday">10:00 — 19:00 · ${fmtRub(dailyCost)}/день</span>
     </div>
     <div class="eff-body">
       <div class="eff-ring-wrap">
@@ -3929,7 +3929,7 @@ function renderMechanicEfficiency() {
             <div class="roi-sub">${fmtMin(repairMin + diagMin)} продуктивного времени</div>
           </div>
         </div>
-        <span class="roi-value" style="color:#22a85a">${fmt₽(earnedCost)}</span>
+        <span class="roi-value" style="color:#22a85a">${fmtRub(earnedCost)}</span>
       </div>
       <div class="roi-row roi-row--idle">
         <div class="roi-row-left">
@@ -3939,13 +3939,13 @@ function renderMechanicEfficiency() {
             <div class="roi-sub">${fmtMin(idleMin)} бездействия</div>
           </div>
         </div>
-        <span class="roi-value" style="color:#e05c5c">${fmt₽(idleCost)}</span>
+        <span class="roi-value" style="color:#e05c5c">${fmtRub(idleCost)}</span>
       </div>
       <div class="roi-divider"></div>
       <div class="roi-summary">
         <span class="roi-summary-label">Выплачено на данный момент</span>
-        <span class="roi-summary-rate">${fmt₽(Math.round(ratePerHour))}/ч · ${ratePerMin.toFixed(1)} ₽/мин</span>
-        <span class="roi-summary-value">${fmt₽(paidSoFar)}</span>
+        <span class="roi-summary-rate">${fmtRub(Math.round(ratePerHour))}/ч · ${ratePerMin.toFixed(1)} ₽/мин</span>
+        <span class="roi-summary-value">${fmtRub(paidSoFar)}</span>
       </div>
       <div class="roi-return-bar">
         <div class="roi-return-fill" style="width:${roiPct}%;background:${roiColor}"></div>
