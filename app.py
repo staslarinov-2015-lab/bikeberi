@@ -1861,7 +1861,10 @@ def hydrate_work_orders(conn):
         order["missing_parts"] = missing_parts
         order["parts_ready"] = bool(order["parts_ready"])
         order["can_start"] = order["status"] in {"принят", "диагностика", "ждет запчасти"} and not missing_parts
-        order["can_mark_ready"] = order["status"] == "в ремонте"
+        # "На выдачу" allowed both for an actively running repair and for a paused
+        # one — a paused repair is effectively an active one on hold, and the
+        # mechanic should be able to close it out without having to un-pause first.
+        order["can_mark_ready"] = order["status"] in {"в ремонте", "приостановлен"}
         orders.append(order)
 
     return orders
@@ -2957,9 +2960,13 @@ class AppHandler(BaseHTTPRequestHandler):
                 )
 
             elif action == "mark_ready":
-                if order["status"] != "в ремонте":
+                if order["status"] not in {"в ремонте", "приостановлен"}:
                     conn.close()
-                    return json_response(self, 400, {"error": "Сначала нужно начать ремонт"})
+                    return json_response(
+                        self,
+                        400,
+                        {"error": f"Нельзя перевести на выдачу из статуса «{order['status']}». Сначала начните ремонт."},
+                    )
                 parts = conn.execute(
                     """
                     SELECT part_name, qty_required, qty_reserved
@@ -3027,7 +3034,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     repair_id = repair_cursor.lastrowid
                 next_status = "проверка"
                 conn.execute(
-                    "UPDATE work_orders SET status = ?, completed_repair_id = ?, completed_at = ?, parts_ready = 1 WHERE id = ?",
+                    "UPDATE work_orders SET status = ?, completed_repair_id = ?, completed_at = ?, parts_ready = 1, pause_reason = '', started_at = NULL WHERE id = ?",
                     (next_status, repair_id, utc_now().isoformat(), work_order_id),
                 )
                 conn.execute(

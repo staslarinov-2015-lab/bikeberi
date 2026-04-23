@@ -3529,6 +3529,7 @@ function renderWorkOrders() {
             ${canManage ? `<button class="icon-btn" type="button" data-action="edit-work-order-diagnostic" data-id="${order.id}">Ред. диагн.</button>` : ""}
             ${canManage ? `<button class="icon-btn" type="button" data-action="edit-work-order-repair" data-id="${order.id}">Ред. ремонт</button>` : ""}
             ${order.can_start ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-start" data-id="${order.id}">Начать ремонт</button>` : ""}
+            ${order.status === "приостановлен" && canManage ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">На выдачу</button>` : ""}
           </div>
         </article>
       `;
@@ -3771,14 +3772,14 @@ function renderMechanicEfficiency() {
   const earnedCost = Math.round((repairMin + diagMin) * ratePerMin);
   const idleCost   = Math.round(idleMin * ratePerMin);
   const paidSoFar  = Math.round(elapsedMin * ratePerMin);
-  const fmtRub = (v) => v.toLocaleString("ru-RU") + " ₽";
+  const fmt₽ = (v) => v.toLocaleString("ru-RU") + " ₽";
   const roiPct = paidSoFar > 0 ? Math.min(100, Math.round((earnedCost / paidSoFar) * 100)) : 0;
   const roiColor = roiPct >= 70 ? "#22a85a" : roiPct >= 40 ? "#f59e0b" : "#e05c5c";
 
   card.innerHTML = `
     <div class="eff-title-row">
       <span class="eff-title">Механик сегодня</span>
-      <span class="eff-workday">10:00 — 19:00 · ${fmtRub(dailyCost)}/день</span>
+      <span class="eff-workday">10:00 — 19:00 · ${fmt₽(dailyCost)}/день</span>
     </div>
     <div class="eff-body">
       <div class="eff-ring-wrap">
@@ -3820,7 +3821,7 @@ function renderMechanicEfficiency() {
             <div class="roi-sub">${fmtMin(repairMin + diagMin)} продуктивного времени</div>
           </div>
         </div>
-        <span class="roi-value" style="color:#22a85a">${fmtRub(earnedCost)}</span>
+        <span class="roi-value" style="color:#22a85a">${fmt₽(earnedCost)}</span>
       </div>
       <div class="roi-row roi-row--idle">
         <div class="roi-row-left">
@@ -3830,13 +3831,13 @@ function renderMechanicEfficiency() {
             <div class="roi-sub">${fmtMin(idleMin)} бездействия</div>
           </div>
         </div>
-        <span class="roi-value" style="color:#e05c5c">${fmtRub(idleCost)}</span>
+        <span class="roi-value" style="color:#e05c5c">${fmt₽(idleCost)}</span>
       </div>
       <div class="roi-divider"></div>
       <div class="roi-summary">
         <span class="roi-summary-label">Выплачено на данный момент</span>
-        <span class="roi-summary-rate">${fmtRub(Math.round(ratePerHour))}/ч · ${ratePerMin.toFixed(1)} ₽/мин</span>
-        <span class="roi-summary-value">${fmtRub(paidSoFar)}</span>
+        <span class="roi-summary-rate">${fmt₽(Math.round(ratePerHour))}/ч · ${ratePerMin.toFixed(1)} ₽/мин</span>
+        <span class="roi-summary-value">${fmt₽(paidSoFar)}</span>
       </div>
       <div class="roi-return-bar">
         <div class="roi-return-fill" style="width:${roiPct}%;background:${roiColor}"></div>
@@ -5827,7 +5828,9 @@ document.addEventListener("click", async (event) => {
         }
       }
     } catch {
-      // Ошибка уже показана через notifyError в api()
+      // Ошибка показана через notifyError — подтянем актуальное состояние,
+      // чтобы UI и сервер всегда были синхронны (например, если статус успел измениться).
+      try { await bootstrap(); } catch { /* ignore */ }
     }
   }
 
