@@ -503,6 +503,9 @@ const topbarRolePill = document.getElementById("topbar-role-pill");
 const telegramTransportPill = document.getElementById("telegram-transport-pill");
 const mechanicDayFocus = document.getElementById("mechanic-day-focus");
 const openChatButton = document.getElementById("open-chat-button");
+const openSettingsButton = document.getElementById("open-settings-button");
+const settingsOverlay = document.getElementById("settings-overlay");
+const closeSettingsButton = document.getElementById("close-settings-button");
 const accountButton = document.getElementById("account-button");
 const accountOverlay = document.getElementById("account-overlay");
 const closeAccountButton = document.getElementById("close-account-button");
@@ -4840,6 +4843,20 @@ openChatButton?.addEventListener("click", () => {
   teamChatList?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
+openSettingsButton?.addEventListener("click", () => {
+  if (getRole() !== "owner") return;
+  settingsOverlay?.classList.remove("hidden");
+});
+
+closeSettingsButton?.addEventListener("click", () => {
+  settingsOverlay?.classList.add("hidden");
+});
+
+settingsOverlay?.addEventListener("click", (event) => {
+  if (event.target.closest(".modal-card")) return;
+  settingsOverlay.classList.add("hidden");
+});
+
 closeAccountButton?.addEventListener("click", () => {
   accountOverlay?.classList.add("hidden");
 });
@@ -5507,6 +5524,7 @@ if (settingsForm) {
         }),
         notifyError: true,
       });
+      settingsOverlay?.classList.add("hidden");
       await bootstrap();
     } catch {
       // Ошибка уже показана через notifyError в api()
@@ -6394,7 +6412,7 @@ window.setInterval(refreshRepairTimers, 1000);
 window.setInterval(refreshTeamChat, TEAM_CHAT_POLL_INTERVAL_MS);
 // Refresh mechanic efficiency card every minute (active repair time ticks up)
 window.setInterval(() => {
-  if (getRole() === "owner" && state.activeSection === "owner") {
+  if (getRole() === "owner" && (state.activeSection === "owner" || state.activeSection === "overview")) {
     renderMechanicEfficiency();
   }
 }, 60_000);

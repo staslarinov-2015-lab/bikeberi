@@ -97,6 +97,9 @@
             <span class="topbar-app-name">Байк сервис</span>
           </div>
           <div class="topbar-right" aria-label="Контекст">
+            <button id="open-settings-button" class="ghost-btn topbar-settings-btn owner-only" type="button" aria-label="Настройки">
+              ⚙️
+            </button>
             <button id="open-chat-button" class="ghost-btn topbar-chat-btn" type="button">
               Чат
               <span class="chat-unread-badge chat-unread-badge-topbar hidden" data-chat-unread-badge>0</span>
@@ -109,6 +112,7 @@
 
         <section id="section-overview" class="screen-section">
           <div id="mechanic-day-focus" class="mechanic-day-focus hidden"></div>
+          <div id="mechanic-efficiency-card" class="efficiency-card owner-only" style="margin-bottom:16px;"></div>
           <div class="overview-layout">
             <section class="panel">
               <h3 class="panel-title">Период</h3>
@@ -367,9 +371,6 @@
 
         <section id="section-owner" class="screen-section hidden owner-only">
 
-          <!-- ── Эффективность механика ────────────────────────── -->
-          <div id="mechanic-efficiency-card" class="efficiency-card"></div>
-
           <!-- ── Фокус смены ─────────────────────────────────── -->
           <div class="owner-focus-header">
             <span class="owner-focus-title">Фокус смены</span>
@@ -466,27 +467,35 @@
               </form>
             </article>
 
-            <article class="content-card owner-card owner-card-wide">
-              <h3 class="panel-title">Настройки</h3>
-              <form id="settings-form" class="form-grid">
-                <label>
-                  <span>Всего байков в парке</span>
-                  <input name="totalBikes" type="number" min="1" required />
-                </label>
-                <label>
-                  <span>Цель KPI, %</span>
-                  <input name="targetRate" type="number" min="1" max="100" required />
-                </label>
-                <label>
-                  <span>Ставка механика, ₽/день</span>
-                  <input name="mechanicDailyCost" type="number" min="0" placeholder="3500" />
-                </label>
-                <button class="primary-btn wide" type="submit">Сохранить</button>
-              </form>
-            </article>
           </div>
         </section>
       </main>
+    </div>
+
+    <div id="settings-overlay" class="overlay hidden">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <h2>Настройки</h2>
+          </div>
+          <button id="close-settings-button" class="ghost-btn" type="button">Закрыть</button>
+        </div>
+        <form id="settings-form" class="form-grid">
+          <label>
+            <span>Всего байков в парке</span>
+            <input name="totalBikes" type="number" min="1" required />
+          </label>
+          <label>
+            <span>Цель KPI, %</span>
+            <input name="targetRate" type="number" min="1" max="100" required />
+          </label>
+          <label>
+            <span>Ставка механика, ₽/день</span>
+            <input name="mechanicDailyCost" type="number" min="0" placeholder="3500" />
+          </label>
+          <button class="primary-btn wide" type="submit">Сохранить</button>
+        </form>
+      </div>
     </div>
 
     <nav class="mobile-tabbar" aria-label="Навигация">

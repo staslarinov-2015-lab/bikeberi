@@ -382,6 +382,17 @@ textarea {
   gap: 6px;
 }
 
+.topbar-settings-btn {
+  min-height: 34px;
+  min-width: 34px;
+  padding: 6px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
 .chat-unread-badge {
   display: inline-flex;
   min-width: 18px;
@@ -3657,7 +3668,7 @@ textarea:focus-visible {
     justify-content: flex-end;
   }
 
-  .topbar-right > :not(#topbar-role-pill):not(#telegram-transport-pill) {
+  .topbar-right > :not(#topbar-role-pill):not(#telegram-transport-pill):not(#open-settings-button) {
     display: none;
   }
 
