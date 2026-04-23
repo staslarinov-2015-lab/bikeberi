@@ -519,13 +519,13 @@
         </span>
         <span class="mobile-tab-label">Диагностика</span>
       </button>
-      <button class="mobile-tab mobile-tab-cta owner-only" type="button" data-section="diagnostics" aria-label="Диагностики">
+      <button class="mobile-tab mobile-tab-cta owner-only" type="button" data-section="owner" aria-label="Показатели">
         <span class="mobile-tab-cta-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
             <path d="M14.7 6.3a3.5 3.5 0 0 0-4.9 4.9l-5.4 5.4a1.2 1.2 0 1 0 1.7 1.7l5.4-5.4a3.5 3.5 0 0 0 4.9-4.9l-2.2 2.2-2.7-2.7z" />
           </svg>
         </span>
-        <span class="mobile-tab-label">Диагностика</span>
+        <span class="mobile-tab-label">Показатели</span>
       </button>
       <button class="mobile-tab" type="button" data-section="inventory" aria-label="Склад">
         <span class="mobile-tab-icon" aria-hidden="true">
@@ -659,8 +659,8 @@
           </div>
           <div id="repair-timer-display" class="repair-timer-display">00:00:00</div>
           <div class="repair-timer-actions">
-            <button class="repair-timer-save-btn" type="button" data-action="save-repair-time">
-              Сохранить время
+            <button class="repair-timer-save-btn" type="button" data-action="finish-repair-handover">
+              Завершить → к выдаче
             </button>
             <button class="repair-pause-btn" type="button" data-action="open-pause-repair">
               ⏸ Приостановить ремонт
@@ -679,6 +679,19 @@
           <div class="pause-info">
             <span class="pause-info-label">Затрачено:</span>
             <span id="pause-info-minutes" class="pause-info-text">—</span>
+          </div>
+          <div class="pause-info">
+            <span class="pause-info-label">Количество пауз:</span>
+            <span id="pause-info-count" class="pause-info-text">0</span>
+          </div>
+        </div>
+        <div id="handover-ready-block" class="pause-repair-block hidden mechanic-only">
+          <button class="work-order-resume-btn" type="button" data-action="start-handover-checklist-btn">
+            📋 Перейти к выдаче
+          </button>
+          <div class="pause-info">
+            <span class="pause-info-label">Статус:</span>
+            <span class="pause-info-text">Байк ждёт чек-лист выдачи</span>
           </div>
         </div>
 

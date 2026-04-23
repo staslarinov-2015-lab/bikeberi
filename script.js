@@ -71,6 +71,7 @@ const state = {
   repairTemplates: [],
   repairTimerInterval: null,
   diagnosticStartedAt: null,
+  diagnosticSubmitInFlight: false,
 };
 
 const repairDeadlineNotifications = new Set();
@@ -1295,8 +1296,10 @@ function openWorkOrderDetail(order) {
   // Repair timer (active repair)
   const timerBlock = document.getElementById("repair-timer-block");
   const pauseBlock = document.getElementById("pause-repair-block");
+  const handoverReadyBlock = document.getElementById("handover-ready-block");
   const isActive = order.status === "в ремонте" && order.started_at;
   const isPaused = order.status === "приостановлен";
+  const isWaitingHandover = order.status === "проверка";
 
   if (timerBlock) {
     timerBlock.classList.toggle("hidden", !isActive);
@@ -1324,8 +1327,16 @@ function openWorkOrderDetail(order) {
       pauseBlock.dataset.orderId = order.id;
       const reasonEl = document.getElementById("pause-info-reason");
       const minutesEl = document.getElementById("pause-info-minutes");
+      const countEl = document.getElementById("pause-info-count");
       if (reasonEl) reasonEl.textContent = order.pause_reason || "не указана";
       if (minutesEl) minutesEl.textContent = order.actual_minutes ? `${order.actual_minutes} мин` : "нет данных";
+      if (countEl) countEl.textContent = String(order.pause_count || 0);
+    }
+  }
+  if (handoverReadyBlock) {
+    handoverReadyBlock.classList.toggle("hidden", !isWaitingHandover);
+    if (isWaitingHandover) {
+      handoverReadyBlock.dataset.orderId = order.id;
     }
   }
 
@@ -2343,9 +2354,6 @@ function getDiagnosticSubmitErrors(bikeCode, mechanicName) {
   }
   if (!isValidBikeCode(bikeCode)) {
     errors.push("Укажи номер байка в формате РЕ123У.");
-  }
-  if (!(state.diagnosticQuickFlow.selectedParts || []).length) {
-    errors.push("Выбери хотя бы одну необходимую запчасть.");
   }
   if (!state.diagnosticQuickFlow.decision) {
     errors.push("Выбери вариант развития событий: взять в ремонт или поставить в очередь.");
@@ -3609,10 +3617,12 @@ function renderWorkOrders() {
             ${getPriorityBadge(order)}
             ${
               (order.status === "приостановлен" && canManage) ||
-              (order.status === "в ремонте" && order.can_mark_ready)
+              (order.status === "в ремонте" && order.can_mark_ready) ||
+              (order.status === "проверка" && canManage)
                 ? `<div class="table-actions">
                 ${order.status === "приостановлен" && canManage ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-resume" data-id="${order.id}">▶ Возобновить</button>` : ""}
                 ${order.status === "в ремонте" && order.can_mark_ready ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-ready" data-id="${order.id}">На выдачу</button>` : ""}
+                ${order.status === "проверка" && canManage ? `<button class="primary-btn primary-btn-small" type="button" data-action="work-order-checklist" data-id="${order.id}">К выдаче</button>` : ""}
               </div>`
                 : ""
             }
@@ -5050,6 +5060,7 @@ diagnosticQuickSummaryCard?.addEventListener("input", (event) => {
 });
 
 diagnosticQuickNext?.addEventListener("click", () => {
+  if (state.diagnosticSubmitInFlight) return;
   diagnosticForm.dataset.afterSubmit = "";
   if (!canGoNextQuickStep()) {
     const bikeCode = updateBikeCodeHiddenInput("diagnostic");
@@ -5067,6 +5078,7 @@ diagnosticQuickNext?.addEventListener("click", () => {
 });
 
 diagnosticQuickSaveOpen?.addEventListener("click", () => {
+  if (state.diagnosticSubmitInFlight) return;
   const bikeCode = updateBikeCodeHiddenInput("diagnostic");
   const mechanicName = String(state.user?.full_name || "").trim();
   if (state.diagnosticQuickFlow.decision !== "take_repair") {
@@ -5361,6 +5373,10 @@ bikeForm?.addEventListener("submit", async (event) => {
 
 diagnosticForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (state.diagnosticSubmitInFlight) return;
+  state.diagnosticSubmitInFlight = true;
+  diagnosticQuickNext && (diagnosticQuickNext.disabled = true);
+  diagnosticQuickSaveOpen && (diagnosticQuickSaveOpen.disabled = true);
 
   const bikeCode = updateBikeCodeHiddenInput("diagnostic");
   const mechanicName = String(state.user?.full_name || "").trim();
@@ -5444,6 +5460,10 @@ diagnosticForm.addEventListener("submit", async (event) => {
     await bootstrap();
   } catch {
     // Ошибка уже показана через notifyError в api()
+  } finally {
+    state.diagnosticSubmitInFlight = false;
+    if (diagnosticQuickNext) diagnosticQuickNext.disabled = false;
+    if (diagnosticQuickSaveOpen) diagnosticQuickSaveOpen.disabled = false;
   }
 });
 
@@ -5925,6 +5945,13 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  if (action === "work-order-checklist") {
+    const order = state.workOrders.find((entry) => String(entry.id) === id);
+    if (!order) return;
+    startIssueChecklistForOrder(order);
+    return;
+  }
+
   if (action.startsWith("work-order-")) {
     const actionMap = {
       "work-order-start": "start_repair",
@@ -6227,7 +6254,7 @@ document.addEventListener("click", async (event) => {
     if (resp?.unchanged) {
       notify(`Статус заявки уже «${resp.status}» — страница обновлена`);
     } else {
-      notify("Байк возвращён в очередь — можно начать ремонт снова");
+        notify("Ремонт возобновлён — таймер снова запущен");
     }
     await bootstrap();
   } catch {
@@ -6236,28 +6263,39 @@ document.addEventListener("click", async (event) => {
   }
 });
 
-// Timer save button
+document.addEventListener("click", (event) => {
+  const btn = event.target.closest("[data-action='start-handover-checklist-btn']");
+  if (!btn) return;
+  const block = document.getElementById("handover-ready-block");
+  const orderId = block?.dataset.orderId;
+  if (!orderId) return;
+  const order = (state.workOrders || []).find((entry) => String(entry.id) === String(orderId));
+  if (!order) return;
+  workOrderOverlay?.classList.add("hidden");
+  startIssueChecklistForOrder(order);
+});
+
+// Finish active repair and open handover checklist
 document.addEventListener("click", async (event) => {
-  const btn = event.target.closest("[data-action='save-repair-time']");
+  const btn = event.target.closest("[data-action='finish-repair-handover']");
   if (!btn) return;
   const block = document.getElementById("repair-timer-block");
   if (!block) return;
   const orderId = block.dataset.orderId;
-  const startedAt = block.dataset.startedAt;
-  if (!orderId || !startedAt) return;
-  const elapsed = Math.round(Math.max(0, Date.now() - new Date(startedAt).getTime()) / 60000);
+  if (!orderId) return;
   try {
-    await api(`/api/work-orders/${orderId}/actual-time`, {
+    await api(`/api/work-orders/${orderId}/transition`, {
       method: "POST",
-      body: JSON.stringify({ actualMinutes: elapsed }),
+      body: JSON.stringify({ action: "mark_ready" }),
       notifyError: true,
     });
-    const actualEl = block.querySelector(".repair-timer-actual");
-    if (actualEl) {
-      actualEl.textContent = `Сохранено: ${elapsed} мин`;
-      actualEl.classList.remove("hidden");
+    await bootstrap();
+    const movedOrder = (state.workOrders || []).find((entry) => String(entry.id) === String(orderId));
+    if (movedOrder && movedOrder.status === "проверка") {
+      workOrderOverlay?.classList.add("hidden");
+      startIssueChecklistForOrder(movedOrder);
+      notify("Ремонт завершён, переходим к выдаче");
     }
-    notify(`Время записано: ${elapsed} мин`);
   } catch { /* shown */ }
 });
 

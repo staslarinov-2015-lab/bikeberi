@@ -1248,6 +1248,7 @@ def init_db():
     ensure_column(cur, "work_orders", "completed_at", "TEXT")
     ensure_column(cur, "work_orders", "actual_minutes", "INTEGER")
     ensure_column(cur, "work_orders", "pause_reason", "TEXT NOT NULL DEFAULT ''")
+    ensure_column(cur, "work_orders", "pause_count", "INTEGER NOT NULL DEFAULT 0")
     # Track repair time per fault for statistics
     ensure_column(cur, "repairs", "actual_minutes", "INTEGER")
     ensure_column(cur, "repairs", "fault_category", "TEXT NOT NULL DEFAULT ''")
@@ -1801,7 +1802,8 @@ def hydrate_work_orders(conn):
             work_orders.created_at,
             work_orders.completed_at,
             work_orders.actual_minutes,
-            work_orders.pause_reason
+            work_orders.pause_reason,
+            work_orders.pause_count
         FROM work_orders
         JOIN bikes ON bikes.id = work_orders.bike_id
         ORDER BY
@@ -2602,7 +2604,52 @@ class AppHandler(BaseHTTPRequestHandler):
             comment = str(payload.get("comment", "") or "").strip()
             if len(comment) > 2000:
                 return json_response(self, 400, {"error": "Комментарий должен быть до 2000 символов"})
+            mechanic_name = str(payload["mechanicName"]).strip()
+            category = str(payload["category"]).strip()
+            fault = str(payload["fault"]).strip()
+            symptoms = str(payload["symptoms"]).strip()
+            conclusion = str(payload["conclusion"]).strip()
+            severity = str(payload["severity"]).strip()
+            recommendation = str(payload["recommendation"]).strip()
             conn = get_db()
+            recent_duplicate = conn.execute(
+                """
+                SELECT id, created_at
+                FROM diagnostics
+                WHERE bike = ?
+                  AND mechanic_name = ?
+                  AND category = ?
+                  AND fault = ?
+                  AND symptoms = ?
+                  AND conclusion = ?
+                  AND severity = ?
+                  AND recommendation = ?
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (
+                    bike_code,
+                    mechanic_name,
+                    category,
+                    fault,
+                    symptoms,
+                    conclusion,
+                    severity,
+                    recommendation,
+                ),
+            ).fetchone()
+            if recent_duplicate:
+                try:
+                    created_at = datetime.fromisoformat(str(recent_duplicate["created_at"]))
+                except Exception:
+                    created_at = None
+                if created_at and (utc_now() - created_at).total_seconds() <= 120:
+                    conn.close()
+                    return json_response(
+                        self,
+                        409,
+                        {"error": "Похоже, такая диагностика уже только что сохранена", "duplicate": True, "diagnosticId": recent_duplicate["id"]},
+                    )
             cursor = conn.execute(
                 """
                 INSERT INTO diagnostics (date, bike, mechanic_name, category, fault, symptoms, conclusion, severity, recommendation, comment, diagnostic_minutes, created_at)
@@ -2611,13 +2658,13 @@ class AppHandler(BaseHTTPRequestHandler):
                 (
                     str(payload["date"]).strip(),
                     bike_code,
-                    str(payload["mechanicName"]).strip(),
-                    str(payload["category"]).strip(),
-                    str(payload["fault"]).strip(),
-                    str(payload["symptoms"]).strip(),
-                    str(payload["conclusion"]).strip(),
-                    str(payload["severity"]).strip(),
-                    str(payload["recommendation"]).strip(),
+                    mechanic_name,
+                    category,
+                    fault,
+                    symptoms,
+                    conclusion,
+                    severity,
+                    recommendation,
                     comment,
                     diagnostic_minutes,
                     utc_now().isoformat(),
@@ -2627,12 +2674,12 @@ class AppHandler(BaseHTTPRequestHandler):
             bike_id = ensure_bike(conn, bike_code)
             set_bike_status(conn, bike_id, "на диагностике")
 
-            catalog = catalog_entry_for_fault(payload["fault"])
+            catalog = catalog_entry_for_fault(fault)
             manual_parts = parse_required_parts_text(payload.get("required_parts_text", ""))
             required_parts = merge_parts_lists(catalog["parts"], manual_parts)
             intake_date = str(payload["date"]).strip()
             estimated_minutes = int(catalog["minutes"])
-            priority = "высокий" if str(payload["severity"]).strip() == "Критичная" else "обычный"
+            priority = "высокий" if severity == "Критичная" else "обычный"
             work_cursor = conn.execute(
                 """
                 INSERT INTO work_orders (
@@ -2645,10 +2692,10 @@ class AppHandler(BaseHTTPRequestHandler):
                     bike_id,
                     diagnostic_id,
                     "диагностика",
-                    str(payload["fault"]).strip(),
-                    str(payload["category"]).strip(),
-                    str(payload["fault"]).strip(),
-                    str(payload["mechanicName"]).strip(),
+                    fault,
+                    category,
+                    fault,
+                    mechanic_name,
                     intake_date,
                     estimated_minutes,
                     None,
@@ -2685,22 +2732,22 @@ class AppHandler(BaseHTTPRequestHandler):
                 conn,
                 int(work_order_id),
                 bike_code,
-                str(payload.get("fault", "")).strip(),
-                str(payload.get("symptoms", "")).strip(),
+                fault,
+                symptoms,
                 estimated_minutes,
                 required_parts_text,
             )
             add_work_order_history(
                 conn,
                 work_order_id,
-                str(payload["mechanicName"]).strip(),
+                mechanic_name,
                 "created",
                 "Байк принят после аренды и переведен в сервисную заявку",
             )
             add_work_order_history(
                 conn,
                 work_order_id,
-                str(payload["mechanicName"]).strip(),
+                mechanic_name,
                 "inventory_check",
                 "Запчасти проверены автоматически по складу",
             )
@@ -2840,7 +2887,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 """
                 SELECT id, bike_id, status, issue, category, fault, mechanic_name, intake_date,
                        estimated_minutes, required_parts_text, planned_work, completed_repair_id,
-                       started_at, actual_minutes
+                       started_at, actual_minutes, pause_count
                 FROM work_orders
                 WHERE id = ?
                 """,
@@ -2915,7 +2962,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 prev_minutes = int((prev_actual["actual_minutes"] or 0) if prev_actual else 0)
                 total_minutes = prev_minutes + elapsed_minutes
                 conn.execute(
-                    "UPDATE work_orders SET status = 'приостановлен', actual_minutes = ?, pause_reason = ?, started_at = NULL WHERE id = ?",
+                    "UPDATE work_orders SET status = 'приостановлен', actual_minutes = ?, pause_reason = ?, pause_count = COALESCE(pause_count, 0) + 1, started_at = NULL WHERE id = ?",
                     (total_minutes, pause_reason, work_order_id),
                 )
                 set_bike_status(conn, order["bike_id"], "приостановлен")
@@ -2950,10 +2997,11 @@ class AppHandler(BaseHTTPRequestHandler):
                     conn.commit()
                     conn.close()
                     return json_response(self, 200, {"ok": True, "status": order["status"], "unchanged": True})
-                next_status = "принят"
+                next_status = "в ремонте"
+                resumed_at = utc_now().isoformat()
                 conn.execute(
-                    "UPDATE work_orders SET status = ?, pause_reason = '' WHERE id = ?",
-                    (next_status, work_order_id),
+                    "UPDATE work_orders SET status = ?, pause_reason = '', started_at = ? WHERE id = ?",
+                    (next_status, resumed_at, work_order_id),
                 )
                 set_bike_status(conn, order["bike_id"], next_status)
                 add_work_order_history(
@@ -2961,7 +3009,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     int(work_order_id),
                     user["full_name"],
                     "status",
-                    "Ремонт возобновлён — байк возвращён в очередь",
+                    "Ремонт возобновлён — байк снова в активной работе",
                 )
 
             elif action == "mark_ready":
@@ -3302,6 +3350,8 @@ class AppHandler(BaseHTTPRequestHandler):
             comment = str(payload.get("comment", "") or "").strip()
             if len(comment) > 2000:
                 return json_response(self, 400, {"error": "Комментарий должен быть до 2000 символов"})
+            manual_parts = parse_required_parts_text(payload.get("required_parts_text", ""))
+            required_parts_text = ", ".join(f"{name}:{qty}" for name, qty in manual_parts) or "-"
             conn = get_db()
             conn.execute(
                 """
@@ -3323,6 +3373,88 @@ class AppHandler(BaseHTTPRequestHandler):
                     diagnostic_id,
                 ),
             )
+
+            linked_order = conn.execute(
+                """
+                SELECT id, bike_id, status, estimated_minutes
+                FROM work_orders
+                WHERE diagnostic_id = ? AND completed_repair_id IS NULL
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (diagnostic_id,),
+            ).fetchone()
+            if linked_order:
+                # Release old reservations for this order before rewriting the parts list.
+                prev_parts = conn.execute(
+                    """
+                    SELECT part_name, qty_reserved
+                    FROM work_order_parts
+                    WHERE work_order_id = ?
+                    """,
+                    (linked_order["id"],),
+                ).fetchall()
+                for prev_part in prev_parts:
+                    reserved_qty = safe_int(prev_part["qty_reserved"], 0)
+                    if reserved_qty <= 0:
+                        continue
+                    conn.execute(
+                        """
+                        UPDATE inventory
+                        SET reserved = MAX(0, reserved - ?), updated_at = ?
+                        WHERE lower(trim(name)) = lower(trim(?))
+                        """,
+                        (reserved_qty, utc_now().isoformat(), str(prev_part["part_name"]).strip()),
+                    )
+
+                conn.execute("DELETE FROM work_order_parts WHERE work_order_id = ?", (linked_order["id"],))
+                for part_name, qty_required in manual_parts:
+                    conn.execute(
+                        """
+                        INSERT INTO work_order_parts (work_order_id, part_name, qty_required, qty_reserved, qty_used)
+                        VALUES (?, ?, ?, 0, 0)
+                        """,
+                        (linked_order["id"], part_name, qty_required),
+                    )
+
+                reservation = refresh_work_order_parts(conn, int(linked_order["id"]))
+                current_status = str(linked_order["status"] or "").strip()
+                is_waiting_flow = current_status in {"принят", "диагностика", "ждет запчасти"}
+                if is_waiting_flow:
+                    next_status = "принят" if reservation["all_reserved"] else "ждет запчасти"
+                    eta = (
+                        (utc_now() + timedelta(minutes=int(linked_order["estimated_minutes"] or 0))).isoformat()
+                        if reservation["all_reserved"]
+                        else None
+                    )
+                    conn.execute(
+                        """
+                        UPDATE work_orders
+                        SET required_parts_text = ?, status = ?, parts_ready = ?, estimated_ready_at = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            required_parts_text,
+                            next_status,
+                            1 if reservation["all_reserved"] else 0,
+                            eta,
+                            linked_order["id"],
+                        ),
+                    )
+                    set_bike_status(conn, linked_order["bike_id"], next_status)
+                else:
+                    conn.execute(
+                        "UPDATE work_orders SET required_parts_text = ? WHERE id = ?",
+                        (required_parts_text, linked_order["id"]),
+                    )
+
+                add_work_order_history(
+                    conn,
+                    int(linked_order["id"]),
+                    user["full_name"],
+                    "parts",
+                    f"Список нужных запчастей обновлён: {required_parts_text}",
+                )
             conn.commit()
             conn.close()
             return json_response(self, 200, {"ok": True})
