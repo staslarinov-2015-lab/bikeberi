@@ -475,6 +475,12 @@ def chat_display_name(raw_name: str, role: str = "") -> str:
     return "Управляющий" if role == "owner" else "Механик"
 
 
+def ensure_team_chat_columns(conn):
+    cur = conn.cursor()
+    ensure_column(cur, "team_chat_messages", "message_type", "TEXT NOT NULL DEFAULT 'text'")
+    ensure_column(cur, "team_chat_messages", "photo_data", "TEXT NOT NULL DEFAULT ''")
+
+
 def store_chat_message(sender_role: str, sender_name: str, message: str, photo_data: str = ""):
     role = str(sender_role or "").strip()
     if role not in {"owner", "mechanic"}:
@@ -491,6 +497,7 @@ def store_chat_message(sender_role: str, sender_name: str, message: str, photo_d
         return False
     message_type = "photo" if photo else "text"
     conn = get_db()
+    ensure_team_chat_columns(conn)
     conn.execute(
         """
         INSERT INTO team_chat_messages (sender_role, sender_name, message, message_type, photo_data, created_at)
@@ -714,6 +721,7 @@ def ensure_telegram_polling_started():
 def fetch_recent_team_chat(limit: int = 60):
     safe_limit = min(max(int(limit or 60), 1), 200)
     conn = get_db()
+    ensure_team_chat_columns(conn)
     rows = [
         dict(row)
         for row in conn.execute(
