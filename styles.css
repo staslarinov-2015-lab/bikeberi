@@ -3574,7 +3574,7 @@ body.is-auth-locked #login-overlay {
 .repair-alerts {
   position: fixed;
   right: 16px;
-  bottom: 16px;
+  top: 88px;
   z-index: 100;
   display: grid;
   gap: 8px;
