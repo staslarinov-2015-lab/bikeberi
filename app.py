@@ -1393,6 +1393,7 @@ def init_db():
     core_users = [
         ("larionov", "Larionov2026!", "owner", "Ларионов Станислав", "Управляющий"),
         ("mesrop", "Mesrop2026!", "mechanic", "Месроп", "Механик"),
+        ("mechanic2", "Mechanic22026!", "mechanic", "Тест Механик 2", "Механик"),
     ]
     for username, plain_password, role, full_name, position in core_users:
         row = cur.execute("SELECT id FROM users WHERE lower(username) = lower(?)", (username,)).fetchone()
