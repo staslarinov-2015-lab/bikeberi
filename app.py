@@ -406,28 +406,50 @@ def get_telegram_config() -> dict:
     return config
 
 
+def _parse_chat_ids(raw_value: str) -> list[str]:
+    raw = str(raw_value or "").strip()
+    if not raw:
+        return []
+    ids: list[str] = []
+    for part in raw.split(","):
+        chat_id = str(part or "").strip()
+        if not chat_id:
+            continue
+        if not chat_id.lstrip("-").isdigit():
+            continue
+        if chat_id not in ids:
+            ids.append(chat_id)
+    return ids
+
+
+def _normalize_chat_ids_csv(raw_value: str) -> str:
+    return ",".join(_parse_chat_ids(raw_value))
+
+
 def telegram_is_enabled(config: dict | None = None) -> bool:
     cfg = config or get_telegram_config()
-    return bool(cfg["token"] and cfg["secret"] and cfg["owner_chat_id"] and cfg["mechanic_chat_id"])
+    owner_ids = _parse_chat_ids(cfg.get("owner_chat_id", ""))
+    mechanic_ids = _parse_chat_ids(cfg.get("mechanic_chat_id", ""))
+    return bool(cfg["token"] and cfg["secret"] and owner_ids and mechanic_ids)
 
 
 def telegram_chat_role(chat_id_raw: str, config: dict | None = None) -> str:
     cfg = config or get_telegram_config()
     chat_id = str(chat_id_raw).strip()
-    if chat_id == cfg["owner_chat_id"]:
+    if chat_id in _parse_chat_ids(cfg.get("owner_chat_id", "")):
         return "owner"
-    if chat_id == cfg["mechanic_chat_id"]:
+    if chat_id in _parse_chat_ids(cfg.get("mechanic_chat_id", "")):
         return "mechanic"
     return ""
 
 
-def telegram_target_chat_for_sender(sender_role: str, config: dict | None = None) -> str:
+def telegram_target_chats_for_sender(sender_role: str, config: dict | None = None) -> list[str]:
     cfg = config or get_telegram_config()
     if sender_role == "owner":
-        return cfg["mechanic_chat_id"]
+        return _parse_chat_ids(cfg.get("mechanic_chat_id", ""))
     if sender_role == "mechanic":
-        return cfg["owner_chat_id"]
-    return ""
+        return _parse_chat_ids(cfg.get("owner_chat_id", ""))
+    return []
 
 
 def telegram_send_message(chat_id_raw: str, text: str, config: dict | None = None):
@@ -460,11 +482,12 @@ def mirror_internal_chat_to_telegram(sender_role: str, sender_name: str, message
     config = get_telegram_config()
     if not telegram_is_enabled(config):
         return
-    target_chat_id = telegram_target_chat_for_sender(sender_role, config)
-    if not target_chat_id:
+    target_chat_ids = telegram_target_chats_for_sender(sender_role, config)
+    if not target_chat_ids:
         return
     text = f"Байк Сервис\n{sender_name}\n\n{message}"
-    telegram_send_message(target_chat_id, text, config)
+    for chat_id in target_chat_ids:
+        telegram_send_message(chat_id, text, config)
 
 
 def chat_display_name(raw_name: str, role: str = "") -> str:
@@ -836,23 +859,24 @@ def fetch_recent_team_chat(limit: int = 60):
     return rows
 
 
-def telegram_chat_id_for_role(role: str, config: dict | None = None) -> str:
+def telegram_chat_ids_for_role(role: str, config: dict | None = None) -> list[str]:
     cfg = config or get_telegram_config()
     if role == "owner":
-        return cfg["owner_chat_id"]
+        return _parse_chat_ids(cfg.get("owner_chat_id", ""))
     if role == "mechanic":
-        return cfg["mechanic_chat_id"]
-    return ""
+        return _parse_chat_ids(cfg.get("mechanic_chat_id", ""))
+    return []
 
 
 def telegram_notify_role(role: str, text: str, config: dict | None = None):
     cfg = config or get_telegram_config()
     if not telegram_is_enabled(cfg):
         return
-    chat_id = telegram_chat_id_for_role(role, cfg)
-    if not chat_id:
+    chat_ids = telegram_chat_ids_for_role(role, cfg)
+    if not chat_ids:
         return
-    telegram_send_message(chat_id, text, cfg)
+    for chat_id in chat_ids:
+        telegram_send_message(chat_id, text, cfg)
 
 
 def get_setting_value(conn, key: str, default: str = "") -> str:
@@ -3892,10 +3916,12 @@ class AppHandler(BaseHTTPRequestHandler):
                 return json_response(self, 400, {"error": "Некорректный BOT token"})
             if len(webhook_secret) < 12:
                 return json_response(self, 400, {"error": "Webhook secret должен быть не короче 12 символов"})
-            if not owner_chat_id or not owner_chat_id.lstrip("-").isdigit():
-                return json_response(self, 400, {"error": "ownerChatId должен быть числом"})
-            if not mechanic_chat_id or not mechanic_chat_id.lstrip("-").isdigit():
-                return json_response(self, 400, {"error": "mechanicChatId должен быть числом"})
+            owner_chat_id = _normalize_chat_ids_csv(owner_chat_id)
+            mechanic_chat_id = _normalize_chat_ids_csv(mechanic_chat_id)
+            if not owner_chat_id:
+                return json_response(self, 400, {"error": "ownerChatId должен быть числом или списком чисел через запятую"})
+            if not mechanic_chat_id:
+                return json_response(self, 400, {"error": "mechanicChatId должен быть числом или списком чисел через запятую"})
             conn = get_db()
             for key, value in [
                 ("telegram_bot_token", token),
