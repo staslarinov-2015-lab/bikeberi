@@ -3914,6 +3914,18 @@ function renderWorkOrders() {
     return `Принят ${intakeDate.toLocaleDateString("ru-RU")}`;
   };
 
+  const getActualDurationLine = (order) => {
+    const status = String(order.status || "").trim().toLowerCase();
+    if (status !== "готов" && status !== "проверка") return "";
+    const mins = Math.max(0, Number(order.actual_minutes) || 0);
+    if (mins <= 0) return "⏱ нет данных";
+    const hours = Math.floor(mins / 60);
+    const restMins = mins % 60;
+    if (hours > 0 && restMins > 0) return `⏱ ${hours} ч ${restMins} мин`;
+    if (hours > 0) return `⏱ ${hours} ч`;
+    return `⏱ ${restMins} мин`;
+  };
+
   const getPriorityBadge = (order) => {
     if (String(order.priority || "").toLowerCase() !== "высокий") return "";
     const note = String(order.owner_note || "").trim();
@@ -3942,6 +3954,7 @@ function renderWorkOrders() {
             <p class="queue-mini-line queue-fault">${escapeHtml(order.fault || order.issue || "Поломка не указана")}</p>
             <p class="queue-mini-line queue-parts">${escapeHtml(parts)}</p>
             ${getTimeMetaLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getTimeMetaLine(order))}</p>` : ""}
+            ${getActualDurationLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getActualDurationLine(order))}</p>` : ""}
             ${order.status === "приостановлен" && order.pause_reason ? `<p class="queue-mini-line queue-pause-reason"><strong>Пауза:</strong> ${escapeHtml(order.pause_reason)}</p>` : ""}
             ${getPriorityBadge(order)}
             ${
@@ -3981,6 +3994,7 @@ function renderWorkOrders() {
           <p class="queue-mini-line queue-fault">${escapeHtml(order.fault || order.issue || "Поломка не указана")}</p>
           <p class="queue-mini-line queue-parts">${escapeHtml(partsSummary)}</p>
           ${getTimeMetaLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getTimeMetaLine(order))}</p>` : ""}
+          ${getActualDurationLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getActualDurationLine(order))}</p>` : ""}
           ${getPriorityBadge(order)}
           ${
             order.can_start
