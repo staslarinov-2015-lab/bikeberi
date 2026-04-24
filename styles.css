@@ -3245,6 +3245,15 @@ body:not(.is-auth-locked) .screen-section {
   gap: 6px;
 }
 
+.eff-bar-row-clickable {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
 .eff-bar-icon {
   font-size: 0.9rem;
   line-height: 1;

@@ -85,6 +85,7 @@ _TELEGRAM_TRANSPORT_LAST_ERROR_AT = ""
 _PAUSE_REMINDER_AT: dict[int, float] = {}
 _PAUSE_REMINDER_LOCK = threading.Lock()
 _PAUSE_REMINDER_STARTED = False
+_SLA_ALERTS_STARTED = False
 
 BIKE_STATUSES = {
     "в аренде",
@@ -708,13 +709,102 @@ def pause_reminder_loop():
         time.sleep(60)
 
 
+def _parse_iso_dt(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw)
+    except Exception:
+        return None
+
+
+def _compute_repair_total_minutes(actual_minutes, started_at_raw):
+    total = int(actual_minutes or 0)
+    started_dt = _parse_iso_dt(started_at_raw)
+    if started_dt:
+        total += max(0, int((utc_now() - started_dt).total_seconds() / 60))
+    return max(0, total)
+
+
+def sla_alerts_loop():
+    """Send SLA alerts for repair and preparation delays."""
+    while True:
+        try:
+            config = get_telegram_config()
+            if telegram_is_enabled(config):
+                conn = get_db()
+                try:
+                    orders = conn.execute(
+                        """
+                        SELECT work_orders.id, work_orders.status, work_orders.fault, work_orders.issue,
+                               work_orders.actual_minutes, work_orders.started_at,
+                               work_orders.prep_started_at, work_orders.repair_overtime_alerted_at,
+                               work_orders.prep_overtime_alerted_at,
+                               bikes.code AS bike_code
+                        FROM work_orders
+                        JOIN bikes ON bikes.id = work_orders.bike_id
+                        WHERE work_orders.status IN ('в ремонте', 'приостановлен', 'проверка')
+                        """
+                    ).fetchall()
+                    now_iso = utc_now().isoformat()
+                    for order in orders:
+                        oid = int(order["id"])
+                        status = str(order["status"] or "").strip()
+                        bike_code = order["bike_code"] or "?"
+                        issue = order["fault"] or order["issue"] or "—"
+
+                        # Repair SLA: soft target 2h, hard alert after 3h.
+                        if status in {"в ремонте", "приостановлен"} and not str(order["repair_overtime_alerted_at"] or "").strip():
+                            total_min = _compute_repair_total_minutes(order["actual_minutes"], order["started_at"])
+                            if total_min >= 180:
+                                msg = (
+                                    f"🚨 Ремонт дольше SLA\n"
+                                    f"Байк: {bike_code} · {issue}\n"
+                                    f"В ремонте уже: {total_min} мин\n"
+                                    f"Норма: до 120 мин, критично после 180 мин"
+                                )
+                                telegram_notify_role("owner", msg, config)
+                                telegram_notify_role("mechanic", msg, config)
+                                conn.execute(
+                                    "UPDATE work_orders SET repair_overtime_alerted_at = ? WHERE id = ?",
+                                    (now_iso, oid),
+                                )
+
+                        # Preparation SLA: after repair end, prep+handover flow should finish in 30 min.
+                        if status == "проверка" and not str(order["prep_overtime_alerted_at"] or "").strip():
+                            prep_started = _parse_iso_dt(order["prep_started_at"])
+                            if prep_started:
+                                prep_min = max(0, int((utc_now() - prep_started).total_seconds() / 60))
+                                if prep_min >= 30:
+                                    msg = (
+                                        f"🚨 Байк задержан на подготовке/выдаче\n"
+                                        f"Байк: {bike_code} · {issue}\n"
+                                        f"После ремонта прошло: {prep_min} мин\n"
+                                        f"Норма: до 30 мин до завершения окна выдачи"
+                                    )
+                                    telegram_notify_role("owner", msg, config)
+                                    telegram_notify_role("mechanic", msg, config)
+                                    conn.execute(
+                                        "UPDATE work_orders SET prep_overtime_alerted_at = ? WHERE id = ?",
+                                        (now_iso, oid),
+                                    )
+                    conn.commit()
+                finally:
+                    conn.close()
+        except Exception:
+            pass
+        time.sleep(60)
+
+
 def ensure_telegram_polling_started():
-    global _TELEGRAM_POLL_STARTED, _PAUSE_REMINDER_STARTED
+    global _TELEGRAM_POLL_STARTED, _PAUSE_REMINDER_STARTED, _SLA_ALERTS_STARTED
     with _TELEGRAM_POLL_LOCK:
         if _TELEGRAM_POLL_STARTED:
             return
         threading.Thread(target=telegram_poll_loop, daemon=True).start()
         threading.Thread(target=pause_reminder_loop, daemon=True).start()
+        threading.Thread(target=sla_alerts_loop, daemon=True).start()
         _TELEGRAM_POLL_STARTED = True
 
 
@@ -1264,6 +1354,10 @@ def init_db():
     ensure_column(cur, "work_orders", "actual_minutes", "INTEGER")
     ensure_column(cur, "work_orders", "pause_reason", "TEXT NOT NULL DEFAULT ''")
     ensure_column(cur, "work_orders", "pause_count", "INTEGER NOT NULL DEFAULT 0")
+    ensure_column(cur, "work_orders", "prep_started_at", "TEXT")
+    ensure_column(cur, "work_orders", "prep_minutes", "INTEGER NOT NULL DEFAULT 0")
+    ensure_column(cur, "work_orders", "repair_overtime_alerted_at", "TEXT NOT NULL DEFAULT ''")
+    ensure_column(cur, "work_orders", "prep_overtime_alerted_at", "TEXT NOT NULL DEFAULT ''")
     # Track repair time per fault for statistics
     ensure_column(cur, "repairs", "actual_minutes", "INTEGER")
     ensure_column(cur, "repairs", "fault_category", "TEXT NOT NULL DEFAULT ''")
@@ -2029,7 +2123,9 @@ def hydrate_work_orders(conn):
             work_orders.completed_at,
             work_orders.actual_minutes,
             work_orders.pause_reason,
-            work_orders.pause_count
+            work_orders.pause_count,
+            work_orders.prep_started_at,
+            work_orders.prep_minutes
         FROM work_orders
         JOIN bikes ON bikes.id = work_orders.bike_id
         ORDER BY
@@ -3000,6 +3096,17 @@ class AppHandler(BaseHTTPRequestHandler):
                 "inventory_check",
                 "Запчасти проверены автоматически по складу",
             )
+            if diagnostic_minutes > 20:
+                config = get_telegram_config()
+                if telegram_is_enabled(config):
+                    diag_msg = (
+                        f"⚠️ Диагностика дольше SLA\n"
+                        f"Байк: {bike_code} · {fault or symptoms or '—'}\n"
+                        f"Факт: {diagnostic_minutes} мин\n"
+                        f"Норма: до 10 мин, контроль после 20 мин"
+                    )
+                    telegram_notify_role("owner", diag_msg, config)
+                    telegram_notify_role("mechanic", diag_msg, config)
             conn.commit()
             conn.close()
             return json_response(self, 201, {"ok": True, "workOrderId": work_order_id, "diagnosticId": diagnostic_id})
@@ -3143,7 +3250,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 """
                 SELECT id, bike_id, status, issue, category, fault, mechanic_name, intake_date,
                        estimated_minutes, required_parts_text, planned_work, completed_repair_id,
-                       started_at, actual_minutes, pause_count
+                       started_at, actual_minutes, pause_count, prep_started_at
                 FROM work_orders
                 WHERE id = ?
                 """,
@@ -3187,7 +3294,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 started_at = utc_now().isoformat()
                 eta = (utc_now() + timedelta(minutes=int(order["estimated_minutes"] or 0))).isoformat()
                 conn.execute(
-                    "UPDATE work_orders SET status = ?, parts_ready = 1, started_at = ?, estimated_ready_at = ? WHERE id = ?",
+                    "UPDATE work_orders SET status = ?, parts_ready = 1, started_at = ?, estimated_ready_at = ?, prep_started_at = NULL, prep_minutes = 0, prep_overtime_alerted_at = '' WHERE id = ?",
                     (next_status, started_at, eta, work_order_id),
                 )
                 set_bike_status(conn, order["bike_id"], next_status)
@@ -3346,9 +3453,10 @@ class AppHandler(BaseHTTPRequestHandler):
                         (total_mins or None, repair_id),
                     )
                 next_status = "проверка"
+                prep_started_at = utc_now().isoformat()
                 conn.execute(
-                    "UPDATE work_orders SET status = ?, completed_repair_id = ?, completed_at = ?, actual_minutes = ?, parts_ready = 1, pause_reason = '', started_at = NULL WHERE id = ?",
-                    (next_status, repair_id, utc_now().isoformat(), total_mins, work_order_id),
+                    "UPDATE work_orders SET status = ?, completed_repair_id = ?, completed_at = ?, actual_minutes = ?, parts_ready = 1, pause_reason = '', started_at = NULL, prep_started_at = ?, prep_overtime_alerted_at = '' WHERE id = ?",
+                    (next_status, repair_id, utc_now().isoformat(), total_mins, prep_started_at, work_order_id),
                 )
                 conn.execute(
                     "UPDATE bikes SET status = ?, last_service_at = ?, updated_at = ? WHERE id = ?",
@@ -3368,9 +3476,16 @@ class AppHandler(BaseHTTPRequestHandler):
                     return json_response(self, 400, {"error": "Сначала завершите ремонт и переведите байк на выдачу"})
                 next_status = "готов"
                 finished_at = utc_now()
+                prep_minutes = 0
+                if order["prep_started_at"]:
+                    try:
+                        prep_dt = datetime.fromisoformat(str(order["prep_started_at"]))
+                        prep_minutes = max(0, int((finished_at - prep_dt).total_seconds() / 60))
+                    except Exception:
+                        prep_minutes = 0
                 conn.execute(
-                    "UPDATE work_orders SET status = ?, completed_at = ?, parts_ready = 1 WHERE id = ?",
-                    (next_status, finished_at.isoformat(), work_order_id),
+                    "UPDATE work_orders SET status = ?, completed_at = ?, parts_ready = 1, prep_minutes = ?, prep_started_at = NULL WHERE id = ?",
+                    (next_status, finished_at.isoformat(), prep_minutes, work_order_id),
                 )
                 conn.execute(
                     "UPDATE bikes SET status = ?, last_service_at = ?, updated_at = ? WHERE id = ?",

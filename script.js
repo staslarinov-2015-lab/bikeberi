@@ -3926,6 +3926,24 @@ function renderWorkOrders() {
     return `⏱ ${restMins} мин`;
   };
 
+  const getPreparationDurationLine = (order) => {
+    const status = String(order.status || "").trim().toLowerCase();
+    if (status !== "проверка" && status !== "готов") return "";
+    let mins = Math.max(0, Number(order.prep_minutes) || 0);
+    if (status === "проверка" && order.prep_started_at) {
+      const started = new Date(order.prep_started_at);
+      if (!Number.isNaN(started.getTime())) {
+        mins = Math.max(0, Math.floor((Date.now() - started.getTime()) / 60000));
+      }
+    }
+    if (mins <= 0) return "🧼 Подготовка: нет данных";
+    const hours = Math.floor(mins / 60);
+    const restMins = mins % 60;
+    if (hours > 0 && restMins > 0) return `🧼 Подготовка: ${hours} ч ${restMins} мин`;
+    if (hours > 0) return `🧼 Подготовка: ${hours} ч`;
+    return `🧼 Подготовка: ${restMins} мин`;
+  };
+
   const getPriorityBadge = (order) => {
     if (String(order.priority || "").toLowerCase() !== "высокий") return "";
     const note = String(order.owner_note || "").trim();
@@ -3955,6 +3973,7 @@ function renderWorkOrders() {
             <p class="queue-mini-line queue-parts">${escapeHtml(parts)}</p>
             ${getTimeMetaLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getTimeMetaLine(order))}</p>` : ""}
             ${getActualDurationLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getActualDurationLine(order))}</p>` : ""}
+            ${getPreparationDurationLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getPreparationDurationLine(order))}</p>` : ""}
             ${order.status === "приостановлен" && order.pause_reason ? `<p class="queue-mini-line queue-pause-reason"><strong>Пауза:</strong> ${escapeHtml(order.pause_reason)}</p>` : ""}
             ${getPriorityBadge(order)}
             ${
@@ -3995,6 +4014,7 @@ function renderWorkOrders() {
           <p class="queue-mini-line queue-parts">${escapeHtml(partsSummary)}</p>
           ${getTimeMetaLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getTimeMetaLine(order))}</p>` : ""}
           ${getActualDurationLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getActualDurationLine(order))}</p>` : ""}
+          ${getPreparationDurationLine(order) ? `<p class="queue-mini-line queue-meta">${escapeHtml(getPreparationDurationLine(order))}</p>` : ""}
           ${getPriorityBadge(order)}
           ${
             order.can_start
@@ -4263,17 +4283,17 @@ function renderMechanicEfficiency() {
   const offset = +(C * (1 - effPct / 100)).toFixed(1);
   const ringColor = effPct >= 70 ? "#22a85a" : effPct >= 40 ? "#f59e0b" : "#e05c5c";
 
-  const barRow = (icon, label, minutes, total, color) => {
+  const barRow = (icon, label, minutes, total, color, jump) => {
     const pct = total > 0 ? Math.min(100, Math.round((minutes / total) * 100)) : 0;
     return `
-      <div class="eff-bar-row">
+      <button class="eff-bar-row eff-bar-row-clickable" type="button" data-action="mech-eff-jump" data-jump="${escapeHtml(jump)}">
         <span class="eff-bar-icon">${icon}</span>
         <span class="eff-bar-label">${label}</span>
         <div class="eff-bar-track">
           <div class="eff-bar-fill" style="width:${pct}%;background:${color}"></div>
         </div>
         <span class="eff-bar-time">${fmtMin(minutes)}</span>
-      </div>
+      </button>
     `;
   };
 
@@ -4291,13 +4311,13 @@ function renderMechanicEfficiency() {
     ? repairEntries
         .map(
           (row) => `
-      <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px dashed #e8edf7;">
+      <button type="button" data-action="mech-eff-open-bike" data-bike="${escapeHtml(row.bike)}" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px dashed #e8edf7;width:100%;background:transparent;border:0;text-align:left;cursor:pointer;">
         <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
           <strong>${escapeHtml(row.bike)}</strong> — ${escapeHtml(row.issue)}
           ${row.isActive ? '<span style="color:#007aff;font-weight:700;"> (в работе)</span>' : ""}
         </span>
         <strong>${fmtMin(row.minutes)}</strong>
-      </div>
+      </button>
     `
         )
         .join("")
@@ -4324,9 +4344,9 @@ function renderMechanicEfficiency() {
         </div>
       </div>
       <div class="eff-bars">
-        ${barRow("🔧", "Ремонты",      repairMin, WORKDAY_TOTAL, "#007aff")}
-        ${barRow("🔍", "Диагностика",  diagMin,   WORKDAY_TOTAL, "#8a5cf6")}
-        ${barRow("💤", "Простой",      idleMin,   WORKDAY_TOTAL, "#e05c5c")}
+        ${barRow("🔧", "Ремонты",      repairMin, WORKDAY_TOTAL, "#007aff", "repair")}
+        ${barRow("🔍", "Диагностика",  diagMin,   WORKDAY_TOTAL, "#8a5cf6", "diagnostics")}
+        ${barRow("💤", "Простой",      idleMin,   WORKDAY_TOTAL, "#e05c5c", "in_repair")}
       </div>
     </div>
     <div class="eff-footer">
@@ -4379,6 +4399,19 @@ function renderMechanicEfficiency() {
       ${repairRowsHtml}
     </div>
   `;
+}
+
+function openLatestWorkOrderByBikeCode(bikeCode) {
+  const code = String(bikeCode || "").trim();
+  if (!code) return false;
+  const order = (state.workOrders || [])
+    .filter((item) => String(item.bike_code || "").trim() === code)
+    .sort((a, b) => Number(b.id) - Number(a.id))[0];
+  if (!order) return false;
+  state.activeSection = "repairs";
+  render();
+  openWorkOrderDetail(order);
+  return true;
 }
 
 function renderTeamChat() {
@@ -6144,6 +6177,20 @@ document.addEventListener("click", async (event) => {
 
   const id = target.dataset.id;
   const action = target.dataset.action;
+
+  if (action === "mech-eff-jump") {
+    const jump = String(target.dataset.jump || "").trim();
+    if (jump) openDashboardJumpModal(jump);
+    return;
+  }
+
+  if (action === "mech-eff-open-bike") {
+    const bikeCode = String(target.dataset.bike || "").trim();
+    if (!openLatestWorkOrderByBikeCode(bikeCode)) {
+      notify(`Не найдена активная заявка по байку ${bikeCode || "—"}`);
+    }
+    return;
+  }
 
   if (action === "edit-repair") {
     const repair = state.repairs.find((item) => String(item.id) === id);
