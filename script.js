@@ -413,6 +413,7 @@ const ISSUE_CHECKLIST_STORAGE_KEY = "bikeberi.issueChecklist.v1";
 const CHAT_LAST_READ_STORAGE_KEY = "bikeberi.teamChatLastReadAt.v1";
 const TEAM_CHAT_POLL_INTERVAL_MS = 5000;
 let teamChatPollInFlight = false;
+let ownerOverviewPollInFlight = false;
 const ISSUE_CHECKLIST = [
   {
     title: "Техническое состояние",
@@ -6987,11 +6988,22 @@ if (!("kbSearch" in state)) state.kbSearch = "";
 syncBikeCodeBuilders();
 window.setInterval(refreshRepairTimers, 1000);
 window.setInterval(refreshTeamChat, TEAM_CHAT_POLL_INTERVAL_MS);
-// Refresh mechanic efficiency card every minute (active repair time ticks up)
+// Keep owner dashboard live: update local timer view + poll fresh server data.
 window.setInterval(() => {
   if (getRole() === "owner" && state.activeSection === "overview") {
     renderMechanicEfficiency();
   }
 }, 60_000);
+window.setInterval(async () => {
+  if (getRole() !== "owner" || state.activeSection !== "overview" || ownerOverviewPollInFlight) return;
+  ownerOverviewPollInFlight = true;
+  try {
+    await bootstrap();
+  } catch {
+    // ignore transient network/auth race issues here
+  } finally {
+    ownerOverviewPollInFlight = false;
+  }
+}, 45_000);
 loadIssueChecklistDraft();
 bootstrap();
