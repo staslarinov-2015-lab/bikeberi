@@ -729,6 +729,7 @@ def _compute_repair_total_minutes(actual_minutes, started_at_raw):
 
 def sla_alerts_loop():
     """Send SLA alerts for repair and preparation delays."""
+    PREP_REMIND_INTERVAL_SEC = 30 * 60  # every 30 minutes until handover checklist is completed
     while True:
         try:
             config = get_telegram_config()
@@ -772,11 +773,17 @@ def sla_alerts_loop():
                                 )
 
                         # Preparation SLA: after repair end, prep+handover flow should finish in 30 min.
-                        if status == "проверка" and not str(order["prep_overtime_alerted_at"] or "").strip():
+                        # If still not completed, keep reminding every 30 minutes.
+                        if status == "проверка":
                             prep_started = _parse_iso_dt(order["prep_started_at"])
                             if prep_started:
                                 prep_min = max(0, int((utc_now() - prep_started).total_seconds() / 60))
-                                if prep_min >= 30:
+                                last_alert_dt = _parse_iso_dt(order["prep_overtime_alerted_at"])
+                                should_send = prep_min >= 30
+                                if should_send and last_alert_dt:
+                                    elapsed_since_alert = (utc_now() - last_alert_dt).total_seconds()
+                                    should_send = elapsed_since_alert >= PREP_REMIND_INTERVAL_SEC
+                                if should_send:
                                     msg = (
                                         f"🚨 Байк задержан на подготовке/выдаче\n"
                                         f"Байк: {bike_code} · {issue}\n"
