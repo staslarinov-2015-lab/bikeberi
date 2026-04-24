@@ -29,6 +29,8 @@ const state = {
   inventoryActiveGroup: "",
   inventoryUsagePeriod: "7d",
   inventoryUsagePart: "",
+  inventoryUsageExpandedPart: "",
+  inventoryUsageDetailsByPart: {},
   teamChat: [],
   telegramTransport: { state: "disabled", label: "Telegram: off" },
   ownerNotifications: [],
@@ -563,6 +565,10 @@ const dashboardJumpOverlay = document.getElementById("dashboard-jump-overlay");
 const closeDashboardJumpModalButton = document.getElementById("close-dashboard-jump-modal");
 const dashboardJumpTitle = document.getElementById("dashboard-jump-title");
 const dashboardJumpList = document.getElementById("dashboard-jump-list");
+const inventoryUsageOverlay = document.getElementById("inventory-usage-overlay");
+const closeInventoryUsageModalButton = document.getElementById("close-inventory-usage-modal");
+const inventoryUsageModalTitle = document.getElementById("inventory-usage-modal-title");
+const inventoryUsageModalList = document.getElementById("inventory-usage-modal-list");
 const workOrderDetailBike = document.getElementById("work-order-detail-bike");
 const workOrderDetailStatus = document.getElementById("work-order-detail-status");
 const workOrderDetailFault = document.getElementById("work-order-detail-fault");
@@ -2784,6 +2790,7 @@ function closeAllModals() {
   }
   accountOverlay?.classList.add("hidden");
   photoViewerOverlay?.classList.add("hidden");
+  inventoryUsageOverlay?.classList.add("hidden");
 }
 
 function openPhotoViewer(src, title = "Фото") {
@@ -2800,6 +2807,32 @@ function closePhotoViewer() {
   if (!photoViewerOverlay || !photoViewerImage) return;
   photoViewerOverlay.classList.add("hidden");
   photoViewerImage.src = "";
+}
+
+function openInventoryUsageModal(partName) {
+  const part = String(partName || "").trim();
+  if (!part || !inventoryUsageOverlay || !inventoryUsageModalList) return;
+  const rows = state.inventoryUsageDetailsByPart?.[part] || [];
+  if (inventoryUsageModalTitle) inventoryUsageModalTitle.textContent = `Расход: ${part}`;
+  inventoryUsageModalList.innerHTML = rows.length
+    ? rows
+        .map(
+          (entry) => `
+            <article class="inventory-usage-row">
+              <div>
+                <strong>Байк ${escapeHtml(entry.bike || "—")}</strong>
+                <p class="muted">${escapeHtml(entry.issue || "—")}</p>
+              </div>
+              <div class="inventory-usage-meta">
+                <span>${escapeHtml(String(entry.qty || 0))} шт</span>
+                <time>${escapeHtml(formatInventoryUsageDate(entry.date))}</time>
+              </div>
+            </article>
+          `
+        )
+        .join("")
+    : '<p class="muted">По этой запчасти нет записей за выбранный период.</p>';
+  inventoryUsageOverlay.classList.remove("hidden");
 }
 
 function openDiagnosticOverlay() {
@@ -3397,24 +3430,28 @@ function renderInventoryPartsStats() {
     return;
   }
 
-  const allPartNames = Array.from(
-    new Set(
-      source.flatMap((row) => row.parts.map((part) => String(part.name || "").trim())).filter(Boolean)
-    )
-  ).sort((a, b) => a.localeCompare(b, "ru"));
-  if (state.inventoryUsagePart && !allPartNames.includes(state.inventoryUsagePart)) {
-    state.inventoryUsagePart = "";
-  }
-
   const filteredSource = source
     .filter((row) => isRepairInUsagePeriod(row.date, state.inventoryUsagePeriod))
-    .map((row) => ({
-      ...row,
-      parts: state.inventoryUsagePart
-        ? row.parts.filter((part) => String(part.name || "").trim() === state.inventoryUsagePart)
-        : row.parts,
-    }))
     .filter((row) => row.parts.length > 0);
+
+  const partDetails = new Map();
+  filteredSource.forEach((row) => {
+    row.parts.forEach((part) => {
+      const key = String(part.name || "").trim();
+      if (!key) return;
+      if (!partDetails.has(key)) partDetails.set(key, []);
+      partDetails.get(key).push({
+        bike: row.bike || "—",
+        issue: row.issue || "—",
+        qty: Math.max(1, Number(part.qty) || 1),
+        date: row.date || "",
+      });
+    });
+  });
+  const allPartNames = Array.from(partDetails.keys()).sort((a, b) => a.localeCompare(b, "ru"));
+  if (state.inventoryUsageExpandedPart && !allPartNames.includes(state.inventoryUsageExpandedPart)) {
+    state.inventoryUsageExpandedPart = "";
+  }
 
   if (!filteredSource.length) {
     inventoryPartsStats.classList.remove("hidden");
@@ -3430,15 +3467,6 @@ function renderInventoryPartsStats() {
             <button class="segmented-btn ${state.inventoryUsagePeriod === "7d" ? "is-active" : ""}" type="button" data-action="inventory-usage-period" data-period="7d">7 дней</button>
             <button class="segmented-btn ${state.inventoryUsagePeriod === "30d" ? "is-active" : ""}" type="button" data-action="inventory-usage-period" data-period="30d">30 дней</button>
           </div>
-          <label class="inventory-usage-part-filter">
-            <span class="visually-hidden">Фильтр по запчасти</span>
-            <select data-action="inventory-usage-part">
-              <option value="">Все запчасти</option>
-              ${allPartNames
-                .map((partName) => `<option value="${escapeHtml(partName)}" ${partName === state.inventoryUsagePart ? "selected" : ""}>${escapeHtml(partName)}</option>`)
-                .join("")}
-            </select>
-          </label>
         </div>
         <p class="muted">По выбранным фильтрам данных нет.</p>
       </div>
@@ -3447,17 +3475,28 @@ function renderInventoryPartsStats() {
   }
 
   const usageMap = new Map();
-  filteredSource.forEach((row) => {
-    row.parts.forEach((part) => {
-      const key = String(part.name || "").trim();
-      if (!key) return;
-      usageMap.set(key, (usageMap.get(key) || 0) + Math.max(1, Number(part.qty) || 1));
-    });
+  partDetails.forEach((entries, partName) => {
+    const total = entries.reduce((sum, entry) => sum + Math.max(1, Number(entry.qty) || 1), 0);
+    usageMap.set(partName, total);
   });
-  const topRows = Array.from(usageMap.entries())
+  const partCards = Array.from(usageMap.entries())
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ru"))
-    .slice(0, 8);
-  const latestRows = filteredSource.slice(0, 20);
+    .map(([name, qty]) => ({
+      name,
+      qty,
+      uses: (partDetails.get(name) || []).length,
+      isExpanded: state.inventoryUsageExpandedPart === name,
+    }));
+  if (!state.inventoryUsageExpandedPart && partCards.length) {
+    state.inventoryUsageExpandedPart = partCards[0].name;
+  }
+  const detailsByPart = {};
+  partDetails.forEach((entries, partName) => {
+    detailsByPart[partName] = entries
+      .slice()
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+  });
+  state.inventoryUsageDetailsByPart = detailsByPart;
 
   inventoryPartsStats.classList.remove("hidden");
   inventoryPartsStats.innerHTML = `
@@ -3472,50 +3511,20 @@ function renderInventoryPartsStats() {
           <button class="segmented-btn ${state.inventoryUsagePeriod === "7d" ? "is-active" : ""}" type="button" data-action="inventory-usage-period" data-period="7d">7 дней</button>
           <button class="segmented-btn ${state.inventoryUsagePeriod === "30d" ? "is-active" : ""}" type="button" data-action="inventory-usage-period" data-period="30d">30 дней</button>
         </div>
-        <label class="inventory-usage-part-filter">
-          <span class="visually-hidden">Фильтр по запчасти</span>
-          <select data-action="inventory-usage-part">
-            <option value="">Все запчасти</option>
-            ${allPartNames
-              .map((partName) => `<option value="${escapeHtml(partName)}" ${partName === state.inventoryUsagePart ? "selected" : ""}>${escapeHtml(partName)}</option>`)
-              .join("")}
-          </select>
-        </label>
       </div>
       <div class="inventory-usage-top">
-        ${topRows
+        ${partCards
           .map(
-            ([name, qty]) => `
-              <div class="inventory-usage-chip">
-                <strong>${escapeHtml(name)}</strong>
-                <span>${escapeHtml(String(qty))} шт</span>
-              </div>
+            (item) => `
+              <button class="inventory-usage-chip ${item.isExpanded ? "is-active" : ""}" type="button" data-action="inventory-usage-open-part" data-part="${escapeHtml(item.name)}">
+                <strong>${escapeHtml(item.name)}</strong>
+                <span>${escapeHtml(String(item.qty))} шт · ${escapeHtml(String(item.uses))} ремонтов</span>
+              </button>
             `
           )
           .join("")}
       </div>
-      <div class="inventory-usage-list">
-        ${latestRows
-          .map((row) =>
-            row.parts
-              .map(
-                (part) => `
-                  <article class="inventory-usage-row">
-                    <div>
-                      <strong>${escapeHtml(part.name)}</strong>
-                      <p class="muted">Байк ${escapeHtml(row.bike)} · ${escapeHtml(row.issue)}</p>
-                    </div>
-                    <div class="inventory-usage-meta">
-                      <span>${escapeHtml(String(part.qty))} шт</span>
-                      <time>${escapeHtml(formatInventoryUsageDate(row.date))}</time>
-                    </div>
-                  </article>
-                `
-              )
-              .join("")
-          )
-          .join("")}
-      </div>
+      <p class="inventory-usage-opened-title">Нажми на карточку запчасти, чтобы открыть историю расхода.</p>
     </div>
   `;
 }
@@ -5415,6 +5424,13 @@ dashboardJumpOverlay?.addEventListener("click", (event) => {
   if (event.target.closest(".modal-card")) return;
   dashboardJumpOverlay.classList.add("hidden");
 });
+closeInventoryUsageModalButton?.addEventListener("click", () => {
+  inventoryUsageOverlay?.classList.add("hidden");
+});
+inventoryUsageOverlay?.addEventListener("click", (event) => {
+  if (event.target.closest(".modal-card")) return;
+  inventoryUsageOverlay.classList.add("hidden");
+});
 
 mobileMenuToggle?.addEventListener("click", () => {
   toggleMobileMenu();
@@ -5726,13 +5742,6 @@ bikeSearchInput?.addEventListener("input", (event) => {
 inventorySearchInput?.addEventListener("input", (event) => {
   state.inventorySearch = event.target.value;
   renderInventory();
-});
-
-inventoryPartsStats?.addEventListener("change", (event) => {
-  const select = event.target.closest('select[data-action="inventory-usage-part"]');
-  if (!select) return;
-  state.inventoryUsagePart = String(select.value || "").trim();
-  renderInventoryPartsStats();
 });
 
 statusFilter?.addEventListener("change", (event) => {
@@ -6286,6 +6295,15 @@ document.addEventListener("click", async (event) => {
     if (!["today", "7d", "30d"].includes(period)) return;
     state.inventoryUsagePeriod = period;
     renderInventoryPartsStats();
+    return;
+  }
+
+  if (action === "inventory-usage-open-part") {
+    const partName = String(target.dataset.part || "").trim();
+    if (!partName) return;
+    state.inventoryUsageExpandedPart = partName;
+    renderInventoryPartsStats();
+    openInventoryUsageModal(partName);
     return;
   }
 
