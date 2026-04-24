@@ -1381,6 +1381,7 @@ def init_db():
     ensure_column(cur, "work_orders", "parts_ready", "INTEGER NOT NULL DEFAULT 0")
     ensure_column(cur, "work_orders", "completed_repair_id", "INTEGER")
     ensure_column(cur, "work_orders", "started_at", "TEXT")
+    ensure_column(cur, "work_orders", "repair_started_at", "TEXT")
     ensure_column(cur, "work_orders", "completed_at", "TEXT")
     ensure_column(cur, "work_orders", "actual_minutes", "INTEGER")
     ensure_column(cur, "work_orders", "pause_reason", "TEXT NOT NULL DEFAULT ''")
@@ -2151,6 +2152,7 @@ def hydrate_work_orders(conn):
             work_orders.owner_note,
             work_orders.parts_ready,
             work_orders.started_at,
+            work_orders.repair_started_at,
             work_orders.created_at,
             work_orders.completed_at,
             work_orders.actual_minutes,
@@ -3282,7 +3284,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 """
                 SELECT id, bike_id, status, issue, category, fault, mechanic_name, intake_date,
                        estimated_minutes, required_parts_text, planned_work, completed_repair_id,
-                       started_at, actual_minutes, pause_count, prep_started_at
+                       started_at, repair_started_at, actual_minutes, pause_count, prep_started_at
                 FROM work_orders
                 WHERE id = ?
                 """,
@@ -3326,8 +3328,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 started_at = utc_now().isoformat()
                 eta = (utc_now() + timedelta(minutes=int(order["estimated_minutes"] or 0))).isoformat()
                 conn.execute(
-                    "UPDATE work_orders SET status = ?, parts_ready = 1, started_at = ?, estimated_ready_at = ?, prep_started_at = NULL, prep_minutes = 0, prep_overtime_alerted_at = '' WHERE id = ?",
-                    (next_status, started_at, eta, work_order_id),
+                    "UPDATE work_orders SET status = ?, parts_ready = 1, started_at = ?, repair_started_at = COALESCE(repair_started_at, ?), estimated_ready_at = ?, prep_started_at = NULL, prep_minutes = 0, prep_overtime_alerted_at = '' WHERE id = ?",
+                    (next_status, started_at, started_at, eta, work_order_id),
                 )
                 set_bike_status(conn, order["bike_id"], next_status)
                 add_work_order_history(
@@ -3542,15 +3544,32 @@ class AppHandler(BaseHTTPRequestHandler):
                     finished_str = finished_local.strftime("%d.%m %H:%M")
                     started_str = "—"
                     total_minutes = int(order["actual_minutes"] or 0)
-                    if order["started_at"]:
+                    repair_started = order["repair_started_at"] or order["started_at"]
+                    if repair_started:
                         try:
-                            started_dt = datetime.fromisoformat(str(order["started_at"])).astimezone(tz_msk)
+                            started_dt = datetime.fromisoformat(str(repair_started)).astimezone(tz_msk)
                             started_str = started_dt.strftime("%d.%m %H:%M")
-                            # Add remaining active session time if not already saved
-                            extra = max(0, int((finished_at - datetime.fromisoformat(str(order["started_at"])).replace(tzinfo=timezone.utc)).total_seconds() / 60))
-                            total_minutes += extra
                         except Exception:
                             pass
+                    if started_str == "—":
+                        started_history = conn.execute(
+                            """
+                            SELECT created_at
+                            FROM work_order_history
+                            WHERE work_order_id = ?
+                              AND event_type = 'status'
+                              AND message LIKE 'Механик начал ремонт%'
+                            ORDER BY id ASC
+                            LIMIT 1
+                            """,
+                            (work_order_id,),
+                        ).fetchone()
+                        if started_history and started_history["created_at"]:
+                            try:
+                                started_dt = datetime.fromisoformat(str(started_history["created_at"])).astimezone(tz_msk)
+                                started_str = started_dt.strftime("%d.%m %H:%M")
+                            except Exception:
+                                pass
                     hours, mins = divmod(total_minutes, 60)
                     elapsed_str = f"{hours} ч {mins} мин" if hours else f"{mins} мин"
                     msg = (

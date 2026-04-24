@@ -52,6 +52,7 @@ const state = {
     completedAt: "",
     pendingWorkOrderId: "",
     handoverPhotos: { front: null, left: null, right: null, back: null },
+    uploadInFlight: false,
   },
   repairDraftFromDiagnostic: null,
   diagnosticFlow: {
@@ -724,6 +725,16 @@ function loadIssueChecklistDraft() {
       checked: typeof parsed.checked === "object" && parsed.checked ? parsed.checked : {},
       completedAt: String(parsed.completedAt || ""),
       pendingWorkOrderId: String(parsed.pendingWorkOrderId || ""),
+      handoverPhotos:
+        typeof parsed.handoverPhotos === "object" && parsed.handoverPhotos
+          ? {
+              front: parsed.handoverPhotos.front || null,
+              left: parsed.handoverPhotos.left || null,
+              right: parsed.handoverPhotos.right || null,
+              back: parsed.handoverPhotos.back || null,
+            }
+          : { front: null, left: null, right: null, back: null },
+      uploadInFlight: false,
     };
   } catch (error) {
     state.issueChecklist = {
@@ -731,6 +742,8 @@ function loadIssueChecklistDraft() {
       checked: {},
       completedAt: "",
       pendingWorkOrderId: "",
+      handoverPhotos: { front: null, left: null, right: null, back: null },
+      uploadInFlight: false,
     };
   }
 }
@@ -795,11 +808,14 @@ function renderIssueChecklist() {
   const photosDone = ["front", "left", "right", "back"].filter((s) => photos[s]).length;
   const allPhotosDone = photosDone === 4;
   const canConfirm = isComplete && hasPending && allPhotosDone;
+  const uploadInFlight = Boolean(state.issueChecklist.uploadInFlight);
 
   if (issueChecklistStatus) {
     issueChecklistStatus.className = `issue-checklist-status ${canConfirm ? "is-ready" : "is-blocked"}`;
-    issueChecklistStatus.disabled = !canConfirm;
-    issueChecklistStatus.textContent = state.issueChecklist.completedAt
+    issueChecklistStatus.disabled = !canConfirm || uploadInFlight;
+    issueChecklistStatus.textContent = uploadInFlight
+      ? "Загрузка фото..."
+      : state.issueChecklist.completedAt
       ? "Выдача подтверждена"
       : hasPending
         ? "Подтвердить выдачу"
@@ -4588,6 +4604,24 @@ async function uploadDiagnosticPhoto(diagnosticId, photoData, side) {
   });
 }
 
+async function uploadHandoverPhotoWithRetry(orderId, side, photoData, attempts = 3) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await api(`/api/work-orders/${orderId}/handover-photos`, {
+        method: "POST",
+        body: JSON.stringify({ side, photoData }),
+        notifyError: attempt >= attempts,
+      });
+      return true;
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 350 * attempt));
+    }
+  }
+  throw lastError || new Error("handover_photo_upload_failed");
+}
+
 async function uploadAllDiagnosticPhotos(diagnosticId) {
   const photos = state.diagnosticQuickFlow.photos || {};
   for (const { key } of DIAG_PHOTO_SIDES) {
@@ -5676,18 +5710,16 @@ issueChecklistStatus?.addEventListener("click", async () => {
   const isComplete = items.every((item) => Boolean(state.issueChecklist.checked[item.id]));
   const photos = state.issueChecklist.handoverPhotos || {};
   const allPhotosDone = ["front", "left", "right", "back"].every((s) => photos[s]);
-  if (!isComplete || !state.issueChecklist.pendingWorkOrderId || !allPhotosDone) return;
+  if (!isComplete || !state.issueChecklist.pendingWorkOrderId || !allPhotosDone || state.issueChecklist.uploadInFlight) return;
 
   try {
+    state.issueChecklist.uploadInFlight = true;
+    renderIssueChecklist();
     // Upload 4 handover photos first
     const orderId = state.issueChecklist.pendingWorkOrderId;
     for (const side of ["front", "left", "right", "back"]) {
       if (photos[side]) {
-        await api(`/api/work-orders/${orderId}/handover-photos`, {
-          method: "POST",
-          body: JSON.stringify({ side, photoData: photos[side] }),
-          notifyError: true,
-        });
+        await uploadHandoverPhotoWithRetry(orderId, side, photos[side], 3);
       }
     }
 
@@ -5705,6 +5737,9 @@ issueChecklistStatus?.addEventListener("click", async () => {
     render();
   } catch {
     // Ошибка уже показана через notifyError в api()
+  } finally {
+    state.issueChecklist.uploadInFlight = false;
+    renderIssueChecklist();
   }
 });
 
@@ -6900,7 +6935,7 @@ document.addEventListener("change", async (event) => {
   if (!side) return;
   const file = input.files?.[0];
   if (!file) return;
-  const dataUrl = await resizePhotoToBase64(file);
+  const dataUrl = await resizePhotoToBase64(file, 900, 0.74);
   if (dataUrl) {
     if (!state.diagnosticQuickFlow.photos || Array.isArray(state.diagnosticQuickFlow.photos)) {
       state.diagnosticQuickFlow.photos = { front: null, left: null, right: null, back: null };
