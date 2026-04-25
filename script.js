@@ -4369,6 +4369,26 @@ function getLocalDateKey(value) {
 }
 
 function getMechanicEfficiencyData() {
+  const nowDate = new Date();
+  const isWeekendToday = nowDate.getDay() === 0 || nowDate.getDay() === 6;
+  const tomorrowDate = new Date(nowDate);
+  tomorrowDate.setDate(nowDate.getDate() + 1);
+  const isWeekendTomorrow = tomorrowDate.getDay() === 0 || tomorrowDate.getDay() === 6;
+  if (isWeekendToday) {
+    return {
+      diagMin: 0,
+      repairMin: 0,
+      idleMin: 0,
+      productive: 0,
+      elapsedMin: 0,
+      effPct: 0,
+      dayPct: 0,
+      repairEntries: [],
+      repairJobsCount: 0,
+      isWeekendToday,
+      isWeekendTomorrow,
+    };
+  }
   const todayStr = getLocalDateKey(new Date());
 
   // Diagnostic minutes today
@@ -4442,7 +4462,19 @@ function getMechanicEfficiencyData() {
   const effPct      = elapsedMin > 0 ? Math.min(100, Math.round((productive / elapsedMin) * 100)) : 0;
   const dayPct      = Math.min(100, Math.round((elapsedMin / WORKDAY_TOTAL) * 100));
 
-  return { diagMin, repairMin, idleMin, productive, elapsedMin, effPct, dayPct, repairEntries, repairJobsCount };
+  return {
+    diagMin,
+    repairMin,
+    idleMin,
+    productive,
+    elapsedMin,
+    effPct,
+    dayPct,
+    repairEntries,
+    repairJobsCount,
+    isWeekendToday,
+    isWeekendTomorrow,
+  };
 }
 
 function renderMechanicEfficiency() {
@@ -4453,7 +4485,8 @@ function renderMechanicEfficiency() {
   const ratePerMin  = dailyCost / WORKDAY_TOTAL;                   // ₽ per minute
   const ratePerHour = ratePerMin * 60;
 
-  const { diagMin, repairMin, idleMin, effPct, elapsedMin, dayPct, repairEntries, repairJobsCount } = getMechanicEfficiencyData();
+  const { diagMin, repairMin, idleMin, effPct, elapsedMin, dayPct, repairEntries, repairJobsCount, isWeekendToday, isWeekendTomorrow } =
+    getMechanicEfficiencyData();
 
   // SVG ring: r=38, circumference ≈ 238.8
   const R  = 38;
@@ -4475,8 +4508,18 @@ function renderMechanicEfficiency() {
     `;
   };
 
-  const statusText = effPct >= 70 ? "Отличный темп" : effPct >= 40 ? "Средняя активность" : effPct === 0 && elapsedMin === 0 ? "Смена ещё не началась" : "Низкая активность";
-  const statusColor = effPct >= 70 ? "#22a85a" : effPct >= 40 ? "#f59e0b" : "#e05c5c";
+  const statusText = isWeekendToday
+    ? isWeekendTomorrow
+      ? "Сегодня и завтра выходной (Сб/Вс)"
+      : "Сегодня выходной"
+    : effPct >= 70
+      ? "Отличный темп"
+      : effPct >= 40
+        ? "Средняя активность"
+        : effPct === 0 && elapsedMin === 0
+          ? "Смена ещё не началась"
+          : "Низкая активность";
+  const statusColor = isWeekendToday ? "#98a4b8" : effPct >= 70 ? "#22a85a" : effPct >= 40 ? "#f59e0b" : "#e05c5c";
 
   // ROI calc
   const earnedCost = Math.round((repairMin + diagMin) * ratePerMin);
