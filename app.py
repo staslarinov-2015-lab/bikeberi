@@ -1611,6 +1611,7 @@ def init_db():
                 ("target_rate", "95"),
                 ("mechanic_focus", "оперативка"),
                 ("mechanic_daily_cost", "3500"),
+                ("repair_urgent_after_minutes", "120"),
                 ("daily_goal", ""),
                 ("telegram_bot_token", ""),
                 ("telegram_webhook_secret", ""),
@@ -1622,6 +1623,7 @@ def init_db():
         for key, value in [
             ("mechanic_focus", "оперативка"),
             ("mechanic_daily_cost", "3500"),
+            ("repair_urgent_after_minutes", "120"),
             ("daily_goal", ""),
             ("telegram_bot_token", ""),
             ("telegram_webhook_secret", ""),
@@ -2353,6 +2355,7 @@ def fetch_bootstrap_payload(user):
             "targetRate": min(100, max(1, safe_int_setting(settings, "target_rate", 95))),
             "mechanicFocus": str(settings.get("mechanic_focus", "") or ""),
             "mechanicDailyCost": max(0, safe_int_setting(settings, "mechanic_daily_cost", 3500)),
+            "repairUrgentAfterMinutes": min(720, max(30, safe_int_setting(settings, "repair_urgent_after_minutes", 120))),
             "dailyGoal": str(settings.get("daily_goal", "") or ""),
         },
         "bikes": bikes,
@@ -3893,6 +3896,10 @@ class AppHandler(BaseHTTPRequestHandler):
             try:
                 total_bikes = parse_positive_int(payload.get("totalBikes"), "Количество байков")
                 target_rate = parse_positive_int(payload.get("targetRate"), "Цель KPI")
+                repair_urgent_after_minutes = parse_positive_int(
+                    payload.get("repairUrgentAfterMinutes", 120),
+                    "Порог срочности ремонта",
+                )
             except ValueError as error:
                 return json_response(self, 400, {"error": str(error)})
 
@@ -3900,6 +3907,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 return json_response(self, 400, {"error": "Количество байков должно быть больше нуля"})
             if not 1 <= target_rate <= 100:
                 return json_response(self, 400, {"error": "Цель KPI должна быть от 1 до 100"})
+            if not 30 <= repair_urgent_after_minutes <= 720:
+                return json_response(self, 400, {"error": "Порог срочности ремонта должен быть от 30 до 720 минут"})
             mechanic_focus = str(payload.get("mechanicFocus", "")).strip()
             if len(mechanic_focus) > 160:
                 return json_response(self, 400, {"error": "Цель на неделю должна быть до 160 символов"})
@@ -3917,6 +3926,10 @@ class AppHandler(BaseHTTPRequestHandler):
             conn.execute("UPDATE settings SET value = ? WHERE key = 'target_rate'", (str(target_rate),))
             conn.execute("UPDATE settings SET value = ? WHERE key = 'mechanic_focus'", (mechanic_focus,))
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('mechanic_daily_cost', ?)", (str(mechanic_daily_cost),))
+            conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES ('repair_urgent_after_minutes', ?)",
+                (str(repair_urgent_after_minutes),),
+            )
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('daily_goal', ?)", (daily_goal,))
             conn.commit()
             conn.close()

@@ -39,6 +39,7 @@ const state = {
     targetRate: 95,
     mechanicFocus: "",
     mechanicDailyCost: 3500,
+    repairUrgentAfterMinutes: 120,
     dailyGoal: "",
   },
   repairs: [],
@@ -290,9 +291,12 @@ function getOrderComplexityTone(order) {
 function getRepairStaleness(order) {
   if (order.status !== "в ремонте" || !order.started_at) return null;
   const now = Date.now();
+  const started = new Date(order.started_at).getTime();
+  const urgentAfterMinutes = Math.min(Math.max(Number(state.kpi.repairUrgentAfterMinutes || 120), 30), 720);
+  const urgentAfterMs = urgentAfterMinutes * 60 * 1000;
+  if (!Number.isFinite(started) || now < started + urgentAfterMs) return null;
   const eta = order.estimated_ready_at ? new Date(order.estimated_ready_at).getTime() : null;
   if (eta && now > eta) return "overdue";
-  const started = new Date(order.started_at).getTime();
   const mins = Number(order.estimated_minutes || 0);
   const plannedMs = mins > 0 ? mins * 60 * 1000 : 36 * 60 * 60 * 1000;
   if (now > started + plannedMs * 1.5) return "long";
@@ -504,6 +508,7 @@ const ownerKpi = document.getElementById("owner-kpi");
 const ownerKpiNote = document.getElementById("owner-kpi-note");
 // owner-notifications removed — urgent tasks now rendered inline in renderOwnerPanel
 const ownerProcess = document.getElementById("owner-process");
+const ownerMechanicDaily = document.getElementById("owner-mechanic-daily");
 const ownerPriorityForm = document.getElementById("owner-priority-form");
 const teamChatForm = document.getElementById("team-chat-form");
 const teamChatList = document.getElementById("team-chat-list");
@@ -1245,9 +1250,10 @@ function toggleMobileMenu() {
 }
 
 function getMetrics() {
+  const isPausedRepair = (item) => item.status === "ждет запчасти" && Boolean(item.started_at);
   const readyRepairs = state.repairs.filter((item) => item.status === "Готов").length;
-  const inRepair = state.workOrders.filter((item) => item.status === "в ремонте").length;
-  const waiting = state.workOrders.filter((item) => item.status === "ждет запчасти").length;
+  const inRepair = state.workOrders.filter((item) => item.status === "в ремонте" || isPausedRepair(item)).length;
+  const waiting = state.workOrders.filter((item) => item.status === "ждет запчасти" && !isPausedRepair(item)).length;
   const lowStock = state.inventory.filter((item) => Number(item.stock) <= Number(item.min));
   const rented = state.bikes.filter((item) => item.status === "в аренде").length;
   const readyForRent = state.bikes.filter((item) => item.status === "готов").length;
@@ -1796,6 +1802,74 @@ function isDateInDashboardPeriod(rawValue) {
   return date >= start && date < end;
 }
 
+function toLocalDayKey(rawValue) {
+  if (!rawValue) return "";
+  if (rawValue instanceof Date) {
+    if (Number.isNaN(rawValue.getTime())) return "";
+    const year = rawValue.getFullYear();
+    const month = String(rawValue.getMonth() + 1).padStart(2, "0");
+    const day = String(rawValue.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(rawValue).trim())) return String(rawValue).trim();
+  const date = new Date(rawValue);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getCurrentWeekDays() {
+  const now = new Date();
+  const currentDay = now.getDay();
+  const mondayShift = currentDay === 0 ? -6 : 1 - currentDay;
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayShift);
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + index);
+    return date;
+  });
+}
+
+function renderOwnerMechanicDaily() {
+  if (!ownerMechanicDaily) return;
+  const weekdayLabel = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+  const diagnosticsByDay = new Map();
+  const startsByDay = new Map();
+  const completionsByDay = new Map();
+
+  (state.diagnostics || []).forEach((item) => {
+    const key = toLocalDayKey(item.date);
+    if (!key) return;
+    diagnosticsByDay.set(key, (diagnosticsByDay.get(key) || 0) + 1);
+  });
+  (state.workOrders || []).forEach((item) => {
+    const startKey = toLocalDayKey(item.started_at);
+    if (startKey) startsByDay.set(startKey, (startsByDay.get(startKey) || 0) + 1);
+    const completeKey = toLocalDayKey(item.completed_at);
+    if (completeKey) completionsByDay.set(completeKey, (completionsByDay.get(completeKey) || 0) + 1);
+  });
+
+  ownerMechanicDaily.innerHTML = getCurrentWeekDays()
+    .map((date) => {
+      const dayNum = date.getDay();
+      const isWeekend = dayNum === 0 || dayNum === 6;
+      const key = toLocalDayKey(date);
+      const label = `${weekdayLabel[dayNum]} ${String(date.getDate()).padStart(2, "0")}.${String(
+        date.getMonth() + 1
+      ).padStart(2, "0")}`;
+      if (isWeekend) {
+        return `<div class="stack-item"><strong>${label}</strong><p class="muted">Выходной (график Пн-Пт)</p></div>`;
+      }
+      const diagnostics = diagnosticsByDay.get(key) || 0;
+      const started = startsByDay.get(key) || 0;
+      const completed = completionsByDay.get(key) || 0;
+      return `<div class="stack-item"><strong>${label}</strong><p class="muted">Диагностика: ${diagnostics} · Стартов ремонта: ${started} · Завершено: ${completed}</p></div>`;
+    })
+    .join("");
+}
+
 function getDashboardStats() {
   const diagnosedInPeriod = (state.diagnostics || []).filter(
     (item) => isDateInDashboardPeriod(item.date)
@@ -1805,8 +1879,13 @@ function getDashboardStats() {
     isDateInDashboardPeriod(item.intake_date || item.started_at || item.created_at)
   );
 
-  const inRepairNow = (state.workOrders || []).filter((item) => item.status === "в ремонте").length;
-  const waitingPartsNow = (state.workOrders || []).filter((item) => item.status === "ждет запчасти").length;
+  const isPausedRepair = (item) => item.status === "ждет запчасти" && Boolean(item.started_at);
+  const inRepairNow = (state.workOrders || []).filter(
+    (item) => item.status === "в ремонте" || isPausedRepair(item)
+  ).length;
+  const waitingPartsNow = (state.workOrders || []).filter(
+    (item) => item.status === "ждет запчасти" && !isPausedRepair(item)
+  ).length;
   const inspectionNow = (state.workOrders || []).filter((item) => item.status === "проверка" || item.status === "диагностика").length;
 
   const intakeInPeriod = ordersInPeriod.length;
@@ -4075,6 +4154,7 @@ function renderOwnerPanel() {
       `<div class="stack-item"><strong>Приостановлено</strong><p class="muted">${orders.filter((o) => o.status === "приостановлен").length}</p></div>`,
     ].join("");
   }
+  renderOwnerMechanicDaily();
 
   // ── Shift summary pills ────────────────────────────────────
   const summaryEl = document.getElementById("owner-shift-summary");
@@ -5153,6 +5233,9 @@ function render() {
     if (settingsForm.elements.mechanicDailyCost) {
       settingsForm.elements.mechanicDailyCost.value = state.kpi.mechanicDailyCost ?? 3500;
     }
+    if (settingsForm.elements.repairUrgentAfterMinutes) {
+      settingsForm.elements.repairUrgentAfterMinutes.value = state.kpi.repairUrgentAfterMinutes ?? 120;
+    }
     if (settingsForm.elements.mechanicFocus) {
       settingsForm.elements.mechanicFocus.value = state.kpi.mechanicFocus || "";
     }
@@ -6045,6 +6128,7 @@ if (settingsForm) {
           totalBikes: Number(formData.get("totalBikes")),
           targetRate: Number(formData.get("targetRate")),
           mechanicDailyCost: Number(formData.get("mechanicDailyCost") || 3500),
+          repairUrgentAfterMinutes: Number(formData.get("repairUrgentAfterMinutes") || 120),
           mechanicFocus: state.kpi.mechanicFocus || "",
           dailyGoal: state.kpi.dailyGoal || "",
         }),
@@ -6080,6 +6164,7 @@ if (ownerGoalsForm) {
           totalBikes: state.kpi.totalBikes || 40,
           targetRate: state.kpi.targetRate || 95,
           mechanicDailyCost: state.kpi.mechanicDailyCost || 3500,
+          repairUrgentAfterMinutes: state.kpi.repairUrgentAfterMinutes || 120,
           mechanicFocus: String(formData.get("mechanicFocus") || "").trim(),
           dailyGoal: String(formData.get("dailyGoal") || "").trim(),
         }),

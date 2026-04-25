@@ -181,6 +181,11 @@
                 <div id="owner-process" class="stack-list"></div>
               </article>
 
+              <article class="content-card owner-card">
+                <h3 class="panel-title">Механик по дням</h3>
+                <div id="owner-mechanic-daily" class="stack-list"></div>
+              </article>
+
               <article class="content-card owner-card owner-card-wide">
                 <h3 class="panel-title">🎯 Цели механику</h3>
                 <form id="owner-goals-form" class="goals-form">
@@ -480,6 +485,10 @@
           <label>
             <span>Ставка механика, ₽/день</span>
             <input name="mechanicDailyCost" type="number" min="0" placeholder="3500" />
+          </label>
+          <label>
+            <span>Срочно после, мин</span>
+            <input name="repairUrgentAfterMinutes" type="number" min="30" max="720" step="10" />
           </label>
           <button class="primary-btn wide" type="submit">Сохранить</button>
         </form>
