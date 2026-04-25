@@ -4347,6 +4347,18 @@ function getMechanicEfficiencyData() {
         minutes: Math.max(0, elapsed),
         isActive: true,
       });
+    } else if (o.status === "приостановлен" && o.started_at) {
+      // Paused repair is still productive work already done; keep it out of idle.
+      const pausedMinutes = Math.max(0, Number(o.actual_minutes) || 0);
+      if (pausedMinutes > 0) {
+        activeRepairMin += pausedMinutes;
+        activeRepairEntries.push({
+          bike: o.bike_code || "—",
+          issue: o.fault || o.issue || "Ремонт (пауза)",
+          minutes: pausedMinutes,
+          isActive: false,
+        });
+      }
     }
   });
   const repairMin = completedRepairMin + activeRepairMin;
