@@ -1835,14 +1835,24 @@ function getCurrentWeekDays() {
 function renderOwnerMechanicDaily() {
   if (!ownerMechanicDaily) return;
   const weekdayLabel = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+  const dailyCost = Math.max(0, Number(state.kpi?.mechanicDailyCost) || 3500);
+  const ratePerMin = dailyCost / WORKDAY_TOTAL;
   const diagnosticsByDay = new Map();
   const startsByDay = new Map();
   const completionsByDay = new Map();
+  const diagnosticMinutesByDay = new Map();
+  const repairMinutesByDay = new Map();
 
   (state.diagnostics || []).forEach((item) => {
     const key = toLocalDayKey(item.date);
     if (!key) return;
     diagnosticsByDay.set(key, (diagnosticsByDay.get(key) || 0) + 1);
+    diagnosticMinutesByDay.set(key, (diagnosticMinutesByDay.get(key) || 0) + Math.max(0, Number(item.diagnostic_minutes) || 0));
+  });
+  (state.repairs || []).forEach((item) => {
+    const key = toLocalDayKey(item.date || item.created_at);
+    if (!key) return;
+    repairMinutesByDay.set(key, (repairMinutesByDay.get(key) || 0) + Math.max(0, Number(item.actual_minutes) || 0));
   });
   (state.workOrders || []).forEach((item) => {
     const startKey = toLocalDayKey(item.started_at);
@@ -1865,7 +1875,14 @@ function renderOwnerMechanicDaily() {
       const diagnostics = diagnosticsByDay.get(key) || 0;
       const started = startsByDay.get(key) || 0;
       const completed = completionsByDay.get(key) || 0;
-      return `<div class="stack-item is-clickable" data-action="owner-mechanic-day" data-day="${escapeHtml(key)}" data-weekend="0" style="cursor:pointer"><strong>${label}</strong><p class="muted">Диагностика: ${diagnostics} · Стартов ремонта: ${started} · Завершено: ${completed}</p></div>`;
+      const productiveMinutes = Math.min(
+        WORKDAY_TOTAL,
+        (diagnosticMinutesByDay.get(key) || 0) + (repairMinutesByDay.get(key) || 0)
+      );
+      const idleMinutes = Math.max(0, WORKDAY_TOTAL - productiveMinutes);
+      const earnedRub = Math.round(productiveMinutes * ratePerMin);
+      const idleRub = Math.round(idleMinutes * ratePerMin);
+      return `<div class="stack-item is-clickable" data-action="owner-mechanic-day" data-day="${escapeHtml(key)}" data-weekend="0" style="cursor:pointer"><strong>${label}</strong><p class="muted">Диагностика: ${diagnostics} · Стартов ремонта: ${started} · Завершено: ${completed}</p><p class="muted"><span style="color:#22a85a;font-weight:700">Отработал: ${earnedRub.toLocaleString("ru-RU")} ₽</span> · <span style="color:#e05c5c;font-weight:700">Простой: ${idleRub.toLocaleString("ru-RU")} ₽</span></p></div>`;
     })
     .join("");
 }
