@@ -1860,14 +1860,57 @@ function renderOwnerMechanicDaily() {
         date.getMonth() + 1
       ).padStart(2, "0")}`;
       if (isWeekend) {
-        return `<div class="stack-item"><strong>${label}</strong><p class="muted">Выходной (график Пн-Пт)</p></div>`;
+        return `<div class="stack-item is-clickable" data-action="owner-mechanic-day" data-day="${escapeHtml(key)}" data-weekend="1" style="cursor:pointer"><strong>${label}</strong><p class="muted">Выходной (график Пн-Пт)</p></div>`;
       }
       const diagnostics = diagnosticsByDay.get(key) || 0;
       const started = startsByDay.get(key) || 0;
       const completed = completionsByDay.get(key) || 0;
-      return `<div class="stack-item"><strong>${label}</strong><p class="muted">Диагностика: ${diagnostics} · Стартов ремонта: ${started} · Завершено: ${completed}</p></div>`;
+      return `<div class="stack-item is-clickable" data-action="owner-mechanic-day" data-day="${escapeHtml(key)}" data-weekend="0" style="cursor:pointer"><strong>${label}</strong><p class="muted">Диагностика: ${diagnostics} · Стартов ремонта: ${started} · Завершено: ${completed}</p></div>`;
     })
     .join("");
+}
+
+function openOwnerMechanicDayDetails(dayKey, isWeekend) {
+  const day = String(dayKey || "").trim();
+  if (!day) return;
+  const dateLabel = day.split("-").reverse().join(".");
+  if (isWeekend) {
+    window.alert(`${dateLabel}\n\nВыходной день (график Пн-Пт).`);
+    return;
+  }
+
+  const diagnostics = (state.diagnostics || []).filter((item) => toLocalDayKey(item.date) === day);
+  const started = (state.workOrders || []).filter((item) => toLocalDayKey(item.started_at) === day);
+  const completed = (state.workOrders || []).filter((item) => toLocalDayKey(item.completed_at) === day);
+
+  const diagList = diagnostics
+    .slice(0, 6)
+    .map((item) => `• Диаг: ${item.bike || "—"} (${item.fault || item.category || "без описания"})`)
+    .join("\n");
+  const startedList = started
+    .slice(0, 6)
+    .map((item) => `• Старт: ${item.bike_code || "—"} (${item.fault || item.issue || "без описания"})`)
+    .join("\n");
+  const completedList = completed
+    .slice(0, 6)
+    .map((item) => `• Завершен: ${item.bike_code || "—"} (${item.fault || item.issue || "без описания"})`)
+    .join("\n");
+
+  const details = [
+    `${dateLabel}`,
+    "",
+    `Диагностика: ${diagnostics.length}`,
+    `Стартов ремонта: ${started.length}`,
+    `Завершено: ${completed.length}`,
+    "",
+    diagList,
+    startedList,
+    completedList,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  window.alert(details);
 }
 
 function getDashboardStats() {
@@ -6331,6 +6374,11 @@ document.addEventListener("click", async (event) => {
     if (!openLatestWorkOrderByBikeCode(bikeCode)) {
       notify(`Не найдена активная заявка по байку ${bikeCode || "—"}`);
     }
+    return;
+  }
+
+  if (action === "owner-mechanic-day") {
+    openOwnerMechanicDayDetails(target.dataset.day, target.dataset.weekend === "1");
     return;
   }
 
